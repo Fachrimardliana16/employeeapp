@@ -1,0 +1,429 @@
+<?php
+
+namespace App\Filament\Employee\Resources;
+
+use App\Filament\Employee\Resources\EmployeeAgreementResource\Pages;
+use App\Filament\Employee\Resources\EmployeeAgreementResource\RelationManagers;
+use App\Models\EmployeeAgreement;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Barryvdh\DomPDF\Facade\Pdf;
+
+class EmployeeAgreementResource extends Resource
+{
+    protected static ?string $model = EmployeeAgreement::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+
+    protected static ?string $navigationGroup = 'Operasional Pegawai';
+
+    protected static ?string $navigationLabel = 'Kontrak Kerja';
+
+    protected static ?int $navigationSort = 301;
+
+    public static function getModelLabel(): string
+    {
+        return 'Kontrak Kerja';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Kontrak Kerja';
+    }
+
+    public static function generatePDFReport()
+    {
+        // Generate PDF menggunakan DomPDF dengan orientasi landscape
+        $pdf = Pdf::loadView('reports.employee-agreement-report', [
+            'data' => static::getReportData(),
+            'generated_at' => now()->setTimezone('Asia/Jakarta')->format('d/m/Y H:i:s')
+        ])->setPaper('a4', 'landscape');
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, 'Report_Kontrak_Pegawai_' . now()->format('Y-m-d_H-i-s') . '.pdf');
+    }
+
+    protected static function getReportData()
+    {
+        $agreements = EmployeeAgreement::with([
+            'masterAgreement',
+            'employeePosition',
+            'employmentStatus',
+            'education',
+            'basicSalaryGrade',
+            'department',
+            'subDepartment'
+        ])->get();
+
+        // Hitung jumlah berdasarkan jenis kontrak (PKWT dan PKWTT)
+        $contractStats = [
+            'PKWT' => $agreements->filter(function ($agreement) {
+                return $agreement->masterAgreement &&
+                       (stripos($agreement->masterAgreement->name, 'PKWT') !== false ||
+                        stripos($agreement->masterAgreement->name, 'Kontrak') !== false ||
+                        stripos($agreement->masterAgreement->name, 'Waktu Tertentu') !== false);
+            })->count(),
+            'PKWTT' => $agreements->filter(function ($agreement) {
+                return $agreement->masterAgreement &&
+                       (stripos($agreement->masterAgreement->name, 'PKWTT') !== false ||
+                        stripos($agreement->masterAgreement->name, 'Tetap') !== false ||
+                        stripos($agreement->masterAgreement->name, 'Waktu Tidak Tertentu') !== false);
+            })->count(),
+        ];
+
+        // Hitung jumlah berdasarkan posisi
+        $positionStats = [
+            'staff' => $agreements->whereIn('employeePosition.name', ['Staff', 'Staf'])->count(),
+            'kepala_sub_bagian' => $agreements->where('employeePosition.name', 'like', '%Kepala Sub%')->count(),
+            'kepala_bagian' => $agreements->where('employeePosition.name', 'like', '%Kepala Bagian%')->count(),
+            'direksi' => $agreements->where('employeePosition.name', 'like', '%Direktur%')->count(),
+        ];
+
+        return [
+            'agreements' => $agreements,
+            'contract_stats' => $contractStats,
+            'position_stats' => $positionStats,
+            'total_agreements' => $agreements->count(),
+        ];
+    }    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Tabs::make('employee_agreement_tabs')
+                    ->tabs([
+                        Forms\Components\Tabs\Tab::make('Informasi Kontrak')
+                            ->icon('heroicon-m-document-text')
+                            ->schema([
+                                Forms\Components\TextInput::make('agreement_number')
+                                    ->label('Nomor Kontrak')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nama Lengkap')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\Select::make('agreement_id')
+                                    ->relationship('masterAgreement', 'name')
+                                    ->label('Jenis Kontrak')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload(),
+                            ]),
+
+                        Forms\Components\Tabs\Tab::make('Data Personal')
+                            ->icon('heroicon-m-user')
+                            ->schema([
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('place_birth')
+                                            ->label('Tempat Lahir')
+                                            ->maxLength(255),
+                                        Forms\Components\DatePicker::make('date_birth')
+                                            ->label('Tanggal Lahir'),
+                                    ]),
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\Select::make('marital_status')
+                                            ->label('Status Perkawinan')
+                                            ->options([
+                                                'single' => 'Belum Menikah',
+                                                'married' => 'Menikah',
+                                                'divorced' => 'Cerai',
+                                                'widowed' => 'Janda/Duda',
+                                            ]),
+                                        Forms\Components\Select::make('gender')
+                                            ->label('Jenis Kelamin')
+                                            ->options([
+                                                'male' => 'Laki-laki',
+                                                'female' => 'Perempuan',
+                                            ]),
+                                    ]),
+                                Forms\Components\Textarea::make('address')
+                                    ->label('Alamat')
+                                    ->rows(3)
+                                    ->columnSpanFull(),
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('phone_number')
+                                            ->label('Nomor Telepon')
+                                            ->tel()
+                                            ->numeric()
+                                            ->rules(['regex:/^[0-9+\-\s()]+$/'])
+                                            ->placeholder('Contoh: 081234567890')
+                                            ->helperText('Hanya boleh angka, +, -, spasi, dan kurung')
+                                            ->maxLength(20),
+                                        Forms\Components\TextInput::make('email')
+                                            ->label('Email')
+                                            ->email()
+                                            ->rules(['email:rfc,dns'])
+                                            ->placeholder('contoh@email.com')
+                                            ->helperText('Format email yang valid')
+                                            ->maxLength(255),
+                                    ]),
+                            ]),
+
+                        Forms\Components\Tabs\Tab::make('Jabatan & Pendidikan')
+                            ->icon('heroicon-m-briefcase')
+                            ->schema([
+                                Forms\Components\Select::make('employee_position_id')
+                                    ->label('Posisi/Jabatan')
+                                    ->relationship('employeePosition', 'name')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload(),
+                                Forms\Components\Select::make('employment_status_id')
+                                    ->label('Status Kepegawaian')
+                                    ->relationship('employmentStatus', 'name')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload(),
+                                Forms\Components\Select::make('basic_salary_id')
+                                    ->label('Grade Gaji')
+                                    ->relationship('basicSalaryGrade', 'name')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' - Rp ' . number_format($record->basic_salary, 0, ',', '.'))
+                                    ->helperText('Gaji pokok akan otomatis sesuai dengan grade yang dipilih'),
+                                Forms\Components\Select::make('employee_education_id')
+                                    ->label('Tingkat Pendidikan')
+                                    ->relationship('education', 'name')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->placeholder('Pilih tingkat pendidikan')
+                                    ->helperText('Tingkat pendidikan terakhir yang dimiliki'),
+                            ]),
+
+                        Forms\Components\Tabs\Tab::make('Tanggal & Departemen')
+                            ->icon('heroicon-m-calendar-days')
+                            ->schema([
+                                Forms\Components\DatePicker::make('agreement_date_start')
+                                    ->label('Tanggal Mulai Kontrak')
+                                    ->required()
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        if ($state) {
+                                            // Otomatis set tanggal berakhir 2 tahun dari tanggal mulai
+                                            $endDate = \Carbon\Carbon::parse($state)->addYears(2);
+                                            $set('agreement_date_end', $endDate->format('Y-m-d'));
+                                        }
+                                    })
+                                    ->helperText('Tanggal berakhir akan otomatis diset 2 tahun dari tanggal mulai'),
+                                Forms\Components\DatePicker::make('agreement_date_end')
+                                    ->label('Tanggal Berakhir Kontrak')
+                                    ->helperText('Otomatis diisi berdasarkan tanggal mulai + 2 tahun'),
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\Select::make('departments_id')
+                                            ->label('Bagian')
+                                            ->relationship('department', 'name')
+                                            ->required()
+                                            ->searchable()
+                                            ->preload()
+                                            ->reactive()
+                                            ->afterStateUpdated(function (callable $set) {
+                                                // Reset sub department ketika department berubah
+                                                $set('sub_department_id', null);
+                                            }),
+                                        Forms\Components\Select::make('sub_department_id')
+                                            ->label('Sub Bagian')
+                                            ->relationship('subDepartment', 'name')
+                                            ->searchable()
+                                            ->preload()
+                                            ->options(function (callable $get) {
+                                                $departmentId = $get('departments_id');
+                                                if (!$departmentId) {
+                                                    return [];
+                                                }
+
+                                                return \App\Models\MasterSubDepartment::where('departments_id', $departmentId)
+                                                    ->pluck('name', 'id')
+                                                    ->toArray();
+                                            })
+                                            ->disabled(fn (callable $get) => !$get('departments_id'))
+                                            ->helperText('Pilih departemen terlebih dahulu'),
+                                    ]),
+                            ]),
+
+                        Forms\Components\Tabs\Tab::make('Dokumen')
+                            ->icon('heroicon-m-document-arrow-up')
+                            ->schema([
+                                Forms\Components\FileUpload::make('docs')
+                                    ->label('Dokumen Kontrak')
+                                    ->disk('public')
+                                    ->directory('agreements')
+                                    ->acceptedFileTypes(['application/pdf'])
+                                    ->maxSize(10240) // 10MB
+                                    ->downloadable()
+                                    ->openable()
+                                    ->visibility('public')
+                                    ->helperText('Upload file PDF maksimal 10MB'),
+                                Forms\Components\Hidden::make('users_id')
+                                    ->default(fn () => auth()->id()),
+                            ]),
+                    ])
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('agreement_number')
+                    ->label('Nomor Kontrak')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Nama Pegawai')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('email')
+                    ->label('Email')
+                    ->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('phone_number')
+                    ->label('No. Telepon')
+                    ->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('masterAgreement.name')
+                    ->label('Jenis Kontrak')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('employeePosition.name')
+                    ->label('Posisi/Jabatan')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('employmentStatus.name')
+                    ->label('Status Kepegawaian')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('education.name')
+                    ->label('Tingkat Pendidikan')
+                    ->badge()
+                    ->color('success')
+                    ->placeholder('Belum diisi')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('basicSalaryGrade.name')
+                    ->label('Grade')
+                    ->badge()
+                    ->color('info')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('basic_salary')
+                    ->label('Gaji Pokok')
+                    ->money('IDR')
+                    ->getStateUsing(fn ($record) => $record->basic_salary),
+                Tables\Columns\TextColumn::make('agreement_date_start')
+                    ->label('Tanggal Mulai')
+                    ->date('d/m/Y')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('agreement_date_end')
+                    ->label('Tanggal Berakhir')
+                    ->date('d/m/Y')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('contract_duration')
+                    ->label('Durasi Kontrak')
+                    ->getStateUsing(fn ($record) => $record->contract_duration . ' tahun')
+                    ->badge()
+                    ->color('info'),
+                Tables\Columns\IconColumn::make('is_active')
+                    ->label('Status Kontrak')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
+                Tables\Columns\TextColumn::make('days_remaining')
+                    ->label('Sisa Hari')
+                    ->getStateUsing(fn ($record) => $record->days_remaining > 0 ? $record->days_remaining . ' hari' : 'Berakhir')
+                    ->badge()
+                    ->color(fn ($record) => $record->days_remaining > 30 ? 'success' : ($record->days_remaining > 0 ? 'warning' : 'danger')),
+                Tables\Columns\TextColumn::make('department.name')
+                    ->label('Departemen')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('subDepartment.name')
+                    ->label('Sub Departemen')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('docs')
+                    ->label('Dokumen')
+                    ->formatStateUsing(fn ($record) => $record->has_document ? 'Ada Dokumen' : 'Tidak Ada')
+                    ->badge()
+                    ->color(fn ($record) => $record->has_document ? 'success' : 'gray')
+                    ->url(fn ($record) => $record->docs_url)
+                    ->openUrlInNewTab(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Diperbarui')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('generate_report')
+                    ->label('Cetak Report PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('primary')
+                    ->action(function () {
+                        return static::generatePDFReport();
+                    })
+                    ->tooltip('Generate laporan kontrak pegawai dalam format PDF'),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('agreement_id')
+                    ->relationship('masterAgreement', 'name')
+                    ->label('Jenis Kontrak'),
+                Tables\Filters\SelectFilter::make('departments_id')
+                    ->relationship('department', 'name')
+                    ->label('Departemen'),
+                Tables\Filters\SelectFilter::make('employment_status_id')
+                    ->relationship('employmentStatus', 'name')
+                    ->label('Status Kepegawaian'),
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->label('Lihat'),
+                Tables\Actions\EditAction::make()
+                    ->label('Edit'),
+                Tables\Actions\DeleteAction::make()
+                    ->label('Hapus'),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Hapus yang Dipilih'),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            //
+        ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [
+            EmployeeAgreementResource\Widgets\EmployeeAgreementStatsOverview::class,
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListEmployeeAgreements::route('/'),
+            'create' => Pages\CreateEmployeeAgreement::route('/create'),
+            'view' => Pages\ViewEmployeeAgreement::route('/{record}'),
+            'edit' => Pages\EditEmployeeAgreement::route('/{record}/edit'),
+        ];
+    }
+}
