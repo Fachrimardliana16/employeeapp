@@ -51,24 +51,43 @@ class EmployeeAssignmentLetterResource extends Resource
                             ->preload()
                             ->helperText('Pegawai utama yang diberi tugas'),
 
-                        Forms\Components\Select::make('additional_employee_ids')
-                            ->label('Pegawai Tambahan')
-                            ->multiple()
-                            ->options(function () {
-                                return \App\Models\Employee::pluck('name', 'id');
-                            })
-                            ->searchable()
-                            ->preload()
-                            ->placeholder('Pilih satu atau lebih pegawai tambahan (opsional)')
-                            ->helperText('Anda bisa memilih satu pegawai atau beberapa pegawai sekaligus yang ikut dalam tugas')
-                            ->columnSpanFull(),
-
                         Forms\Components\Select::make('employee_position_id')
-                            ->label('Posisi/Jabatan')
+                            ->label('Posisi/Jabatan Pegawai Utama')
                             ->relationship('employeePosition', 'name')
                             ->required()
                             ->searchable()
                             ->preload(),
+
+                        Forms\Components\Repeater::make('additional_employees_detail')
+                            ->label('Pegawai Tambahan')
+                            ->schema([
+                                Forms\Components\Select::make('employee_id')
+                                    ->label('Nama Pegawai')
+                                    ->options(function () {
+                                        return \App\Models\Employee::pluck('name', 'id');
+                                    })
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        if ($state) {
+                                            $employee = \App\Models\Employee::with('position')->find($state);
+                                            if ($employee && $employee->position) {
+                                                $set('position', $employee->position->name);
+                                            }
+                                        }
+                                    }),
+                                Forms\Components\TextInput::make('position')
+                                    ->label('Jabatan')
+                                    ->required()
+                                    ->placeholder('Jabatan akan terisi otomatis'),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->addActionLabel('Tambah Pegawai Tambahan')
+                            ->defaultItems(0)
+                            ->helperText('Tambahkan pegawai lain yang ikut dalam penugasan'),
                     ])
                     ->columns(2),
 
@@ -128,10 +147,10 @@ class EmployeeAssignmentLetterResource extends Resource
                             ->placeholder('Akan terisi otomatis setelah memilih pegawai, atau isi manual jika tidak memilih dari dropdown')
                             ->maxLength(255)
                             ->required()
-                            ->disabled(fn (callable $get) => !empty($get('signatory_employee_id')))
+                            ->disabled(fn(callable $get) => !empty($get('signatory_employee_id')))
                             ->dehydrated(true)
-                            ->helperText(fn (callable $get) => !empty($get('signatory_employee_id')) 
-                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.' 
+                            ->helperText(fn(callable $get) => !empty($get('signatory_employee_id'))
+                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.'
                                 : 'Isi manual jika tidak memilih dari dropdown di atas.'),
 
                         Forms\Components\TextInput::make('signatory_position')
@@ -139,10 +158,10 @@ class EmployeeAssignmentLetterResource extends Resource
                             ->placeholder('Akan terisi otomatis setelah memilih pegawai, atau isi manual jika tidak memilih dari dropdown')
                             ->maxLength(255)
                             ->required()
-                            ->disabled(fn (callable $get) => !empty($get('signatory_employee_id')))
+                            ->disabled(fn(callable $get) => !empty($get('signatory_employee_id')))
                             ->dehydrated(true)
-                            ->helperText(fn (callable $get) => !empty($get('signatory_employee_id')) 
-                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.' 
+                            ->helperText(fn(callable $get) => !empty($get('signatory_employee_id'))
+                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.'
                                 : 'Isi manual jika tidak memilih dari dropdown di atas.'),
                     ])
                     ->columns(1)
@@ -202,7 +221,7 @@ class EmployeeAssignmentLetterResource extends Resource
                         return $total . ' orang';
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match (true) {
+                    ->color(fn(string $state): string => match (true) {
                         str_contains($state, '1 orang') => 'warning',
                         default => 'success',
                     })
@@ -241,16 +260,16 @@ class EmployeeAssignmentLetterResource extends Resource
                         if (empty($record->pdf_file_path)) {
                             return 'Belum dibuat';
                         }
-                        
+
                         $fullPath = storage_path('app/public/' . $record->pdf_file_path);
                         if (file_exists($fullPath)) {
                             return 'Tersedia';
                         }
-                        
+
                         return 'File hilang';
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'Tersedia' => 'success',
                         'Belum dibuat' => 'warning',
                         'File hilang' => 'danger',
@@ -284,11 +303,11 @@ class EmployeeAssignmentLetterResource extends Resource
                         return $query
                             ->when(
                                 $data['assignment_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('start_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('start_date', '>=', $date),
                             )
                             ->when(
                                 $data['assignment_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('end_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('end_date', '<=', $date),
                             );
                     }),
 
@@ -307,8 +326,8 @@ class EmployeeAssignmentLetterResource extends Resource
                     ->label('Lihat PDF')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->visible(fn (EmployeeAssignmentLetter $record): bool => !empty($record->pdf_file_path) && file_exists(storage_path('app/public/' . $record->pdf_file_path)))
-                    ->url(fn (EmployeeAssignmentLetter $record): string => asset('storage/' . $record->pdf_file_path))
+                    ->visible(fn(EmployeeAssignmentLetter $record): bool => !empty($record->pdf_file_path) && file_exists(storage_path('app/public/' . $record->pdf_file_path)))
+                    ->url(fn(EmployeeAssignmentLetter $record): string => asset('storage/' . $record->pdf_file_path))
                     ->openUrlInNewTab(),
                 Tables\Actions\Action::make('generate_pdf')
                     ->label('Cetak PDF')
@@ -318,41 +337,41 @@ class EmployeeAssignmentLetterResource extends Resource
                         // Prioritas: data dari relasi pegawai > data manual > default
                         $signatoryName = $record->signatory_name;
                         $signatoryPosition = $record->signatory_position;
-                        
+
                         if ($record->signatoryEmployee) {
                             $signatoryName = $record->signatoryEmployee->name;
                             $signatoryPosition = $record->signatoryEmployee->position->name ?? $signatoryPosition;
                         }
-                        
+
                         // Fallback ke default jika kosong
                         $signatoryName = $signatoryName ?: 'Direktur PERUMDA';
                         $signatoryPosition = $signatoryPosition ?: 'Direktur';
-                        
+
                         // Generate PDF dengan data dinamis
                         $pdf = Pdf::loadView('pdf.assignment-letter', [
                             'assignment' => $record,
                             'signatory_name' => $signatoryName,
                             'signatory_position' => $signatoryPosition
                         ]);
-                        
+
                         $filename = 'Surat_Tugas_' . $record->registration_number . '_' . date('Y-m-d') . '.pdf';
                         $filename = str_replace(['/', '\\', ' '], '_', $filename);
-                        
+
                         // Simpan PDF ke storage
                         $pdfPath = 'assignment_letters/' . $filename;
                         $fullPath = storage_path('app/public/' . $pdfPath);
-                        
+
                         // Buat direktori jika belum ada
                         if (!file_exists(dirname($fullPath))) {
                             mkdir(dirname($fullPath), 0755, true);
                         }
-                        
+
                         // Simpan file PDF
                         $pdf->save($fullPath);
-                        
+
                         // Update record dengan path PDF
                         $record->update(['pdf_file_path' => $pdfPath]);
-                        
+
                         return response()->streamDownload(function () use ($pdf) {
                             echo $pdf->output();
                         }, $filename);

@@ -50,17 +50,36 @@ class EmployeeBusinessTravelLetterResource extends Resource
                             ->placeholder('Pilih pegawai utama (opsional)')
                             ->helperText('Pegawai utama yang bertanggung jawab. Kosongkan jika tidak ada.'),
 
-                        Forms\Components\Select::make('additional_employee_ids')
+                        Forms\Components\Repeater::make('additional_employees_detail')
                             ->label('Pegawai Tambahan')
-                            ->multiple()
-                            ->options(function () {
-                                return \App\Models\Employee::pluck('name', 'id');
-                            })
-                            ->searchable()
-                            ->preload()
-                            ->placeholder('Pilih satu atau lebih pegawai tambahan (opsional)')
-                            ->helperText('Anda bisa memilih satu pegawai atau beberapa pegawai sekaligus yang ikut dalam perjalanan dinas')
-                            ->columnSpanFull(),
+                            ->schema([
+                                Forms\Components\Select::make('employee_id')
+                                    ->label('Nama Pegawai')
+                                    ->options(function () {
+                                        return \App\Models\Employee::pluck('name', 'id');
+                                    })
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        if ($state) {
+                                            $employee = \App\Models\Employee::with('position')->find($state);
+                                            if ($employee && $employee->position) {
+                                                $set('position', $employee->position->name);
+                                            }
+                                        }
+                                    }),
+                                Forms\Components\TextInput::make('position')
+                                    ->label('Jabatan')
+                                    ->required()
+                                    ->placeholder('Jabatan akan terisi otomatis'),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->addActionLabel('Tambah Pegawai Tambahan')
+                            ->defaultItems(0)
+                            ->helperText('Tambahkan pegawai yang ikut dalam perjalanan dinas'),
 
                         Forms\Components\Textarea::make('purpose_of_trip')
                             ->label('Tujuan Perjalanan Dinas')
@@ -94,12 +113,136 @@ class EmployeeBusinessTravelLetterResource extends Resource
 
                 Forms\Components\Section::make('Anggaran dan Biaya')
                     ->schema([
-                        Forms\Components\TextInput::make('business_trip_expenses')
-                            ->label('Biaya Perjalanan Dinas')
+                        Forms\Components\Placeholder::make('trip_duration_info')
+                            ->label('Informasi Durasi')
+                            ->content(function (callable $get) {
+                                $startDate = $get('start_date');
+                                $endDate = $get('end_date');
+
+                                if ($startDate && $endDate) {
+                                    $start = \Carbon\Carbon::parse($startDate);
+                                    $end = \Carbon\Carbon::parse($endDate);
+                                    $days = $start->diffInDays($end) + 1; // +1 untuk menghitung hari terakhir
+                                    return "Durasi: {$days} hari";
+                                }
+
+                                return 'Pilih tanggal berangkat dan kembali untuk menghitung durasi';
+                            })
+                            ->columnSpanFull(),
+
+                        Forms\Components\Placeholder::make('total_employees_info')
+                            ->label('Total Pegawai')
+                            ->content(function (callable $get) {
+                                $total = 0;
+
+                                if ($get('employee_id')) {
+                                    $total += 1;
+                                }
+
+                                $additionalEmployees = $get('additional_employees_detail');
+                                if (is_array($additionalEmployees)) {
+                                    $total += count($additionalEmployees);
+                                }
+
+                                return $total > 0 ? "{$total} orang" : 'Belum ada pegawai dipilih';
+                            })
+                            ->columnSpanFull(),
+
+                        Forms\Components\TextInput::make('accommodation_cost')
+                            ->label('Biaya Akomodasi (per orang per hari)')
                             ->numeric()
                             ->prefix('Rp')
                             ->step(0.01)
-                            ->default(0.00),
+                            ->default(0.00)
+                            ->helperText('Biaya penginapan berdasarkan SHS'),
+
+                        Forms\Components\TextInput::make('pocket_money_cost')
+                            ->label('Uang Saku (per orang per hari)')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->step(0.01)
+                            ->default(0.00)
+                            ->helperText('Uang saku harian berdasarkan SHS'),
+
+                        Forms\Components\TextInput::make('reserve_cost')
+                            ->label('Uang Cadangan (per orang)')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->step(0.01)
+                            ->default(0.00)
+                            ->helperText('Uang cadangan per orang'),
+
+                        Forms\Components\TextInput::make('transport_cost')
+                            ->label('Biaya Transportasi (per orang)')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->step(0.01)
+                            ->default(0.00)
+                            ->helperText('Biaya transportasi perjalanan'),
+
+                        Forms\Components\TextInput::make('meal_cost')
+                            ->label('Biaya Konsumsi (per orang per hari)')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->step(0.01)
+                            ->default(0.00)
+                            ->helperText('Biaya makan berdasarkan SHS'),
+
+                        Forms\Components\Placeholder::make('total_cost_calculation')
+                            ->label('Total Biaya Perjalanan Dinas')
+                            ->content(function (callable $get) {
+                                $startDate = $get('start_date');
+                                $endDate = $get('end_date');
+                                $days = 0;
+
+                                if ($startDate && $endDate) {
+                                    $start = \Carbon\Carbon::parse($startDate);
+                                    $end = \Carbon\Carbon::parse($endDate);
+                                    $days = $start->diffInDays($end) + 1;
+                                }
+
+                                $totalEmployees = 0;
+                                if ($get('employee_id')) {
+                                    $totalEmployees += 1;
+                                }
+                                $additionalEmployees = $get('additional_employees_detail');
+                                if (is_array($additionalEmployees)) {
+                                    $totalEmployees += count($additionalEmployees);
+                                }
+
+                                // Biaya per hari
+                                $accommodation = (float)($get('accommodation_cost') ?? 0);
+                                $pocketMoney = (float)($get('pocket_money_cost') ?? 0);
+                                $meal = (float)($get('meal_cost') ?? 0);
+
+                                // Biaya sekali
+                                $reserve = (float)($get('reserve_cost') ?? 0);
+                                $transport = (float)($get('transport_cost') ?? 0);
+
+                                // Perhitungan
+                                $dailyCost = ($accommodation + $pocketMoney + $meal) * $days;
+                                $onTimeCost = $reserve + $transport;
+                                $totalPerPerson = $dailyCost + $onTimeCost;
+                                $grandTotal = $totalPerPerson * $totalEmployees;
+
+                                if ($grandTotal > 0) {
+                                    return 'Rp ' . number_format($grandTotal, 2, ',', '.');
+                                }
+
+                                return 'Rp 0,00';
+                            })
+                            ->columnSpanFull()
+                            ->extraAttributes(['class' => 'text-lg font-bold']),
+
+                        Forms\Components\TextInput::make('business_trip_expenses')
+                            ->label('Biaya Perjalanan Dinas (Legacy)')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->step(0.01)
+                            ->default(0.00)
+                            ->helperText('Field lama - gunakan perhitungan SHS di atas')
+                            ->columnSpanFull()
+                            ->hidden(),
 
                         Forms\Components\TextInput::make('pasal')
                             ->label('Pasal/Dasar Hukum')
@@ -138,10 +281,10 @@ class EmployeeBusinessTravelLetterResource extends Resource
                             ->placeholder('Akan terisi otomatis setelah memilih pegawai, atau isi manual jika tidak memilih dari dropdown')
                             ->maxLength(255)
                             ->required()
-                            ->disabled(fn (callable $get) => !empty($get('signatory_employee_id')))
+                            ->disabled(fn(callable $get) => !empty($get('signatory_employee_id')))
                             ->dehydrated(true)
-                            ->helperText(fn (callable $get) => !empty($get('signatory_employee_id')) 
-                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.' 
+                            ->helperText(fn(callable $get) => !empty($get('signatory_employee_id'))
+                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.'
                                 : 'Isi manual jika tidak memilih dari dropdown di atas.'),
 
                         Forms\Components\TextInput::make('signatory_position')
@@ -149,10 +292,10 @@ class EmployeeBusinessTravelLetterResource extends Resource
                             ->placeholder('Akan terisi otomatis setelah memilih pegawai, atau isi manual jika tidak memilih dari dropdown')
                             ->maxLength(255)
                             ->required()
-                            ->disabled(fn (callable $get) => !empty($get('signatory_employee_id')))
+                            ->disabled(fn(callable $get) => !empty($get('signatory_employee_id')))
                             ->dehydrated(true)
-                            ->helperText(fn (callable $get) => !empty($get('signatory_employee_id')) 
-                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.' 
+                            ->helperText(fn(callable $get) => !empty($get('signatory_employee_id'))
+                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.'
                                 : 'Isi manual jika tidak memilih dari dropdown di atas.'),
 
                         Forms\Components\Select::make('employee_signatory_id')
@@ -230,7 +373,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                         return $total > 0 ? $total . ' orang' : 'Tidak ada';
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match (true) {
+                    ->color(fn(string $state): string => match (true) {
                         $state === 'Tidak ada' => 'gray',
                         str_contains($state, '1 orang') => 'warning',
                         default => 'success',
@@ -296,16 +439,16 @@ class EmployeeBusinessTravelLetterResource extends Resource
                         if (empty($record->pdf_file_path)) {
                             return 'Belum dibuat';
                         }
-                        
+
                         $fullPath = storage_path('app/public/' . $record->pdf_file_path);
                         if (file_exists($fullPath)) {
                             return 'Tersedia';
                         }
-                        
+
                         return 'File hilang';
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'Tersedia' => 'success',
                         'Belum dibuat' => 'warning',
                         'File hilang' => 'danger',
@@ -327,11 +470,11 @@ class EmployeeBusinessTravelLetterResource extends Resource
                         return $query
                             ->when(
                                 $data['travel_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('start_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('start_date', '>=', $date),
                             )
                             ->when(
                                 $data['travel_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('end_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('end_date', '<=', $date),
                             );
                     }),
 
@@ -350,8 +493,8 @@ class EmployeeBusinessTravelLetterResource extends Resource
                     ->label('Lihat PDF')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->visible(fn (EmployeeBusinessTravelLetter $record): bool => !empty($record->pdf_file_path) && file_exists(storage_path('app/public/' . $record->pdf_file_path)))
-                    ->url(fn (EmployeeBusinessTravelLetter $record): string => asset('storage/' . $record->pdf_file_path))
+                    ->visible(fn(EmployeeBusinessTravelLetter $record): bool => !empty($record->pdf_file_path) && file_exists(storage_path('app/public/' . $record->pdf_file_path)))
+                    ->url(fn(EmployeeBusinessTravelLetter $record): string => asset('storage/' . $record->pdf_file_path))
                     ->openUrlInNewTab(),
                 Tables\Actions\Action::make('generate_pdf')
                     ->label('Cetak PDF')
@@ -361,7 +504,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                         // Prioritas: data dari relasi pegawai > data manual > legacy > default
                         $signatoryName = $record->signatory_name;
                         $signatoryPosition = $record->signatory_position;
-                        
+
                         if ($record->signatoryEmployee) {
                             $signatoryName = $record->signatoryEmployee->name;
                             $signatoryPosition = $record->signatoryEmployee->position->name ?? $signatoryPosition;
@@ -370,36 +513,36 @@ class EmployeeBusinessTravelLetterResource extends Resource
                             $signatoryName = $record->signatory->name;
                             $signatoryPosition = $record->signatory->position->name ?? $signatoryPosition;
                         }
-                        
+
                         // Fallback ke default jika kosong
                         $signatoryName = $signatoryName ?: 'Direktur PERUMDA';
                         $signatoryPosition = $signatoryPosition ?: 'Direktur';
-                        
+
                         // Generate PDF dengan data dinamis
                         $pdf = Pdf::loadView('pdf.business-travel-letter', [
                             'travel' => $record,
                             'signatory_name' => $signatoryName,
                             'signatory_position' => $signatoryPosition
                         ]);
-                        
+
                         $filename = 'Surat_Perjalanan_Dinas_' . $record->registration_number . '_' . date('Y-m-d') . '.pdf';
                         $filename = str_replace(['/', '\\', ' '], '_', $filename);
-                        
+
                         // Simpan PDF ke storage
                         $pdfPath = 'business_travel_letters/' . $filename;
                         $fullPath = storage_path('app/public/' . $pdfPath);
-                        
+
                         // Buat direktori jika belum ada
                         if (!file_exists(dirname($fullPath))) {
                             mkdir(dirname($fullPath), 0755, true);
                         }
-                        
+
                         // Simpan file PDF
                         $pdf->save($fullPath);
-                        
+
                         // Update record dengan path PDF
                         $record->update(['pdf_file_path' => $pdfPath]);
-                        
+
                         return response()->streamDownload(function () use ($pdf) {
                             echo $pdf->output();
                         }, $filename);

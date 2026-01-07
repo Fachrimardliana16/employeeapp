@@ -62,10 +62,11 @@ class EmployeePanelProvider extends PanelProvider
                 'Manajemen Pegawai',
                 'Operasional Pegawai',
                 'Kompensasi & Tunjangan',
-                'Waktu & Kehadiran',
-                'Performa & Pengembangan',
-                'Operasi Bisnis',
-                'Data Master',
+                'Absensi & Kehadiran',
+                'Kinerja & Pengembangan',
+                'Rekrutmen & Seleksi',
+                'Surat & Tugas Dinas',
+                'Data Induk',
             ])
             ->sidebarCollapsibleOnDesktop()
             ->spa();

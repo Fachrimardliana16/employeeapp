@@ -14,6 +14,7 @@ class EmployeeAssignmentLetter extends Model
         'registration_number',
         'assigning_employee_id',
         'additional_employee_ids',
+        'additional_employees_detail',
         'employee_position_id',
         'task',
         'start_date',
@@ -30,6 +31,7 @@ class EmployeeAssignmentLetter extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'additional_employee_ids' => 'array',
+        'additional_employees_detail' => 'array',
     ];
 
     /**

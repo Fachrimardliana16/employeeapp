@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class EmployeeSalaryResource extends Resource
 {
@@ -21,13 +22,14 @@ class EmployeeSalaryResource extends Resource
 
     protected static ?string $navigationGroup = 'Kompensasi & Tunjangan';
 
-    protected static ?string $navigationLabel = 'Gaji';
+    protected static ?string $navigationLabel = 'Gaji & Payroll';
 
-    protected static ?string $modelLabel = 'Gaji Karyawan';
+    protected static ?string $modelLabel = 'Gaji & Payroll';
 
-    protected static ?string $pluralModelLabel = 'Gaji Karyawan';
+    protected static ?string $pluralModelLabel = 'Gaji & Payroll';
 
-    protected static ?int $navigationSort = 201;    public static function form(Form $form): Form
+    protected static ?int $navigationSort = 201;
+    public static function form(Form $form): Form
     {
         return $form
             ->schema([
@@ -56,7 +58,7 @@ class EmployeeSalaryResource extends Resource
                         Forms\Components\Toggle::make('is_active')
                             ->default(true),
                         Forms\Components\Hidden::make('users_id')
-                            ->default(fn () => auth()->id()),
+                            ->default(fn() => Auth::id()),
                     ]),
             ]);
     }

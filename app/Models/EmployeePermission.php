@@ -5,30 +5,32 @@ namespace App\Models;
 use App\Traits\HasUserTracking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeePermission extends Model
 {
-    use HasUserTracking;
+    use HasUserTracking, SoftDeletes;
 
     protected $fillable = [
-        'employees_id',
-        'master_employee_permissions_id',
-        'permission_start_date',
-        'permission_end_date',
-        'permission_duration_days',
-        'permission_reason',
-        'permission_description',
-        'permission_file',
-        'permission_status',
-        'approval_date',
+        'employee_id',
+        'permission_id',
+        'start_permission_date',
+        'end_permission_date',
+        'permission_desc',
+        'scan_doc',
+        'approval_status',
         'approved_by',
+        'approved_at',
+        'approval_notes',
+        'is_resign',
         'users_id',
     ];
 
     protected $casts = [
-        'permission_start_date' => 'date',
-        'permission_end_date' => 'date',
-        'approval_date' => 'date',
+        'start_permission_date' => 'date',
+        'end_permission_date' => 'date',
+        'approved_at' => 'datetime',
+        'is_resign' => 'boolean',
     ];
 
     /**
@@ -36,15 +38,15 @@ class EmployeePermission extends Model
      */
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'employees_id');
+        return $this->belongsTo(Employee::class);
     }
 
     /**
      * Get the master permission type.
      */
-    public function masterPermission(): BelongsTo
+    public function permission(): BelongsTo
     {
-        return $this->belongsTo(MasterEmployeePermission::class, 'master_employee_permissions_id');
+        return $this->belongsTo(MasterEmployeePermission::class, 'permission_id');
     }
 
     /**
@@ -61,5 +63,29 @@ class EmployeePermission extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'users_id');
+    }
+
+    public static function getApprovalStatusOptions(): array
+    {
+        return [
+            'pending' => 'Menunggu Persetujuan',
+            'approved' => 'Disetujui',
+            'rejected' => 'Ditolak',
+        ];
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('approval_status', 'pending');
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('approval_status', 'approved');
+    }
+
+    public function scopeResign($query)
+    {
+        return $query->where('is_resign', true);
     }
 }
