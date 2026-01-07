@@ -13,7 +13,9 @@ class ListEmployeeDocuments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Upload Dokumen')
+                ->icon('heroicon-o-arrow-up-tray'),
         ];
     }
 }
