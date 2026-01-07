@@ -18,11 +18,11 @@ class MasterStandarHargaSatuanResource extends Resource
     protected static ?string $model = MasterStandarHargaSatuan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
-    
+
     protected static ?string $navigationGroup = 'Master Data';
-    
+
     protected static ?string $navigationLabel = 'Standar Harga Satuan (SHS)';
-    
+
     protected static ?int $navigationSort = 601;
 
     public static function form(Form $form): Form
