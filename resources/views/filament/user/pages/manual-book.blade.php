@@ -9,7 +9,7 @@
                 </div>
             </x-slot>
             <p class="text-gray-600 dark:text-gray-400">
-                Panduan lengkap penggunaan sistem self-service kepegawaian untuk karyawan. 
+                Panduan lengkap penggunaan sistem self-service kepegawaian untuk karyawan.
                 Pelajari cara mengajukan izin, cuti, melihat data pribadi, dan fitur lainnya.
             </p>
         </x-filament::section>
@@ -25,7 +25,7 @@
                     <li>Klik menu yang ingin diakses untuk melihat detail</li>
                     <li>Gunakan tombol di pojok kanan atas untuk logout atau ubah profil</li>
                 </ol>
-                
+
                 <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mt-4">
                     <p class="font-semibold text-blue-900 dark:text-blue-100">💡 Tips Login:</p>
                     <ul class="text-sm">
@@ -40,11 +40,11 @@
         {{-- Data Kepegawaian --}}
         <x-filament::section collapsible>
             <x-slot name="heading">📊 Data Kepegawaian</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Fungsi:</h4>
                 <p>Melihat seluruh data kepegawaian Anda dalam satu halaman (read-only).</p>
-                
+
                 <h5 class="font-semibold">Informasi yang Tersedia:</h5>
                 <ul class="list-disc ml-6">
                     <li><strong>Informasi Dasar:</strong> Nama, NIK, email, telepon, alamat</li>
@@ -73,11 +73,11 @@
         {{-- Izin & Cuti --}}
         <x-filament::section collapsible>
             <x-slot name="heading">📅 Izin & Cuti</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Fungsi:</h4>
                 <p>Mengajukan permohonan izin atau cuti dan melihat status persetujuan.</p>
-                
+
                 <h5 class="font-semibold">Cara Mengajukan Izin/Cuti:</h5>
                 <ol class="list-decimal ml-6">
                     <li>Klik menu "Izin & Cuti" di sidebar</li>
@@ -117,11 +117,11 @@
         {{-- Laporan Harian --}}
         <x-filament::section collapsible>
             <x-slot name="heading">📝 Laporan Harian</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Fungsi:</h4>
                 <p>Submit laporan aktivitas harian pekerjaan Anda.</p>
-                
+
                 <h5 class="font-semibold">Cara Submit Laporan:</h5>
                 <ol class="list-decimal ml-6">
                     <li>Klik menu "Laporan Harian" di sidebar</li>
@@ -160,11 +160,11 @@
         {{-- Absensi --}}
         <x-filament::section collapsible>
             <x-slot name="heading">⏰ Absensi</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Fungsi:</h4>
                 <p>Check-in dan check-out menggunakan GPS untuk pencatatan kehadiran.</p>
-                
+
                 <h5 class="font-semibold">Cara Absen:</h5>
                 <ol class="list-decimal ml-6">
                     <li>Klik menu "Absensi" di sidebar</li>
@@ -198,11 +198,11 @@
         {{-- Pensiun/Resign --}}
         <x-filament::section collapsible>
             <x-slot name="heading">👋 Pensiun/Resign</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Fungsi:</h4>
                 <p>Mengajukan permohonan pengunduran diri atau pensiun.</p>
-                
+
                 <h5 class="font-semibold">Cara Mengajukan:</h5>
                 <ol class="list-decimal ml-6">
                     <li>Klik menu "Pensiun/Resign" di sidebar</li>
@@ -264,7 +264,7 @@
         {{-- FAQ --}}
         <x-filament::section collapsible>
             <x-slot name="heading">❓ FAQ (Pertanyaan Umum)</x-slot>
-            
+
             <div class="space-y-3">
                 <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <p class="font-semibold">Q: Saya lupa password, bagaimana?</p>
@@ -301,20 +301,20 @@
         {{-- Contact Support --}}
         <x-filament::section>
             <x-slot name="heading">📞 Butuh Bantuan?</x-slot>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
                     <x-filament::icon icon="heroicon-o-envelope" class="w-8 h-8 mx-auto text-blue-600 mb-2"/>
                     <p class="font-semibold">Email</p>
                     <p class="text-sm">hr@company.com</p>
                 </div>
-                
+
                 <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                     <x-filament::icon icon="heroicon-o-phone" class="w-8 h-8 mx-auto text-green-600 mb-2"/>
                     <p class="font-semibold">WhatsApp</p>
                     <p class="text-sm">08xx-xxxx-xxxx</p>
                 </div>
-                
+
                 <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
                     <x-filament::icon icon="heroicon-o-clock" class="w-8 h-8 mx-auto text-purple-600 mb-2"/>
                     <p class="font-semibold">Jam Kerja</p>

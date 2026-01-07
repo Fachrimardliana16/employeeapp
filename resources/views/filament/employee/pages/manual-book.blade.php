@@ -9,7 +9,7 @@
                 </div>
             </x-slot>
             <p class="text-gray-600 dark:text-gray-400">
-                Panduan lengkap penggunaan sistem manajemen kepegawaian untuk Staff HR/Admin. 
+                Panduan lengkap penggunaan sistem manajemen kepegawaian untuk Staff HR/Admin.
                 Dokumen ini berisi alur sistem, cara penggunaan setiap menu, dan tips untuk efisiensi kerja.
             </p>
         </x-filament::section>
@@ -33,7 +33,7 @@
         {{-- Menu Kompensasi & Tunjangan --}}
         <x-filament::section collapsible>
             <x-slot name="heading">💰 Kompensasi & Tunjangan</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">1. Gaji & Payroll</h4>
                 <p><strong>Fungsi:</strong> Kelola data gaji karyawan dan history perubahan gaji.</p>
@@ -68,11 +68,11 @@
         {{-- Menu Dokumen & Arsip --}}
         <x-filament::section collapsible>
             <x-slot name="heading">📁 Dokumen & Arsip</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Dokumen Karyawan</h4>
                 <p><strong>Fungsi:</strong> Upload dan manage dokumen penting karyawan (KTP, NPWP, Ijazah, dll).</p>
-                
+
                 <h5 class="font-semibold">Cara Input:</h5>
                 <ol class="list-decimal ml-6">
                     <li>Klik "New" → Pilih karyawan</li>
@@ -89,7 +89,7 @@
                     <li><strong>Search:</strong> Cari by nama karyawan atau nama dokumen</li>
                     <li><strong>Filter Jenis:</strong> Filter dokumen by type (KTP, NPWP, dll)</li>
                     <li><strong>Filter Uploader:</strong> Lihat dokumen by HR atau karyawan</li>
-                    <li><strong>Alert Kadaluarsa:</strong> 
+                    <li><strong>Alert Kadaluarsa:</strong>
                         <ul class="list-circle ml-6">
                             <li>Toggle "Kadaluarsa" → Lihat dokumen expired</li>
                             <li>Toggle "Akan Kadaluarsa" → Lihat dokumen &lt;30 hari expired</li>
@@ -109,7 +109,7 @@
         {{-- Menu Kepegawaian --}}
         <x-filament::section collapsible>
             <x-slot name="heading">👥 Data Kepegawaian</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">1. Izin & Cuti</h4>
                 <p><strong>Fungsi:</strong> Approve/Reject pengajuan izin dan cuti dari karyawan.</p>
@@ -144,11 +144,11 @@
         {{-- Menu Rekrutmen --}}
         <x-filament::section collapsible>
             <x-slot name="heading">🎯 Rekrutmen</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Proses Interview</h4>
                 <p><strong>Fungsi:</strong> Tracking interview process untuk job applicants.</p>
-                
+
                 <h5 class="font-semibold">Cara Input:</h5>
                 <ol class="list-decimal ml-6">
                     <li>Pilih aplikasi lamaran dari dropdown</li>
@@ -171,11 +171,11 @@
         {{-- Menu Penilaian Kinerja --}}
         <x-filament::section collapsible>
             <x-slot name="heading">⭐ Penilaian Kinerja</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Performance Appraisal</h4>
                 <p><strong>Fungsi:</strong> Input hasil penilaian kinerja karyawan periodic.</p>
-                
+
                 <h5 class="font-semibold">Cara Input:</h5>
                 <ol class="list-decimal ml-6">
                     <li>Pilih karyawan & set period (Q1/Q2/Q3/Q4 atau Annual)</li>
@@ -197,7 +197,7 @@
         {{-- Pengaturan Payroll --}}
         <x-filament::section collapsible>
             <x-slot name="heading">⚙️ Pengaturan Payroll (Admin Only)</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">1. Formula Payroll</h4>
                 <p><strong>Fungsi:</strong> Setup formula perhitungan gaji by status/grade/position.</p>
@@ -227,7 +227,7 @@
         {{-- Tips & Tricks --}}
         <x-filament::section>
             <x-slot name="heading">💡 Tips & Tricks</x-slot>
-            
+
             <div class="grid grid-cols-2 gap-4">
                 <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <h5 class="font-bold text-blue-900 dark:text-blue-100">Keyboard Shortcuts</h5>
@@ -237,7 +237,7 @@
                         <li>Esc → Close modal</li>
                     </ul>
                 </div>
-                
+
                 <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <h5 class="font-bold text-green-900 dark:text-green-100">Best Practices</h5>
                     <ul class="text-sm space-y-1 mt-2">
@@ -246,7 +246,7 @@
                         <li>✓ Use filter untuk efficient data viewing</li>
                     </ul>
                 </div>
-                
+
                 <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                     <h5 class="font-bold text-yellow-900 dark:text-yellow-100">Common Issues</h5>
                     <ul class="text-sm space-y-1 mt-2">
@@ -255,7 +255,7 @@
                         <li>Q: File tidak upload? → Check max size 10MB</li>
                     </ul>
                 </div>
-                
+
                 <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                     <h5 class="font-bold text-purple-900 dark:text-purple-100">Support</h5>
                     <ul class="text-sm space-y-1 mt-2">

@@ -17,7 +17,7 @@
         {{-- System Architecture --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">🏗️ System Architecture</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Technology Stack</h4>
                 <ul class="list-disc ml-6">
@@ -62,10 +62,10 @@ app/Filament/
         {{-- Database Schema --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">💾 Database Schema</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Core Tables</h4>
-                
+
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-800">
@@ -116,7 +116,7 @@ app/Filament/
                 </div>
 
                 <h4 class="font-bold text-lg mt-6">Payroll Tables</h4>
-                
+
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-800">
@@ -190,7 +190,7 @@ PayrollFormula → hasMany(PayrollComponent) via formula_components JSON
         {{-- PayrollService Documentation --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">💰 PayrollService Documentation</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Class: <code>App\Services\PayrollService</code></h4>
                 <p>Handles complex payroll calculations with support for different employment statuses.</p>
@@ -199,8 +199,8 @@ PayrollFormula → hasMany(PayrollComponent) via formula_components JSON
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                     <pre class="text-sm font-mono">
 public function calculatePayroll(
-    Employee $employee, 
-    int $month, 
+    Employee $employee,
+    int $month,
     int $year
 ): EmployeePayroll</pre>
                 </div>
@@ -257,7 +257,7 @@ echo "Net Salary: " . $payroll->net_salary;</pre>
         {{-- Approval Workflow --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">✅ Approval Workflow Pattern</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Standard Workflow</h4>
                 <p>Used in: EmployeePermission, EmployeeRetirement</p>
@@ -313,7 +313,7 @@ Tables\Columns\BadgeColumn::make('approval_status')
         {{-- File Upload System --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">📎 File Upload System</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Configuration</h4>
                 <ul class="list-disc ml-6">
@@ -355,7 +355,7 @@ FileUpload::make('file_path')
         {{-- Development Guidelines --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">🛠️ Development Guidelines</x-slot>
-            
+
             <div class="space-y-4">
                 <h4 class="font-bold text-lg">Adding New Resource</h4>
                 <ol class="list-decimal ml-6">
@@ -411,7 +411,7 @@ FileUpload::make('file_path')
         {{-- Deployment Checklist --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">🚀 Deployment Checklist</x-slot>
-            
+
             <div class="space-y-3">
                 <h4 class="font-bold text-lg">Pre-Deployment</h4>
                 <ul class="list-disc ml-6">
@@ -449,7 +449,7 @@ FileUpload::make('file_path')
         {{-- Common Issues & Solutions --}}
         <x-filament::section collapsible collapsed>
             <x-slot name="heading">🔧 Common Issues & Solutions</x-slot>
-            
+
             <div class="space-y-3">
                 <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                     <p class="font-semibold">Issue: "Class not found" error</p>
@@ -481,7 +481,7 @@ FileUpload::make('file_path')
         {{-- Contact & Support --}}
         <x-filament::section>
             <x-slot name="heading">📞 Developer Support</x-slot>
-            
+
             <div class="grid grid-cols-2 gap-4">
                 <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <h5 class="font-bold text-blue-900 dark:text-blue-100">Documentation</h5>
@@ -491,7 +491,7 @@ FileUpload::make('file_path')
                         <li><a href="https://spatie.be/docs/laravel-permission" target="_blank" class="text-blue-600 hover:underline">Spatie Permission</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <h5 class="font-bold text-green-900 dark:text-green-100">Code Repository</h5>
                     <ul class="text-sm space-y-1 mt-2">
