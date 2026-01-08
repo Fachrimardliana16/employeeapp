@@ -13,10 +13,10 @@ trait HasAuthUser
     {
         /** @var User $user */
         $user = auth()->user();
-        
+
         return $user;
     }
-    
+
     /**
      * Get the authenticated user ID
      */
