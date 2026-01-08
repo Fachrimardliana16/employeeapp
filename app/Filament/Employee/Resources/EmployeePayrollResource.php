@@ -19,7 +19,7 @@ class EmployeePayrollResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationGroup = 'Kompensasi & Tunjangan';
     protected static ?string $navigationLabel = 'Proses Payroll';
-    protected static ?int $navigationSort = 202;
+    protected static ?int $navigationSort = 402;
 
     public static function form(Form $form): Form
     {

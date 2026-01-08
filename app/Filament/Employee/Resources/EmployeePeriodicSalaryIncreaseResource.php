@@ -5,6 +5,8 @@ namespace App\Filament\Employee\Resources;
 use App\Filament\Employee\Resources\EmployeePeriodicSalaryIncreaseResource\Pages;
 use App\Filament\Employee\Resources\EmployeePeriodicSalaryIncreaseResource\RelationManagers;
 use App\Models\EmployeePeriodicSalaryIncrease;
+use App\Models\Employee;
+use App\Models\EmployeeAgreement;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,6 +14,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Carbon\Carbon;
+use Filament\Notifications\Notification;
 
 class EmployeePeriodicSalaryIncreaseResource extends Resource
 {
@@ -27,7 +31,7 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Kenaikan Gaji Berkala';
 
-    protected static ?int $navigationSort = 203;
+    protected static ?int $navigationSort = 405;
 
     public static function form(Form $form): Form
     {
@@ -39,7 +43,56 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                             ->relationship('employee', 'name')
                             ->required()
                             ->searchable()
-                            ->preload(),
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                if ($state) {
+                                    $employee = Employee::find($state);
+                                    if ($employee) {
+                                        // Cek masa kerja dari kontrak pertama
+                                        $firstContract = EmployeeAgreement::where('employees_id', $state)
+                                            ->orderBy('effective_date_start')
+                                            ->first();
+
+                                        if ($firstContract) {
+                                            $yearsOfService = Carbon::parse($firstContract->effective_date_start)
+                                                ->diffInYears(Carbon::now());
+
+                                            $set('years_of_service_info', $yearsOfService . ' tahun masa kerja');
+
+                                            // Cek kenaikan berkala terakhir
+                                            $lastIncrease = EmployeePeriodicSalaryIncrease::where('employees_id', $state)
+                                                ->orderBy('effective_date', 'desc')
+                                                ->first();
+
+                                            if ($lastIncrease) {
+                                                $yearsSinceLastIncrease = Carbon::parse($lastIncrease->effective_date)
+                                                    ->diffInYears(Carbon::now());
+
+                                                $set(
+                                                    'last_increase_info',
+                                                    $yearsSinceLastIncrease . ' tahun sejak kenaikan terakhir (' .
+                                                        Carbon::parse($lastIncrease->effective_date)->format('d/m/Y') . ')'
+                                                );
+                                            } else {
+                                                $set('last_increase_info', 'Belum pernah mendapat kenaikan berkala');
+                                            }
+                                        }
+                                    }
+                                }
+                            })
+                            ->helperText(
+                                fn(Forms\Get $get): ?string =>
+                                $get('years_of_service_info') ?? 'Pilih pegawai untuk melihat masa kerja'
+                            ),
+
+                        Forms\Components\Placeholder::make('eligibility_info')
+                            ->label('Informasi Kelayakan')
+                            ->content(
+                                fn(Forms\Get $get): string =>
+                                $get('last_increase_info') ?? 'Pilih pegawai terlebih dahulu'
+                            )
+                            ->visible(fn(Forms\Get $get): bool => $get('employees_id') !== null),
                     ]),
                 Forms\Components\Section::make('Salary Increase Details')
                     ->schema([
@@ -87,7 +140,7 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                         Forms\Components\Textarea::make('notes')
                             ->maxLength(500),
                         Forms\Components\Hidden::make('users_id')
-                            ->default(fn () => auth()->id()),
+                            ->default(fn() => auth()->id() ?? 0),
                     ]),
             ]);
     }
@@ -138,11 +191,11 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                         return $query
                             ->when(
                                 $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('effective_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('effective_date', '>=', $date),
                             )
                             ->when(
                                 $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('effective_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('effective_date', '<=', $date),
                             );
                     }),
             ])

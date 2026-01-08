@@ -25,9 +25,9 @@ class MasterEmployeeStatusEmploymentResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Status Kepegawaian';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?int $navigationSort = 813;
+    protected static ?int $navigationSort = 817;
 
     public static function form(Form $form): Form
     {

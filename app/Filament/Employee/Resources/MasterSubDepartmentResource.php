@@ -21,7 +21,7 @@ class MasterSubDepartmentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?string $navigationLabel = 'Sub Bagian';
 
@@ -29,7 +29,7 @@ class MasterSubDepartmentResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Sub Bagian';
 
-    protected static ?int $navigationSort = 806;
+    protected static ?int $navigationSort = 803;
 
     public static function form(Form $form): Form
     {

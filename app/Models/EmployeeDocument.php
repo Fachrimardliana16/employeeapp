@@ -12,6 +12,7 @@ class EmployeeDocument extends Model
 
     protected $fillable = [
         'employee_id',
+        'master_employee_archive_type_id',
         'document_type',
         'document_number',
         'document_name',
@@ -36,6 +37,11 @@ class EmployeeDocument extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'users_id');
+    }
+
+    public function archiveType(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeArchiveType::class, 'master_employee_archive_type_id');
     }
 
     public static function getDocumentTypeOptions(): array

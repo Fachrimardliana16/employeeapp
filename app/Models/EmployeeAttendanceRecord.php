@@ -24,7 +24,13 @@ class EmployeeAttendanceRecord extends Model
         'reserved',
         'device',
         'picture',
-        'users_id',
+        'office_location_id',
+        'check_latitude',
+        'check_longitude',
+        'distance_from_office',
+        'is_within_radius',
+        'photo_checkin',
+        'photo_checkout',
     ];
 
     protected $casts = [
@@ -32,6 +38,10 @@ class EmployeeAttendanceRecord extends Model
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
         'distance_meters' => 'decimal:2',
+        'check_latitude' => 'decimal:8',
+        'check_longitude' => 'decimal:8',
+        'distance_from_office' => 'integer',
+        'is_within_radius' => 'boolean',
     ];
 
     /**
@@ -83,5 +93,29 @@ class EmployeeAttendanceRecord extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'users_id');
+    }
+
+    /**
+     * Get the office location for this attendance record.
+     */
+    public function officeLocation(): BelongsTo
+    {
+        return $this->belongsTo(MasterOfficeLocation::class, 'office_location_id');
+    }
+
+    /**
+     * Validate and set office location based on GPS coordinates
+     */
+    public function validateAndSetLocation(float $latitude, float $longitude): void
+    {
+        $result = MasterOfficeLocation::getClosestLocation($latitude, $longitude);
+
+        if ($result) {
+            $this->office_location_id = $result['location']->id;
+            $this->check_latitude = $latitude;
+            $this->check_longitude = $longitude;
+            $this->distance_from_office = (int) round($result['distance']);
+            $this->is_within_radius = $result['location']->isWithinRadius($latitude, $longitude);
+        }
     }
 }

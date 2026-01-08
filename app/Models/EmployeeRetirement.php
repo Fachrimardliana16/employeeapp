@@ -12,6 +12,7 @@ class EmployeeRetirement extends Model
 
     protected $fillable = [
         'employee_id',
+        'master_employee_retirement_type_id',
         'retirement_type',
         'retirement_date',
         'last_working_day',
@@ -54,6 +55,11 @@ class EmployeeRetirement extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'users_id');
+    }
+
+    public function retirementType(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeRetirementType::class, 'master_employee_retirement_type_id');
     }
 
     public static function getApprovalStatusOptions(): array

@@ -21,7 +21,7 @@ class MasterEmployeeServiceGradeResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar-square';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?string $navigationLabel = 'Golongan Pegawai';
 
@@ -29,7 +29,7 @@ class MasterEmployeeServiceGradeResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Golongan Pegawai';
 
-    protected static ?int $navigationSort = 801;
+    protected static ?int $navigationSort = 806;
 
     public static function form(Form $form): Form
     {

@@ -25,9 +25,9 @@ class MasterEmployeeEducationResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Tingkat Pendidikan';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?int $navigationSort = 808;
+    protected static ?int $navigationSort = 812;
 
     public static function form(Form $form): Form
     {

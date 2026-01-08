@@ -27,7 +27,7 @@ class EmployeeTrainingResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pelatihan Pegawai';
 
-    protected static ?int $navigationSort = 601;
+    protected static ?int $navigationSort = 602;
 
     public static function form(Form $form): Form
     {
@@ -85,7 +85,7 @@ class EmployeeTrainingResource extends Resource
                             ->helperText('Format: PDF, DOC, DOCX. Maksimal 5MB.')
                             ->maxSize(5120),
                         Forms\Components\Hidden::make('users_id')
-                            ->default(fn () => auth()->id()),
+                            ->default(fn() => auth()->id() ?? 0),
                     ]),
             ]);
     }
@@ -155,16 +155,16 @@ class EmployeeTrainingResource extends Resource
                         return $query
                             ->when(
                                 $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('training_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('training_date', '>=', $date),
                             )
                             ->when(
                                 $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('training_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('training_date', '<=', $date),
                             );
                     }),
                 Tables\Filters\Filter::make('has_docs')
                     ->label('Dengan Dokumen')
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('docs_training'))
+                    ->query(fn(Builder $query): Builder => $query->whereNotNull('docs_training'))
                     ->toggle(),
             ])
             ->actions([

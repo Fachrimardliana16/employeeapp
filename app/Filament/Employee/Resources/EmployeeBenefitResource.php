@@ -27,7 +27,7 @@ class EmployeeBenefitResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Tunjangan Karyawan';
 
-    protected static ?int $navigationSort = 202;
+    protected static ?int $navigationSort = 403;
 
     public static function form(Form $form): Form
     {

@@ -19,7 +19,7 @@ class EmployeeSalaryCutResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-minus-circle';
     protected static ?string $navigationGroup = 'Kompensasi & Tunjangan';
     protected static ?string $navigationLabel = 'Potongan Gaji';
-    protected static ?int $navigationSort = 203;
+    protected static ?int $navigationSort = 404;
 
     public static function form(Form $form): Form
     {

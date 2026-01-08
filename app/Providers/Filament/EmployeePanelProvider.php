@@ -40,8 +40,7 @@ class EmployeePanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Employee/Widgets'), for: 'App\\Filament\\Employee\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                \App\Filament\Employee\Widgets\EmployeeStats::class,
             ])
             ->authMiddleware([
                 Authenticate::class,
@@ -59,14 +58,15 @@ class EmployeePanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->navigationGroups([
+                'Rekrutmen & Seleksi',
                 'Manajemen Pegawai',
-                'Operasional Pegawai',
                 'Kompensasi & Tunjangan',
+                'Operasional Pegawai',
                 'Absensi & Kehadiran',
                 'Kinerja & Pengembangan',
-                'Rekrutmen & Seleksi',
                 'Surat & Tugas Dinas',
-                'Data Induk',
+                'Master Data',
+                'Bantuan',
             ])
             ->sidebarCollapsibleOnDesktop()
             ->spa();

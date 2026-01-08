@@ -25,9 +25,9 @@ class MasterDepartmentResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Bagian';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?int $navigationSort = 805;
+    protected static ?int $navigationSort = 802;
 
     public static function form(Form $form): Form
     {

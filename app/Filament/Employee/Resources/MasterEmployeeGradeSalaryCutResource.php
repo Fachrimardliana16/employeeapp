@@ -22,7 +22,7 @@ class MasterEmployeeGradeSalaryCutResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-minus-circle';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?string $navigationLabel = 'Potongan per Golongan';
 
@@ -30,7 +30,7 @@ class MasterEmployeeGradeSalaryCutResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Potongan per Golongan';
 
-    protected static ?int $navigationSort = 804;
+    protected static ?int $navigationSort = 808;
 
     public static function form(Form $form): Form
     {

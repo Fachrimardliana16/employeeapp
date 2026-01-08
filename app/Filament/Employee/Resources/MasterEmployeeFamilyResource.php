@@ -25,9 +25,9 @@ class MasterEmployeeFamilyResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Hubungan Keluarga';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?int $navigationSort = 814;
+    protected static ?int $navigationSort = 813;
 
     public static function form(Form $form): Form
     {

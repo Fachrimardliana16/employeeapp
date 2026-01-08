@@ -19,7 +19,7 @@ class InterviewProcessResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $navigationGroup = 'Rekrutmen & Seleksi';
     protected static ?string $navigationLabel = 'Proses Interview';
-    protected static ?int $navigationSort = 401;
+    protected static ?int $navigationSort = 102;
 
     public static function form(Form $form): Form
     {

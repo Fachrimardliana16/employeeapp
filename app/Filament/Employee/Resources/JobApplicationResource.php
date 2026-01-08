@@ -39,7 +39,7 @@ class JobApplicationResource extends Resource
 
     protected static ?string $navigationGroup = 'Rekrutmen & Seleksi';
 
-    protected static ?int $navigationSort = 401;
+    protected static ?int $navigationSort = 101;
 
     public static function form(Form $form): Form
     {
@@ -114,16 +114,17 @@ class JobApplicationResource extends Resource
                             ->options(MasterDepartment::pluck('name', 'id'))
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('applied_sub_department_id', null)),
+                            ->afterStateUpdated(fn($state, Forms\Set $set) => $set('applied_sub_department_id', null)),
 
                         Forms\Components\Select::make('applied_sub_department_id')
                             ->label('Sub Departemen')
-                            ->options(fn (Forms\Get $get): array =>
+                            ->options(
+                                fn(Forms\Get $get): array =>
                                 MasterSubDepartment::where('departments_id', $get('applied_department_id'))
                                     ->pluck('name', 'id')
                                     ->toArray()
                             )
-                            ->disabled(fn (Forms\Get $get): bool => !$get('applied_department_id')),
+                            ->disabled(fn(Forms\Get $get): bool => !$get('applied_department_id')),
 
                         Forms\Components\Select::make('applied_position_id')
                             ->label('Posisi')
@@ -284,7 +285,7 @@ class JobApplicationResource extends Resource
                         'danger' => 'rejected',
                         'gray' => 'withdrawn',
                     ])
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'submitted' => 'Baru Dikirim',
                         'reviewed' => 'Sedang Direview',
                         'interview_scheduled' => 'Dijadwalkan Interview',
@@ -353,11 +354,11 @@ class JobApplicationResource extends Resource
                         return $query
                             ->when(
                                 $data['submitted_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('submitted_at', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('submitted_at', '>=', $date),
                             )
                             ->when(
                                 $data['submitted_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('submitted_at', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('submitted_at', '<=', $date),
                             );
                     }),
 
@@ -366,7 +367,8 @@ class JobApplicationResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
-                    ->visible(fn (?JobApplication $record): bool =>
+                    ->visible(
+                        fn(?JobApplication $record): bool =>
                         $record && !in_array($record->status, ['accepted', 'rejected'])
                     ),
 
@@ -374,7 +376,8 @@ class JobApplicationResource extends Resource
                     ->label('Jadwalkan Interview')
                     ->icon('heroicon-o-calendar')
                     ->color('info')
-                    ->visible(fn (?JobApplication $record): bool =>
+                    ->visible(
+                        fn(?JobApplication $record): bool =>
                         $record && in_array($record->status, ['submitted', 'reviewed'])
                     )
                     ->form([
@@ -397,7 +400,7 @@ class JobApplicationResource extends Resource
                                 'datetime' => $data['interview_datetime'],
                                 'location' => $data['interview_location'],
                                 'notes' => $data['interview_notes'],
-                                'scheduled_by' => auth()->id(),
+                                'scheduled_by' => auth()->id() ?? 0,
                                 'scheduled_at' => now(),
                             ],
                         ]);
@@ -412,7 +415,8 @@ class JobApplicationResource extends Resource
                     ->label('Tandai Sudah Interview')
                     ->icon('heroicon-o-check-circle')
                     ->color('primary')
-                    ->visible(fn (?JobApplication $record): bool =>
+                    ->visible(
+                        fn(?JobApplication $record): bool =>
                         $record && $record->status === 'interview_scheduled'
                     )
                     ->form([
@@ -466,7 +470,8 @@ class JobApplicationResource extends Resource
                     ->label('Proses Keputusan')
                     ->icon('heroicon-o-check-circle')
                     ->color('warning')
-                    ->visible(fn (?JobApplication $record): bool =>
+                    ->visible(
+                        fn(?JobApplication $record): bool =>
                         $record && in_array($record->status, ['interviewed'])
                     )
                     ->form([
@@ -520,14 +525,14 @@ class JobApplicationResource extends Resource
                                     ->step(100000)
                                     ->helperText('Gaji akan terisi otomatis saat memilih grade')
                                     ->live()
-                                    ->formatStateUsing(fn ($state) => $state ? number_format($state, 0, ',', '.') : '')
-                                    ->dehydrateStateUsing(fn ($state) => $state ? (int) str_replace(['.', ','], '', $state) : null),
+                                    ->formatStateUsing(fn($state) => $state ? number_format($state, 0, ',', '.') : '')
+                                    ->dehydrateStateUsing(fn($state) => $state ? (int) str_replace(['.', ','], '', $state) : null),
 
                                 Forms\Components\DatePicker::make('proposed_start_date')
                                     ->label('Tanggal Mulai Kerja')
                                     ->required(),
                             ])
-                            ->visible(fn (Forms\Get $get): bool => $get('decision') === 'accepted'),
+                            ->visible(fn(Forms\Get $get): bool => $get('decision') === 'accepted'),
                     ])
                     ->action(function (?JobApplication $record, array $data): void {
                         if (!$record) return;
@@ -588,7 +593,7 @@ class JobApplicationResource extends Resource
                                 Infolists\Components\TextEntry::make('status')
                                     ->label('Status')
                                     ->badge()
-                                    ->color(fn (string $state): string => match($state) {
+                                    ->color(fn(string $state): string => match ($state) {
                                         'submitted' => 'gray',
                                         'reviewed' => 'warning',
                                         'interview_scheduled' => 'info',
@@ -598,7 +603,7 @@ class JobApplicationResource extends Resource
                                         'withdrawn' => 'gray',
                                         default => 'gray',
                                     })
-                                    ->formatStateUsing(fn (string $state): string => match($state) {
+                                    ->formatStateUsing(fn(string $state): string => match ($state) {
                                         'submitted' => 'Baru Dikirim',
                                         'reviewed' => 'Sedang Direview',
                                         'interview_scheduled' => 'Dijadwalkan Interview',
@@ -762,7 +767,7 @@ class JobApplicationResource extends Resource
                             ->label('Catatan HR')
                             ->placeholder('Tidak ada catatan'),
                     ])
-                    ->visible(fn (JobApplication $record): bool => !empty($record->notes)),
+                    ->visible(fn(JobApplication $record): bool => !empty($record->notes)),
             ]);
     }
 

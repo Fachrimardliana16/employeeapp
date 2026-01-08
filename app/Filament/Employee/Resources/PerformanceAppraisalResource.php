@@ -17,9 +17,9 @@ class PerformanceAppraisalResource extends Resource
 {
     protected static ?string $model = PerformanceAppraisal::class;
     protected static ?string $navigationIcon = 'heroicon-o-star';
-    protected static ?string $navigationGroup = 'Penilaian Kinerja';
+    protected static ?string $navigationGroup = 'Kinerja & Pengembangan';
     protected static ?string $navigationLabel = 'Penilaian Kinerja';
-    protected static ?int $navigationSort = 501;
+    protected static ?int $navigationSort = 601;
 
     public static function form(Form $form): Form
     {

@@ -36,7 +36,7 @@ class EmployeeResource extends Resource
 
     protected static ?string $navigationGroup = 'Manajemen Pegawai';
 
-    protected static ?int $navigationSort = 101;
+    protected static ?int $navigationSort = 201;
 
     public static function getModelLabel(): string
     {
@@ -109,15 +109,15 @@ class EmployeeResource extends Resource
         $statusStats = [
             'permanent' => $employees->filter(function ($employee) {
                 return $employee->employmentStatus &&
-                       stripos($employee->employmentStatus->name, 'tetap') !== false;
+                    stripos($employee->employmentStatus->name, 'tetap') !== false;
             })->count(),
             'contract' => $employees->filter(function ($employee) {
                 return $employee->employmentStatus &&
-                       stripos($employee->employmentStatus->name, 'kontrak') !== false;
+                    stripos($employee->employmentStatus->name, 'kontrak') !== false;
             })->count(),
             'probation' => $employees->filter(function ($employee) {
                 return $employee->employmentStatus &&
-                       stripos($employee->employmentStatus->name, 'percobaan') !== false;
+                    stripos($employee->employmentStatus->name, 'percobaan') !== false;
             })->count(),
         ];
 
@@ -149,15 +149,15 @@ class EmployeeResource extends Resource
         $statusStats = [
             'permanent' => $employees->filter(function ($employee) {
                 return $employee->employmentStatus &&
-                       stripos($employee->employmentStatus->name, 'tetap') !== false;
+                    stripos($employee->employmentStatus->name, 'tetap') !== false;
             })->count(),
             'contract' => $employees->filter(function ($employee) {
                 return $employee->employmentStatus &&
-                       stripos($employee->employmentStatus->name, 'kontrak') !== false;
+                    stripos($employee->employmentStatus->name, 'kontrak') !== false;
             })->count(),
             'probation' => $employees->filter(function ($employee) {
                 return $employee->employmentStatus &&
-                       stripos($employee->employmentStatus->name, 'percobaan') !== false;
+                    stripos($employee->employmentStatus->name, 'percobaan') !== false;
             })->count(),
         ];
 
@@ -430,9 +430,9 @@ class EmployeeResource extends Resource
                     ->formatStateUsing(function ($state) {
                         $lines = explode("\n", $state);
                         return '<div class="leading-tight">' .
-                               '<div class="font-semibold text-gray-900 dark:text-gray-100">' . $lines[0] . '</div>' .
-                               '<div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">' . $lines[1] . '</div>' .
-                               '</div>';
+                            '<div class="font-semibold text-gray-900 dark:text-gray-100">' . $lines[0] . '</div>' .
+                            '<div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">' . $lines[1] . '</div>' .
+                            '</div>';
                     })
                     ->searchable(['department.name', 'subDepartment.name'])
                     ->sortable(),
@@ -447,9 +447,9 @@ class EmployeeResource extends Resource
                     ->formatStateUsing(function ($state) {
                         $lines = explode("\n", $state);
                         return '<div class="leading-tight">' .
-                               '<div class="font-semibold text-gray-900 dark:text-gray-100">' . $lines[0] . '</div>' .
-                               '<div class="inline-block px-2 py-1 mt-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">' . $lines[1] . '</div>' .
-                               '</div>';
+                            '<div class="font-semibold text-gray-900 dark:text-gray-100">' . $lines[0] . '</div>' .
+                            '<div class="inline-block px-2 py-1 mt-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">' . $lines[1] . '</div>' .
+                            '</div>';
                     })
                     ->searchable(['position.name', 'employmentStatus.name']),
                 Tables\Columns\TextColumn::make('contact_info')
@@ -463,9 +463,9 @@ class EmployeeResource extends Resource
                     ->formatStateUsing(function ($state) {
                         $lines = explode("\n", $state);
                         return '<div class="leading-tight">' .
-                               '<div class="font-semibold text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
-                               '<div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">' . $lines[1] . '</div>' .
-                               '</div>';
+                            '<div class="font-semibold text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
+                            '<div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">' . $lines[1] . '</div>' .
+                            '</div>';
                     })
                     ->searchable(['email', 'phone_number'])
                     ->toggleable(),
@@ -480,15 +480,15 @@ class EmployeeResource extends Resource
                     ->formatStateUsing(function ($state) {
                         $lines = explode("\n", $state);
                         return '<div class="leading-tight">' .
-                               '<div class="font-semibold text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
-                               '<div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">' . $lines[1] . '</div>' .
-                               '</div>';
+                            '<div class="font-semibold text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
+                            '<div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">' . $lines[1] . '</div>' .
+                            '</div>';
                     })
                     ->searchable(['place_birth', 'date_birth'])
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('formatted_length_service')
                     ->label('Masa Kerja')
-                    ->getStateUsing(fn (Employee $record) => $record->formatted_length_service)
+                    ->getStateUsing(fn(Employee $record) => $record->formatted_length_service)
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         return $query->orderBy('probation_appointment_date', $direction === 'asc' ? 'desc' : 'asc');
                     })
@@ -504,18 +504,19 @@ class EmployeeResource extends Resource
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-              Tables\Columns\TextColumn::make('data_completeness')
+                Tables\Columns\TextColumn::make('data_completeness')
                     ->label('Kelengkapan Data')
                     ->badge()
-                    ->getStateUsing(fn (Employee $record) => $record->getDataCompletenessPercentage() . '%')
-                    ->color(fn (Employee $record): string => match (true) {
+                    ->getStateUsing(fn(Employee $record) => $record->getDataCompletenessPercentage() . '%')
+                    ->color(fn(Employee $record): string => match (true) {
                         $record->getDataCompletenessPercentage() >= 90 => 'success',
                         $record->getDataCompletenessPercentage() >= 70 => 'warning',
                         default => 'danger',
                     })
-                    ->tooltip(fn (Employee $record) => $record->hasIncompleteData()
-                        ? 'Data yang belum lengkap: ' . implode(', ', $record->getMissingDataFields())
-                        : 'Data sudah lengkap'
+                    ->tooltip(
+                        fn(Employee $record) => $record->hasIncompleteData()
+                            ? 'Data yang belum lengkap: ' . implode(', ', $record->getMissingDataFields())
+                            : 'Data sudah lengkap'
                     ),
             ])
             ->headerActions([
@@ -581,31 +582,31 @@ class EmployeeResource extends Resource
                     ->label('Status Kepegawaian'),
                 Tables\Filters\Filter::make('incomplete_data')
                     ->label('Data Tidak Lengkap')
-                    ->query(fn (Builder $query) => $query->where(function ($q) {
+                    ->query(fn(Builder $query) => $query->where(function ($q) {
                         $q->whereNull('id_number')
-                          ->orWhereNull('familycard_number')
-                          ->orWhereNull('bank_account_number')
-                          ->orWhereNull('bpjs_kes_number')
-                          ->orWhereNull('bpjs_tk_number')
-                          ->orWhereNull('rek_dplk_pribadi')
-                          ->orWhereNull('rek_dplk_bersama')
-                          ->orWhereNull('employee_education_id')
-                          ->orWhereNull('probation_appointment_date');
-                          // retirement, username, length_service dihilangkan karena otomatis
+                            ->orWhereNull('familycard_number')
+                            ->orWhereNull('bank_account_number')
+                            ->orWhereNull('bpjs_kes_number')
+                            ->orWhereNull('bpjs_tk_number')
+                            ->orWhereNull('rek_dplk_pribadi')
+                            ->orWhereNull('rek_dplk_bersama')
+                            ->orWhereNull('employee_education_id')
+                            ->orWhereNull('probation_appointment_date');
+                        // retirement, username, length_service dihilangkan karena otomatis
                     })),
                 Tables\Filters\Filter::make('complete_data')
                     ->label('Data Lengkap')
-                    ->query(fn (Builder $query) => $query->where(function ($q) {
+                    ->query(fn(Builder $query) => $query->where(function ($q) {
                         $q->whereNotNull('id_number')
-                          ->whereNotNull('familycard_number')
-                          ->whereNotNull('bank_account_number')
-                          ->whereNotNull('bpjs_kes_number')
-                          ->whereNotNull('bpjs_tk_number')
-                          ->whereNotNull('rek_dplk_pribadi')
-                          ->whereNotNull('rek_dplk_bersama')
-                          ->whereNotNull('employee_education_id')
-                          ->whereNotNull('probation_appointment_date');
-                          // retirement, username, length_service dihilangkan karena otomatis
+                            ->whereNotNull('familycard_number')
+                            ->whereNotNull('bank_account_number')
+                            ->whereNotNull('bpjs_kes_number')
+                            ->whereNotNull('bpjs_tk_number')
+                            ->whereNotNull('rek_dplk_pribadi')
+                            ->whereNotNull('rek_dplk_bersama')
+                            ->whereNotNull('employee_education_id')
+                            ->whereNotNull('probation_appointment_date');
+                        // retirement, username, length_service dihilangkan karena otomatis
                     })),
             ])
             ->actions([
@@ -617,18 +618,18 @@ class EmployeeResource extends Resource
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
                 ])
-                ->label('Aksi')
-                ->icon('heroicon-m-ellipsis-vertical')
-                ->size('sm')
-                ->color('gray')
-                ->button(),
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
                 Tables\Actions\Action::make('update_incomplete_data')
                     ->label('Lengkapi Data')
                     ->icon('heroicon-o-exclamation-triangle')
                     ->color('warning')
                     ->size('sm')
-                    ->visible(fn (Employee $record) => $record->hasIncompleteData())
-                    ->modalHeading(fn (Employee $record) => 'Lengkapi Data - ' . $record->name)
+                    ->visible(fn(Employee $record) => $record->hasIncompleteData())
+                    ->modalHeading(fn(Employee $record) => 'Lengkapi Data - ' . $record->name)
                     ->modalSubheading('Silakan lengkapi data yang masih kosong')
                     ->modalWidth('6xl')
                     ->form([
@@ -684,7 +685,7 @@ class EmployeeResource extends Resource
                                             ->maxLength(15),
                                         Forms\Components\TextInput::make('rek_dplk_pribadi')
                                             ->label('DPLK Pribadi')
-                                             ->numeric()
+                                            ->numeric()
                                             ->rules(['regex:/^[0-9\-]+$/'])
                                             ->placeholder('1234567890')
                                             ->helperText('Hanya boleh angka')
@@ -718,7 +719,7 @@ class EmployeeResource extends Resource
                     ])
                     ->action(function (Employee $record, array $data): void {
                         // Filter data yang tidak kosong
-                        $filteredData = array_filter($data, function($value) {
+                        $filteredData = array_filter($data, function ($value) {
                             return $value !== null && $value !== '';
                         });
 

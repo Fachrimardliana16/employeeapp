@@ -28,7 +28,7 @@ class EmployeeSalaryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Gaji & Payroll';
 
-    protected static ?int $navigationSort = 201;
+    protected static ?int $navigationSort = 401;
     public static function form(Form $form): Form
     {
         return $form

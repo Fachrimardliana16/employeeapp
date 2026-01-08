@@ -81,7 +81,7 @@ class EmployeeMutationResource extends Resource
             })->count(),
             'both_change' => $mutations->filter(function ($mutation) {
                 return $mutation->old_department_id !== $mutation->new_department_id &&
-                       $mutation->old_position_id !== $mutation->new_position_id;
+                    $mutation->old_position_id !== $mutation->new_position_id;
             })->count(),
         ];
 
@@ -158,7 +158,7 @@ class EmployeeMutationResource extends Resource
                                                     }
                                                 }
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' - ' . ($record->nippam ?? 'No NIPPAM'))
+                                            ->getOptionLabelFromRecordUsing(fn($record) => $record->name . ' - ' . ($record->nippam ?? 'No NIPPAM'))
                                             ->helperText('Pilih Pegawai yang akan dimutasi'),
                                     ]),
                             ]),
@@ -196,7 +196,7 @@ class EmployeeMutationResource extends Resource
                                                             ->pluck('name', 'id')
                                                             ->toArray();
                                                     })
-                                                    ->disabled(fn (callable $get) => !$get('old_department_id'))
+                                                    ->disabled(fn(callable $get) => !$get('old_department_id'))
                                                     ->helperText('Sub departemen sebelum mutasi (opsional)'),
                                             ]),
                                         Forms\Components\Select::make('old_position_id')
@@ -242,7 +242,7 @@ class EmployeeMutationResource extends Resource
                                                             ->pluck('name', 'id')
                                                             ->toArray();
                                                     })
-                                                    ->disabled(fn (callable $get) => !$get('new_department_id'))
+                                                    ->disabled(fn(callable $get) => !$get('new_department_id'))
                                                     ->helperText('Sub departemen tujuan mutasi (opsional)'),
                                             ]),
                                         Forms\Components\Select::make('new_position_id')
@@ -272,7 +272,7 @@ class EmployeeMutationResource extends Resource
                                             ->visibility('public')
                                             ->helperText('Upload dokumen pendukung mutasi (PDF, JPG, PNG) maksimal 10MB'),
                                         Forms\Components\Hidden::make('users_id')
-                                            ->default(fn () => auth()->id()),
+                                            ->default(fn() => auth()->id() ?? 0),
                                     ]),
                             ]),
                     ])
@@ -301,7 +301,7 @@ class EmployeeMutationResource extends Resource
                     ->label('Nama Pegawai')
                     ->searchable()
                     ->sortable()
-                    ->formatStateUsing(fn ($record) => $record->employee?->name . ' (' . ($record->employee?->nippam ?? 'No NIPPAM') . ')')
+                    ->formatStateUsing(fn($record) => $record->employee?->name . ' (' . ($record->employee?->nippam ?? 'No NIPPAM') . ')')
                     ->html()
                     ->wrap(),
 
@@ -324,9 +324,9 @@ class EmployeeMutationResource extends Resource
                     ->formatStateUsing(function ($state) {
                         $lines = explode("\n", $state);
                         return '<div class="leading-tight">' .
-                               '<div class="font-medium text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
-                               '<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">' . ($lines[1] ?? '') . '</div>' .
-                               '</div>';
+                            '<div class="font-medium text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
+                            '<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">' . ($lines[1] ?? '') . '</div>' .
+                            '</div>';
                     })
                     ->wrap(),
 
@@ -349,21 +349,21 @@ class EmployeeMutationResource extends Resource
                     ->formatStateUsing(function ($state) {
                         $lines = explode("\n", $state);
                         return '<div class="leading-tight">' .
-                               '<div class="font-medium text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
-                               '<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">' . ($lines[1] ?? '') . '</div>' .
-                               '</div>';
+                            '<div class="font-medium text-gray-900 dark:text-gray-100 text-sm">' . $lines[0] . '</div>' .
+                            '<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">' . ($lines[1] ?? '') . '</div>' .
+                            '</div>';
                     })
                     ->wrap(),
 
                 Tables\Columns\TextColumn::make('docs')
                     ->label('Dokumen')
-                    ->formatStateUsing(fn ($record) => $record->docs ? 'Ada Dokumen' : 'Tidak Ada')
+                    ->formatStateUsing(fn($record) => $record->docs ? 'Ada Dokumen' : 'Tidak Ada')
                     ->badge()
-                    ->color(fn ($record) => $record->docs ? 'success' : 'gray')
-                    ->icon(fn ($record) => $record->docs ? 'heroicon-m-document-check' : 'heroicon-m-document-minus')
-                    ->url(fn ($record) => $record->docs ? asset('storage/' . $record->docs) : null)
+                    ->color(fn($record) => $record->docs ? 'success' : 'gray')
+                    ->icon(fn($record) => $record->docs ? 'heroicon-m-document-check' : 'heroicon-m-document-minus')
+                    ->url(fn($record) => $record->docs ? asset('storage/' . $record->docs) : null)
                     ->openUrlInNewTab()
-                    ->tooltip(fn ($record) => $record->docs ? 'Klik untuk lihat dokumen' : 'Belum ada dokumen'),
+                    ->tooltip(fn($record) => $record->docs ? 'Klik untuk lihat dokumen' : 'Belum ada dokumen'),
 
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Dibuat Oleh')
@@ -415,21 +415,21 @@ class EmployeeMutationResource extends Resource
                         return $query
                             ->when(
                                 $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('mutation_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('mutation_date', '>=', $date),
                             )
                             ->when(
                                 $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('mutation_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('mutation_date', '<=', $date),
                             );
                     }),
 
                 Tables\Filters\Filter::make('has_documents')
                     ->label('Memiliki Dokumen')
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('docs')),
+                    ->query(fn(Builder $query): Builder => $query->whereNotNull('docs')),
 
                 Tables\Filters\Filter::make('no_documents')
                     ->label('Tanpa Dokumen')
-                    ->query(fn (Builder $query): Builder => $query->whereNull('docs')),
+                    ->query(fn(Builder $query): Builder => $query->whereNull('docs')),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -440,11 +440,11 @@ class EmployeeMutationResource extends Resource
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
                 ])
-                ->label('Aksi')
-                ->icon('heroicon-m-ellipsis-vertical')
-                ->size('sm')
-                ->color('gray')
-                ->button(),
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
 
                 Tables\Actions\Action::make('apply_mutation')
                     ->label('Terapkan Mutasi')
@@ -469,7 +469,7 @@ class EmployeeMutationResource extends Resource
                                 ->send();
                         }
                     })
-                    ->visible(fn (EmployeeMutation $record) => $record->employee !== null),
+                    ->visible(fn(EmployeeMutation $record) => $record->employee !== null),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('generate_report')

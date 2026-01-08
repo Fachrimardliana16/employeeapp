@@ -25,7 +25,7 @@ class MasterEmployeeBenefitResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Jenis Tunjangan';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?int $navigationSort = 810;
 

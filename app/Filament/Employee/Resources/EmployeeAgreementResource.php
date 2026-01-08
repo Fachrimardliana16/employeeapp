@@ -5,6 +5,7 @@ namespace App\Filament\Employee\Resources;
 use App\Filament\Employee\Resources\EmployeeAgreementResource\Pages;
 use App\Filament\Employee\Resources\EmployeeAgreementResource\RelationManagers;
 use App\Models\EmployeeAgreement;
+use App\Models\Employee;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,6 +14,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Filament\Notifications\Notification;
 
 class EmployeeAgreementResource extends Resource
 {
@@ -65,13 +68,13 @@ class EmployeeAgreementResource extends Resource
         $contractStats = [
             'PKWT' => $agreements->filter(function ($agreement) {
                 return $agreement->masterAgreement &&
-                       (stripos($agreement->masterAgreement->name, 'PKWT') !== false ||
+                    (stripos($agreement->masterAgreement->name, 'PKWT') !== false ||
                         stripos($agreement->masterAgreement->name, 'Kontrak') !== false ||
                         stripos($agreement->masterAgreement->name, 'Waktu Tertentu') !== false);
             })->count(),
             'PKWTT' => $agreements->filter(function ($agreement) {
                 return $agreement->masterAgreement &&
-                       (stripos($agreement->masterAgreement->name, 'PKWTT') !== false ||
+                    (stripos($agreement->masterAgreement->name, 'PKWTT') !== false ||
                         stripos($agreement->masterAgreement->name, 'Tetap') !== false ||
                         stripos($agreement->masterAgreement->name, 'Waktu Tidak Tertentu') !== false);
             })->count(),
@@ -91,7 +94,8 @@ class EmployeeAgreementResource extends Resource
             'position_stats' => $positionStats,
             'total_agreements' => $agreements->count(),
         ];
-    }    public static function form(Form $form): Form
+    }
+    public static function form(Form $form): Form
     {
         return $form
             ->schema([
@@ -189,7 +193,7 @@ class EmployeeAgreementResource extends Resource
                                     ->required()
                                     ->searchable()
                                     ->preload()
-                                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' - Rp ' . number_format($record->basic_salary, 0, ',', '.'))
+                                    ->getOptionLabelFromRecordUsing(fn($record) => $record->name . ' - Rp ' . number_format($record->basic_salary, 0, ',', '.'))
                                     ->helperText('Gaji pokok akan otomatis sesuai dengan grade yang dipilih'),
                                 Forms\Components\Select::make('employee_education_id')
                                     ->label('Tingkat Pendidikan')
@@ -247,7 +251,7 @@ class EmployeeAgreementResource extends Resource
                                                     ->pluck('name', 'id')
                                                     ->toArray();
                                             })
-                                            ->disabled(fn (callable $get) => !$get('departments_id'))
+                                            ->disabled(fn(callable $get) => !$get('departments_id'))
                                             ->helperText('Pilih departemen terlebih dahulu'),
                                     ]),
                             ]),
@@ -266,7 +270,7 @@ class EmployeeAgreementResource extends Resource
                                     ->visibility('public')
                                     ->helperText('Upload file PDF maksimal 10MB'),
                                 Forms\Components\Hidden::make('users_id')
-                                    ->default(fn () => auth()->id()),
+                                    ->default(fn() => auth()->id() ?? 0),
                             ]),
                     ])
                     ->columnSpanFull(),
@@ -316,7 +320,7 @@ class EmployeeAgreementResource extends Resource
                 Tables\Columns\TextColumn::make('basic_salary')
                     ->label('Gaji Pokok')
                     ->money('IDR')
-                    ->getStateUsing(fn ($record) => $record->basic_salary),
+                    ->getStateUsing(fn($record) => $record->basic_salary),
                 Tables\Columns\TextColumn::make('agreement_date_start')
                     ->label('Tanggal Mulai')
                     ->date('d/m/Y')
@@ -327,7 +331,7 @@ class EmployeeAgreementResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('contract_duration')
                     ->label('Durasi Kontrak')
-                    ->getStateUsing(fn ($record) => $record->contract_duration . ' tahun')
+                    ->getStateUsing(fn($record) => $record->contract_duration . ' tahun')
                     ->badge()
                     ->color('info'),
                 Tables\Columns\IconColumn::make('is_active')
@@ -339,9 +343,9 @@ class EmployeeAgreementResource extends Resource
                     ->falseColor('danger'),
                 Tables\Columns\TextColumn::make('days_remaining')
                     ->label('Sisa Hari')
-                    ->getStateUsing(fn ($record) => $record->days_remaining > 0 ? $record->days_remaining . ' hari' : 'Berakhir')
+                    ->getStateUsing(fn($record) => $record->days_remaining > 0 ? $record->days_remaining . ' hari' : 'Berakhir')
                     ->badge()
-                    ->color(fn ($record) => $record->days_remaining > 30 ? 'success' : ($record->days_remaining > 0 ? 'warning' : 'danger')),
+                    ->color(fn($record) => $record->days_remaining > 30 ? 'success' : ($record->days_remaining > 0 ? 'warning' : 'danger')),
                 Tables\Columns\TextColumn::make('department.name')
                     ->label('Departemen')
                     ->sortable(),
@@ -350,10 +354,10 @@ class EmployeeAgreementResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('docs')
                     ->label('Dokumen')
-                    ->formatStateUsing(fn ($record) => $record->has_document ? 'Ada Dokumen' : 'Tidak Ada')
+                    ->formatStateUsing(fn($record) => $record->has_document ? 'Ada Dokumen' : 'Tidak Ada')
                     ->badge()
-                    ->color(fn ($record) => $record->has_document ? 'success' : 'gray')
-                    ->url(fn ($record) => $record->docs_url)
+                    ->color(fn($record) => $record->has_document ? 'success' : 'gray')
+                    ->url(fn($record) => $record->docs_url)
                     ->openUrlInNewTab(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
@@ -392,6 +396,114 @@ class EmployeeAgreementResource extends Resource
                     ->label('Lihat'),
                 Tables\Actions\EditAction::make()
                     ->label('Edit'),
+                Tables\Actions\Action::make('renew_contract')
+                    ->label('Perpanjang Kontrak')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(
+                        fn(EmployeeAgreement $record): bool =>
+                        $record->agreement_date_end &&
+                            Carbon::parse($record->agreement_date_end)->diffInDays(Carbon::now(), false) <= 90 &&
+                            $record->is_active
+                    )
+                    ->form([
+                        Forms\Components\Placeholder::make('current_contract_info')
+                            ->label('Kontrak Saat Ini')
+                            ->content(
+                                fn(EmployeeAgreement $record): string =>
+                                "Kontrak: {$record->agreement_number}\n" .
+                                    "Periode: " . Carbon::parse($record->agreement_date_start)->format('d/m/Y') .
+                                    " - " . Carbon::parse($record->agreement_date_end)->format('d/m/Y') . "\n" .
+                                    "Durasi: {$record->contract_duration} tahun"
+                            ),
+
+                        Forms\Components\DatePicker::make('new_start_date')
+                            ->label('Tanggal Mulai Kontrak Baru')
+                            ->required()
+                            ->default(
+                                fn(EmployeeAgreement $record) =>
+                                Carbon::parse($record->agreement_date_end)->addDay()
+                            )
+                            ->minDate(
+                                fn(EmployeeAgreement $record) =>
+                                Carbon::parse($record->agreement_date_end)->addDay()
+                            )
+                            ->helperText('Biasanya dimulai sehari setelah kontrak lama berakhir'),
+
+                        Forms\Components\TextInput::make('new_duration')
+                            ->label('Durasi Kontrak Baru (tahun)')
+                            ->numeric()
+                            ->required()
+                            ->default(2)
+                            ->minValue(1)
+                            ->maxValue(2)
+                            ->helperText('Maksimal 2 tahun sesuai peraturan PKWT'),
+
+                        Forms\Components\Textarea::make('renewal_notes')
+                            ->label('Catatan Perpanjangan')
+                            ->rows(3),
+                    ])
+                    ->action(function (EmployeeAgreement $record, array $data): void {
+                        // Validasi PKWT maksimal 2 tahun
+                        if ($data['new_duration'] > 2) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Validasi Gagal')
+                                ->body('Durasi kontrak PKWT maksimal 2 tahun sesuai peraturan ketenagakerjaan.')
+                                ->persistent()
+                                ->send();
+                            return;
+                        }
+
+                        $startDate = Carbon::parse($data['new_start_date']);
+                        $endDate = $startDate->copy()->addYears($data['new_duration'])->subDay();
+
+                        // Buat kontrak baru
+                        $newContract = EmployeeAgreement::create([
+                            'employees_id' => $record->employees_id,
+                            'agreement_number' => 'KTR-' . strtoupper(uniqid()),
+                            'name' => $record->name,
+                            'agreement_id' => $record->agreement_id,
+                            'place_birth' => $record->place_birth,
+                            'date_birth' => $record->date_birth,
+                            'marital_status' => $record->marital_status,
+                            'gender' => $record->gender,
+                            'address' => $record->address,
+                            'phone_number' => $record->phone_number,
+                            'email' => $record->email,
+                            'employee_position_id' => $record->employee_position_id,
+                            'employment_status_id' => $record->employment_status_id,
+                            'basic_salary_id' => $record->basic_salary_id,
+                            'employee_education_id' => $record->employee_education_id,
+                            'departments_id' => $record->departments_id,
+                            'sub_departments_id' => $record->sub_departments_id,
+                            'agreement_date_start' => $startDate,
+                            'agreement_date_end' => $endDate,
+                            'contract_duration' => $data['new_duration'],
+                            'is_active' => true,
+                            'users_id' => auth()->id() ?? 0,
+                        ]);
+
+                        // Update kontrak lama menjadi tidak aktif
+                        $record->update(['is_active' => false]);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Kontrak berhasil diperpanjang')
+                            ->body("Kontrak baru: {$newContract->agreement_number}")
+                            ->actions([
+                                \Filament\Notifications\Actions\Action::make('view')
+                                    ->label('Lihat Kontrak Baru')
+                                    ->url(route('filament.employee.resources.employee-agreements.view', ['record' => $newContract->id]))
+                                    ->button(),
+                            ])
+                            ->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Perpanjang Kontrak Kerja')
+                    ->modalDescription('Kontrak baru akan dibuat dan kontrak lama akan dinonaktifkan.')
+                    ->modalSubmitActionLabel('Perpanjang Kontrak'),
+
                 Tables\Actions\DeleteAction::make()
                     ->label('Hapus'),
             ])

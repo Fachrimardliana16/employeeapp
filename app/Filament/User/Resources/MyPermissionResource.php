@@ -65,6 +65,7 @@ class MyPermissionResource extends Resource
                             ->relationship('permission', 'name')
                             ->required()
                             ->searchable()
+                            ->columnSpanFull()
                             ->preload(),
 
                         Forms\Components\DatePicker::make('start_permission_date')

@@ -29,7 +29,7 @@ class JobApplicationArchiveResource extends Resource
 
     protected static ?string $navigationGroup = 'Rekrutmen & Seleksi';
 
-    protected static ?int $navigationSort = 402;
+    protected static ?int $navigationSort = 103;
 
     public static function form(Form $form): Form
     {
@@ -96,7 +96,7 @@ class JobApplicationArchiveResource extends Resource
                             ->label('Tanggal Mulai Kerja')
                             ->disabled(),
                     ])
-                    ->visible(fn ($record) => $record?->decision === 'accepted'),
+                    ->visible(fn($record) => $record?->decision === 'accepted'),
             ]);
     }
 
@@ -124,7 +124,7 @@ class JobApplicationArchiveResource extends Resource
                         'success' => 'accepted',
                         'danger' => 'rejected',
                     ])
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'accepted' => 'Diterima',
                         'rejected' => 'Ditolak',
                         default => $state,
@@ -147,7 +147,7 @@ class JobApplicationArchiveResource extends Resource
                 Tables\Columns\IconColumn::make('has_employee_agreement')
                     ->label('Kontrak Dibuat')
                     ->boolean()
-                    ->getStateUsing(fn ($record) => $record->employeeAgreement()->exists()),
+                    ->getStateUsing(fn($record) => $record->employeeAgreement()->exists()),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('decision')
@@ -168,11 +168,11 @@ class JobApplicationArchiveResource extends Resource
                         return $query
                             ->when(
                                 $data['decision_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('decision_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('decision_date', '>=', $date),
                             )
                             ->when(
                                 $data['decision_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('decision_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('decision_date', '<=', $date),
                             );
                     }),
 
@@ -185,8 +185,8 @@ class JobApplicationArchiveResource extends Resource
                     ->label('Lihat Kontrak')
                     ->icon('heroicon-o-document')
                     ->color('info')
-                    ->visible(fn ($record) => $record->decision === 'accepted' && $record->employeeAgreement()->exists())
-                    ->url(fn ($record) => route('filament.employee.resources.employee-agreements.view', [
+                    ->visible(fn($record) => $record->decision === 'accepted' && $record->employeeAgreement()->exists())
+                    ->url(fn($record) => route('filament.employee.resources.employee-agreements.view', [
                         'record' => $record->employeeAgreement->id
                     ])),
             ])
@@ -213,12 +213,12 @@ class JobApplicationArchiveResource extends Resource
                                 Infolists\Components\TextEntry::make('decision')
                                     ->label('Keputusan')
                                     ->badge()
-                                    ->color(fn (string $state): string => match($state) {
+                                    ->color(fn(string $state): string => match ($state) {
                                         'accepted' => 'success',
                                         'rejected' => 'danger',
                                         default => 'gray',
                                     })
-                                    ->formatStateUsing(fn (string $state): string => match($state) {
+                                    ->formatStateUsing(fn(string $state): string => match ($state) {
                                         'accepted' => 'Diterima',
                                         'rejected' => 'Ditolak',
                                         default => $state,
@@ -289,7 +289,7 @@ class JobApplicationArchiveResource extends Resource
                             ->date('d/m/Y')
                             ->placeholder('Tidak disebutkan'),
                     ])
-                    ->visible(fn ($record) => $record->decision === 'accepted'),
+                    ->visible(fn($record) => $record->decision === 'accepted'),
 
                 Infolists\Components\Section::make('Status Kontrak')
                     ->schema([
@@ -302,7 +302,7 @@ class JobApplicationArchiveResource extends Resource
                             ->date('d/m/Y')
                             ->placeholder('Kontrak belum dibuat'),
                     ])
-                    ->visible(fn ($record) => $record->decision === 'accepted'),
+                    ->visible(fn($record) => $record->decision === 'accepted'),
             ]);
     }
 

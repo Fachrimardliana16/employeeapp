@@ -25,9 +25,9 @@ class MasterEmployeePositionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Jabatan';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?int $navigationSort = 807;
+    protected static ?int $navigationSort = 804;
 
     public static function form(Form $form): Form
     {

@@ -25,9 +25,9 @@ class MasterEmployeePermissionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Jenis Izin';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?int $navigationSort = 812;
+    protected static ?int $navigationSort = 814;
 
     public static function form(Form $form): Form
     {

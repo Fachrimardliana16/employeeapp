@@ -23,7 +23,7 @@ class MasterStandarHargaSatuanResource extends Resource
 
     protected static ?string $navigationLabel = 'Standar Harga Satuan (SHS)';
 
-    protected static ?int $navigationSort = 601;
+    protected static ?int $navigationSort = 801;
 
     public static function form(Form $form): Form
     {

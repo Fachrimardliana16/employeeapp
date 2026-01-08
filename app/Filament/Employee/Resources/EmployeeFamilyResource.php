@@ -21,13 +21,13 @@ class EmployeeFamilyResource extends Resource
 
     protected static ?string $navigationGroup = 'Manajemen Pegawai';
 
+    protected static ?int $navigationSort = 202;
+
     protected static ?string $navigationLabel = 'Data Keluarga';
 
     protected static ?string $modelLabel = 'Data Keluarga';
 
     protected static ?string $pluralModelLabel = 'Data Keluarga';
-
-    protected static ?int $navigationSort = 102;
 
     public static function form(Form $form): Form
     {
@@ -90,7 +90,7 @@ class EmployeeFamilyResource extends Resource
                             ->helperText('Centang jika anggota keluarga ini adalah kontak darurat')
                             ->default(false),
                         Forms\Components\Hidden::make('users_id')
-                            ->default(fn () => auth()->id()),
+                            ->default(fn() => auth()->id() ?? 0),
                     ]),
             ]);
     }
@@ -113,11 +113,11 @@ class EmployeeFamilyResource extends Resource
                 Tables\Columns\TextColumn::make('family_gender')
                     ->label('Jenis Kelamin')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'male' => 'info',
                         'female' => 'success',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'male' => 'Laki-laki',
                         'female' => 'Perempuan',
                         default => $state,

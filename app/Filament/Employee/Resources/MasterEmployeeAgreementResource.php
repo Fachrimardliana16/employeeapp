@@ -25,7 +25,7 @@ class MasterEmployeeAgreementResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Jenis Kontrak';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?int $navigationSort = 816;
 

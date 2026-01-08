@@ -57,16 +57,12 @@ class EmployeeRetirementResource extends Resource
                 ->description('Isi informasi pengunduran diri/pensiun Anda')
                 ->icon('heroicon-o-arrow-right-on-rectangle')
                 ->schema([
-                    Forms\Components\Select::make('retirement_type')
+                    Forms\Components\Select::make('master_employee_retirement_type_id')
                         ->label('Jenis Pengunduran Diri')
-                        ->options([
-                            'resign' => 'Resign (Mengundurkan Diri)',
-                            'pension' => 'Pensiun',
-                            'contract_end' => 'Akhir Kontrak',
-                            'termination' => 'Pemutusan Hubungan Kerja',
-                        ])
+                        ->relationship('retirementType', 'name', fn($query) => $query->where('is_active', true))
                         ->required()
-                        ->native(false)
+                        ->searchable()
+                        ->preload()
                         ->live(),
 
                     Forms\Components\DatePicker::make('retirement_date')
@@ -98,7 +94,8 @@ class EmployeeRetirementResource extends Resource
                         ->required()
                         ->helperText('Upload surat pengunduran diri resmi (PDF, max 5MB)')
                         ->columnSpanFull(),
-                ])->columns(2),
+                ])
+                ->columns(3),
 
             Forms\Components\Section::make('Serah Terima & Clearance')
                 ->description('Informasi serah terima pekerjaan dan aset perusahaan')

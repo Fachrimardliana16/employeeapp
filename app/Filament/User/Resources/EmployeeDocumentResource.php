@@ -32,25 +32,13 @@ class EmployeeDocumentResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Informasi Dokumen')
                     ->schema([
-                        Forms\Components\Select::make('document_type')
+                        Forms\Components\Select::make('master_employee_archive_type_id')
                             ->label('Jenis Dokumen')
-                            ->options([
-                                'KTP' => 'KTP',
-                                'KK' => 'Kartu Keluarga',
-                                'NPWP' => 'NPWP',
-                                'BPJS Kesehatan' => 'BPJS Kesehatan',
-                                'BPJS Ketenagakerjaan' => 'BPJS Ketenagakerjaan',
-                                'Ijazah' => 'Ijazah',
-                                'Transkrip Nilai' => 'Transkrip Nilai',
-                                'Sertifikat' => 'Sertifikat',
-                                'SIM' => 'SIM',
-                                'Akta Kelahiran' => 'Akta Kelahiran',
-                                'Surat Keterangan Sehat' => 'Surat Keterangan Sehat',
-                                'SKCK' => 'SKCK',
-                                'Lainnya' => 'Lainnya',
-                            ])
+                            ->relationship('archiveType', 'name', fn($query) => $query->where('is_active', true))
                             ->required()
-                            ->searchable(),
+                            ->searchable()
+                            ->preload()
+                            ->columnSpanFull(),
                         Forms\Components\TextInput::make('document_name')
                             ->label('Nama Dokumen')
                             ->placeholder('Contoh: KTP - John Doe')

@@ -25,9 +25,9 @@ class MasterEmployeeSalaryCutResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Potongan Gaji';
 
-    protected static ?string $navigationGroup = 'Data Induk';
+    protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?int $navigationSort = 811;
+    protected static ?int $navigationSort = 809;
 
     public static function form(Form $form): Form
     {

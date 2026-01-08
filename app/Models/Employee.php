@@ -181,6 +181,11 @@ class Employee extends Model
         return $this->hasMany(EmployeeFamily::class);
     }
 
+    public function employeeAgreements(): HasMany
+    {
+        return $this->hasMany(EmployeeAgreement::class);
+    }
+
     // Helper Methods
     public function getLatestPromotionAttribute()
     {
@@ -197,7 +202,7 @@ class Employee extends Model
         $usedLeave = $this->permissions()
             ->whereHas('masterPermission', function ($query) {
                 $query->where('permission_type_name', 'LIKE', '%cuti%')
-                      ->orWhere('permission_type_name', 'LIKE', '%leave%');
+                    ->orWhere('permission_type_name', 'LIKE', '%leave%');
             })
             ->where('permission_status', 'approved')
             ->whereYear('permission_start_date', now()->year)
@@ -303,8 +308,15 @@ class Employee extends Model
     public function getDataCompletenessPercentage(): int
     {
         $importantFields = [
-            'id_number', 'familycard_number', 'bank_account_number', 'bpjs_kes_number', 'bpjs_tk_number',
-            'rek_dplk_pribadi', 'rek_dplk_bersama', 'employee_education_id', 'probation_appointment_date'
+            'id_number',
+            'familycard_number',
+            'bank_account_number',
+            'bpjs_kes_number',
+            'bpjs_tk_number',
+            'rek_dplk_pribadi',
+            'rek_dplk_bersama',
+            'employee_education_id',
+            'probation_appointment_date'
             // retirement, username, length_service dihilangkan karena otomatis
         ];
 
@@ -327,17 +339,17 @@ class Employee extends Model
             ->whereHas('position', function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'LIKE', '%Direktur%')
-                      ->orWhere('name', 'LIKE', '%direktur%')
-                      ->orWhere('name', 'LIKE', '%Kepala Bagian%')
-                      ->orWhere('name', 'LIKE', '%kepala bagian%')
-                      ->orWhere('name', 'LIKE', '%Kepala Divisi%')
-                      ->orWhere('name', 'LIKE', '%kepala divisi%')
-                      ->orWhere('name', 'LIKE', '%Manager%')
-                      ->orWhere('name', 'LIKE', '%manager%')
-                      ->orWhere('name', 'LIKE', '%Kepala Seksi%')
-                      ->orWhere('name', 'LIKE', '%kepala seksi%')
-                      ->orWhere('name', 'LIKE', '%Ketua%')
-                      ->orWhere('name', 'LIKE', '%ketua%');
+                        ->orWhere('name', 'LIKE', '%direktur%')
+                        ->orWhere('name', 'LIKE', '%Kepala Bagian%')
+                        ->orWhere('name', 'LIKE', '%kepala bagian%')
+                        ->orWhere('name', 'LIKE', '%Kepala Divisi%')
+                        ->orWhere('name', 'LIKE', '%kepala divisi%')
+                        ->orWhere('name', 'LIKE', '%Manager%')
+                        ->orWhere('name', 'LIKE', '%manager%')
+                        ->orWhere('name', 'LIKE', '%Kepala Seksi%')
+                        ->orWhere('name', 'LIKE', '%kepala seksi%')
+                        ->orWhere('name', 'LIKE', '%Ketua%')
+                        ->orWhere('name', 'LIKE', '%ketua%');
                 });
             })
             ->orderBy('name')

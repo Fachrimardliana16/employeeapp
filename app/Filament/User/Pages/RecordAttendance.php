@@ -49,8 +49,10 @@ class RecordAttendance extends Page
                         Forms\Components\Select::make('state')
                             ->label('Status Kehadiran')
                             ->options([
-                                'in' => 'Check In',
-                                'out' => 'Check Out',
+                                'in'            => 'Check In ',
+                                'out'           => 'Check Out',
+                                'ot_in'         => 'Overtime In',
+                                'ot_out'    => 'Overtime Out',
                             ])
                             ->required()
                             ->native(false),

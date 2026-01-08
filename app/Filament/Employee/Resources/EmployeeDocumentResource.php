@@ -17,9 +17,9 @@ class EmployeeDocumentResource extends Resource
 {
     protected static ?string $model = EmployeeDocument::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationGroup = 'Dokumen & Arsip';
-    protected static ?string $navigationLabel = 'Dokumen Karyawan';
-    protected static ?int $navigationSort = 301;
+    protected static ?string $navigationGroup = 'Manajemen Pegawai';
+    protected static ?string $navigationLabel = 'Dokumen Pegawai';
+    protected static ?int $navigationSort = 203;
 
     public static function form(Form $form): Form
     {
