@@ -6,6 +6,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\MenuItem;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -26,6 +27,7 @@ class UserPanelProvider extends PanelProvider
             ->id('user')
             ->path('user')
             ->login()
+            ->registration()
             ->brandName('Portal Pegawai')
             ->colors([
                 'primary' => Color::Green,
@@ -38,6 +40,16 @@ class UserPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/User/Widgets'), for: 'App\\Filament\\User\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
+            ])
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label('Panel Admin')
+                    ->url('/admin')
+                    ->icon('heroicon-o-cog-6-tooth'),
+                MenuItem::make()
+                    ->label('Panel Employee')
+                    ->url('/employee')
+                    ->icon('heroicon-o-building-office-2'),
             ])
             ->authMiddleware([
                 Authenticate::class,

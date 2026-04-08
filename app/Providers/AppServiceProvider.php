@@ -23,6 +23,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Implicitly grant "Super Admin" role all permissions
+        // This works in the local environment and when using spatie/laravel-permission
+        \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
+            return $user->hasRole('superadmin') ? true : null;
+        });
+
         // Register model observers
         EmployeePromotion::observe(EmployeePromotionObserver::class);
         EmployeeAgreement::observe(EmployeeAgreementObserver::class);

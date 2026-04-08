@@ -32,28 +32,44 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('email')
-                    ->email()
-                    ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true),
-                Forms\Components\DateTimePicker::make('email_verified_at')
-                    ->label('Email Verified At'),
-                Forms\Components\TextInput::make('password')
-                    ->password()
-                    ->required(fn (string $context): bool => $context === 'create')
-                    ->dehydrated(fn ($state) => filled($state))
-                    ->dehydrateStateUsing(fn ($state) => Hash::make($state))
-                    ->maxLength(255),
-                Forms\Components\Select::make('role')
-                    ->relationship('roles', 'name')
-                    ->preload()
-                    ->searchable()
-                    ->required()
-                    ->label('Role'),
+                Forms\Components\Section::make('Informasi Pengguna')
+                    ->description('Lengkapi data profil pengguna di sini.')
+                    ->schema([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('name')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('email')
+                                    ->email()
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->unique(ignoreRecord: true),
+                            ]),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('password')
+                                    ->password()
+                                    ->required(fn (string $context): bool => $context === 'create')
+                                    ->dehydrated(fn ($state) => filled($state))
+                                    ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                                    ->maxLength(255),
+                                Forms\Components\Select::make('role')
+                                    ->relationship('roles', 'name')
+                                    ->preload()
+                                    ->searchable()
+                                    ->required()
+                                    ->label('Role'),
+                            ]),
+                    ]),
+                Forms\Components\Section::make('Verifikasi & Status')
+                    ->description('Kelola status verifikasi akun pengguna.')
+                    ->schema([
+                        Forms\Components\Toggle::make('is_verified')
+                            ->label('Terverifikasi')
+                            ->helperText('Hanya pengguna terverifikasi yang dapat login ke aplikasi.')
+                            ->default(false),
+                    ]),
             ]);
     }
 
@@ -71,29 +87,41 @@ class UserResource extends Resource
                     ->label('Roles')
                     ->badge()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('email_verified_at')
+                Tables\Columns\IconColumn::make('is_verified')
                     ->label('Verified')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('created_at')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('email_verified_at')
+                    ->label('Verify At')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\TernaryFilter::make('is_verified')
+                    ->label('Status Verifikasi'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('verify')
+                    ->label('Verify')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->action(fn (User $record) => $record->update(['is_verified' => true]))
+                    ->visible(fn (User $record) => !$record->is_verified),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('verify_selected')
+                        ->label('Verify Selected')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->action(fn (\Illuminate\Database\Eloquent\Collection $records) => $records->each->update(['is_verified' => true])),
                 ]),
             ]);
     }

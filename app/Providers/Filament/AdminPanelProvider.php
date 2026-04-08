@@ -6,6 +6,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages;
 use Filament\Panel;
@@ -42,17 +43,15 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 Widgets\FilamentInfoWidget::class,
             ])
-            ->navigationItems([
-                NavigationItem::make('Panel Employee')
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label('Panel Employee')
                     ->url('/employee')
-                    ->icon('heroicon-o-building-office-2')
-                    ->group('Switch Panel')
-                    ->sort(999),
-                NavigationItem::make('Portal Pegawai')
+                    ->icon('heroicon-o-building-office-2'),
+                MenuItem::make()
+                    ->label('Portal Pegawai')
                     ->url('/user')
-                    ->icon('heroicon-o-users')
-                    ->group('Switch Panel')
-                    ->sort(1000),
+                    ->icon('heroicon-o-users'),
             ])
             ->authMiddleware([
                 Authenticate::class,
