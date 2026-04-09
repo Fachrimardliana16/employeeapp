@@ -14,6 +14,7 @@ class EmployeePromotion extends Model
     protected $fillable = [
         'decision_letter_number',
         'promotion_date',
+        'next_promotion_date',
         'employee_id',
         'old_basic_salary_id',
         'new_basic_salary_id',
@@ -24,7 +25,25 @@ class EmployeePromotion extends Model
 
     protected $casts = [
         'promotion_date' => 'date',
+        'next_promotion_date' => 'date',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if ($model->promotion_date) {
+                $model->next_promotion_date = $model->promotion_date->copy()->addYears(4);
+            }
+        });
+
+        static::updating(function ($model) {
+            if ($model->isDirty('promotion_date') && $model->promotion_date) {
+                $model->next_promotion_date = $model->promotion_date->copy()->addYears(4);
+            }
+        });
+    }
 
     /**
      * Get the employee that owns the promotion.

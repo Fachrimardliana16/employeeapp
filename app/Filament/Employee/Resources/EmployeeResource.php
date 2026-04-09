@@ -874,14 +874,16 @@ class EmployeeResource extends Resource
                     ->schema([
                         Infolists\Components\Grid::make(3)
                             ->schema([
-                                Infolists\Components\Section::make()
-                                    ->schema([
-                                        Infolists\Components\ImageEntry::make('image')
-                                            ->label('Pas Foto')
-                                            ->circular()
-                                            ->height(120)
-                                            ->disk('public'),
-                                    ])->columnSpan(1),
+                                Infolists\Components\Group::make([
+                                    Infolists\Components\ImageEntry::make('image')
+                                        ->hiddenLabel()
+                                        ->circular()
+                                        ->height(250)
+                                        ->disk('public')
+                                        ->extraAttributes([
+                                            'class' => 'flex justify-center',
+                                        ]),
+                                ])->columnSpan(1),
                                 Infolists\Components\Group::make([
                                     Infolists\Components\TextEntry::make('nippam')
                                         ->label('NIPPAM')
@@ -972,6 +974,24 @@ class EmployeeResource extends Resource
                     ->columnSpanFull()
                     ->hiddenLabel()
                     ->hidden(fn (Employee $record) => $record->mutations->isEmpty()),
+
+                Infolists\Components\ViewEntry::make('career_movement_data')
+                    ->view('filament.components.career-movement-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->careerMovements->isEmpty()),
+
+                Infolists\Components\ViewEntry::make('grade_promotion_data')
+                    ->view('filament.components.promotion-history-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->promotions->isEmpty()),
+
+                Infolists\Components\ViewEntry::make('appointment_data')
+                    ->view('filament.components.appointment-history-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->appointments->isEmpty()),
             ]);
     }
 

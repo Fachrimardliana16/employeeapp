@@ -191,6 +191,16 @@ class Employee extends Model
         return $this->hasMany(EmployeeMutation::class);
     }
 
+    public function careerMovements(): HasMany
+    {
+        return $this->hasMany(EmployeeCareerMovement::class, 'employee_id');
+    }
+
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(EmployeeAppointment::class, 'employee_id');
+    }
+
     public function permissions(): HasMany
     {
         return $this->hasMany(EmployeePermission::class, 'employees_id');

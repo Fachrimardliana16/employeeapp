@@ -21,28 +21,28 @@ class EmployeePromotionResource extends Resource
 
    protected static ?string $navigationGroup = 'Operasional Pegawai';
 
-    protected static ?string $navigationLabel = 'Promosi';
+    protected static ?string $navigationLabel = 'Kenaikan Golongan';
 
-    protected static ?string $modelLabel = 'Promosi Golongan';
+    protected static ?string $modelLabel = 'Kenaikan Golongan';
 
-    protected static ?string $pluralModelLabel = 'Promosi Golongan';
+    protected static ?string $pluralModelLabel = 'Kenaikan Golongan';
 
     protected static ?int $navigationSort = 303;
     public static function getModelLabel(): string
     {
-        return 'Promosi Pegawai Tetap';
+        return 'Kenaikan Golongan';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Promosi Pegawai Tetap';
+        return 'Kenaikan Golongan';
     }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Informasi Promosi')
+                Forms\Components\Section::make('Informasi Kenaikan Golongan')
                     ->schema([
                         Forms\Components\TextInput::make('decision_letter_number')
                             ->label('Nomor Surat Keputusan')
@@ -51,13 +51,13 @@ class EmployeePromotionResource extends Resource
                             ->placeholder('SK/HRD/001/2025'),
 
                         Forms\Components\DatePicker::make('promotion_date')
-                            ->label('Tanggal Promosi')
+                            ->label('Tanggal Berlaku')
                             ->required()
                             ->default(now()),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Data Pegawai')
-                    ->description('Pilih Pegawai yang akan dipromosikan (hanya Pegawai tetap)')
+                    ->description('Pilih Pegawai yang akan mendapatkan kenaikan golongan (khusus Pegawai Tetap)')
                     ->schema([
                         Forms\Components\Select::make('employee_id')
                             ->label('Pegawai')
@@ -83,7 +83,7 @@ class EmployeePromotionResource extends Resource
                                 }
                             })
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' - ' . ($record->nippam ?? 'No NIPPAM') . ' (' . ($record->employmentStatus?->name ?? 'Status tidak diketahui') . ')')
-                            ->helperText('Hanya menampilkan Pegawai dengan status tetap/permanen yang dapat dipromosikan')
+                            ->helperText('Hanya pegawai tetap yang dapat diproses kenaikan golongan')
                             ->rules([
                                 fn () => function (string $attribute, $value, \Closure $fail) {
                                     if ($value) {
@@ -99,7 +99,7 @@ class EmployeePromotionResource extends Resource
                                                       str_contains($statusName, 'pkwtt');
 
                                         if (!$isPermanent) {
-                                            $fail('Hanya Pegawai dengan status tetap/permanen yang dapat dipromosikan. Status Pegawai saat ini: ' . $employee->employmentStatus->name);
+                                            $fail('Hanya Pegawai dengan status tetap/permanen yang dapat diajukan kenaikan golongan. Status saat ini: ' . $employee->employmentStatus->name);
                                         }
                                     }
                                 },
@@ -130,7 +130,7 @@ class EmployeePromotionResource extends Resource
                             ->visible(fn (Forms\Get $get) => $get('employee_id')),
                     ]),
 
-                Forms\Components\Section::make('Perubahan Gaji')
+                Forms\Components\Section::make('Perubahan Gaji/Golongan')
                     ->schema([
                         Forms\Components\Select::make('old_basic_salary_id')
                             ->label('Golongan Lama')
@@ -150,7 +150,7 @@ class EmployeePromotionResource extends Resource
                 Forms\Components\Section::make('Dokumen & Keterangan')
                     ->schema([
                         Forms\Components\FileUpload::make('doc_promotion')
-                            ->label('Dokumen Promosi')
+                            ->label('Dokumen SK')
                             ->directory('employee-promotions')
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->maxSize(5120), // 5MB
@@ -196,9 +196,16 @@ class EmployeePromotionResource extends Resource
                     ->icon('heroicon-m-check-circle'),
 
                 Tables\Columns\TextColumn::make('promotion_date')
-                    ->label('Tanggal Promosi')
+                    ->label('Tanggal Berlaku')
                     ->date('d/m/Y')
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('next_promotion_date')
+                    ->label('Kenaikan Berikutnya')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->color('warning')
+                    ->icon('heroicon-m-calendar'),
 
                 Tables\Columns\TextColumn::make('oldSalaryGrade.name')
                     ->label('Grade Lama')

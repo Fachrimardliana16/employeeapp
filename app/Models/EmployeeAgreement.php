@@ -14,6 +14,7 @@ class EmployeeAgreement extends Model
 
     protected $fillable = [
         'job_application_archives_id',
+        'employees_id',
         'agreement_number',
         'name',
         'place_birth',
@@ -33,13 +34,15 @@ class EmployeeAgreement extends Model
         'departments_id',
         'sub_department_id',
         'docs',
+        'is_active',
         'users_id',
     ];
 
     protected $casts = [
-        'date_birth' => 'date',
+        'date_birth'           => 'date',
         'agreement_date_start' => 'date',
-        'agreement_date_end' => 'date',
+        'agreement_date_end'   => 'date',
+        'is_active'            => 'boolean',
     ];
 
     /**
@@ -107,6 +110,14 @@ class EmployeeAgreement extends Model
     }
 
     /**
+     * Get the linked Employee (direct link, used for appointment-based contracts).
+     */
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'employees_id');
+    }
+
+    /**
      * Get the job application archive.
      */
     public function jobApplicationArchive(): BelongsTo
@@ -144,15 +155,9 @@ class EmployeeAgreement extends Model
 
     /**
      * Check if the contract is still active.
+     * NOTE: is_active is now a real database column — managed explicitly.
+     * This accessor is kept for backward compatibility only when column is null.
      */
-    public function getIsActiveAttribute(): bool
-    {
-        if (!$this->agreement_date_end) {
-            return true;
-        }
-
-        return now()->lte($this->agreement_date_end);
-    }
 
     /**
      * Get days remaining in contract.
