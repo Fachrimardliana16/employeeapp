@@ -202,11 +202,6 @@ class Employee extends Model
         return $this->hasMany(EmployeeAppointment::class, 'employee_id');
     }
 
-    public function permissions(): HasMany
-    {
-        return $this->hasMany(EmployeePermission::class, 'employees_id');
-    }
-
     public function salaries(): HasMany
     {
         return $this->hasMany(EmployeeSalary::class);
@@ -220,6 +215,36 @@ class Employee extends Model
     public function employeeAgreements(): HasMany
     {
         return $this->hasMany(EmployeeAgreement::class, 'email', 'email');
+    }
+
+    public function attendanceRecords(): HasMany
+    {
+        return $this->hasMany(EmployeeAttendanceRecord::class, 'pin', 'pin');
+    }
+
+    public function trainings(): HasMany
+    {
+        return $this->hasMany(EmployeeTraining::class, 'employee_id');
+    }
+
+    public function assignmentLetters(): HasMany
+    {
+        return $this->hasMany(EmployeeAssignmentLetter::class, 'assigning_employee_id');
+    }
+
+    public function businessTravelLetters(): HasMany
+    {
+        return $this->hasMany(EmployeeBusinessTravelLetter::class, 'employee_id');
+    }
+
+    public function dailyReports(): HasMany
+    {
+        return $this->hasMany(EmployeeDailyReport::class, 'employee_id');
+    }
+
+    public function employeePermissions(): HasMany
+    {
+        return $this->hasMany(EmployeePermission::class, 'employee_id');
     }
 
     /**
@@ -258,14 +283,15 @@ class Employee extends Model
 
     public function getRemainingLeaveBalanceAttribute(): int
     {
-        $usedLeave = $this->permissions()
-            ->whereHas('masterPermission', function ($query) {
+        $usedLeave = $this->employeePermissions()
+            ->whereHas('permission', function ($query) {
                 $query->where('permission_type_name', 'LIKE', '%cuti%')
                     ->orWhere('permission_type_name', 'LIKE', '%leave%');
             })
-            ->where('permission_status', 'approved')
-            ->whereYear('permission_start_date', now()->year)
-            ->sum('permission_duration_days');
+            ->where('approval_status', 'approved')
+            ->whereYear('start_permission_date', now()->year)
+            ->selectRaw('SUM(julianday(end_permission_date) - julianday(start_permission_date) + 1) as total_days')
+            ->value('total_days') ?? 0;
 
         return max(0, ($this->leave_balance ?? 12) - $usedLeave);
     }

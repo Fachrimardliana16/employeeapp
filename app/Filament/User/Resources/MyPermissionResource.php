@@ -18,11 +18,15 @@ class MyPermissionResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static ?string $navigationGroup = 'Data Saya';
+    protected static ?string $navigationGroup = 'Presensi & Laporan';
 
     protected static ?string $navigationLabel = 'Izin & Cuti';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?string $modelLabel = 'Izin & Cuti';
+
+    protected static ?string $pluralModelLabel = 'Izin & Cuti';
+
+    protected static ?int $navigationSort = 2;
 
     public static function getEloquentQuery(): Builder
     {

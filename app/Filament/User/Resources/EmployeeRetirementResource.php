@@ -16,8 +16,10 @@ class EmployeeRetirementResource extends Resource
 {
     protected static ?string $model = EmployeeRetirement::class;
     protected static ?string $navigationIcon = 'heroicon-o-arrow-right-on-rectangle';
-    protected static ?string $navigationGroup = 'Data Saya';
+    protected static ?string $navigationGroup = 'Data Mandiri';
     protected static ?string $navigationLabel = 'Pensiun/Resign';
+    protected static ?string $modelLabel = 'Pengajuan Pensiun/Resign';
+    protected static ?string $pluralModelLabel = 'Pengajuan Pensiun/Resign';
     protected static ?int $navigationSort = 4;
 
     public static function getEloquentQuery(): Builder

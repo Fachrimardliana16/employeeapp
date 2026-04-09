@@ -16,9 +16,11 @@ class MyDailyReportResource extends Resource
 {
     protected static ?string $model = EmployeeDailyReport::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationGroup = 'Data Saya';
+    protected static ?string $navigationGroup = 'Presensi & Laporan';
     protected static ?string $navigationLabel = 'Laporan Harian';
-    protected static ?int $navigationSort = 11;
+    protected static ?string $modelLabel = 'Laporan Harian';
+    protected static ?string $pluralModelLabel = 'Laporan Harian';
+    protected static ?int $navigationSort = 1;
 
     public static function getEloquentQuery(): Builder
     {

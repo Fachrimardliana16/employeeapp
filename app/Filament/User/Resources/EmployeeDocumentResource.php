@@ -20,11 +20,15 @@ class EmployeeDocumentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Data Saya';
+    protected static ?string $navigationGroup = 'Data Mandiri';
 
-    protected static ?string $navigationLabel = 'Arsip Dokumen';
+    protected static ?string $navigationLabel = 'Dokumen Pegawai';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?string $modelLabel = 'Dokumen Pegawai';
+
+    protected static ?string $pluralModelLabel = 'Dokumen Pegawai';
+
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {
@@ -84,6 +88,10 @@ class EmployeeDocumentResource extends Resource
                             ->required()
                             ->helperText('Format: PDF, JPG, PNG. Maksimal 10MB')
                             ->columnSpanFull(),
+                        Forms\Components\Hidden::make('employee_id')
+                            ->default(fn() => Auth::user()->employee?->id),
+                        Forms\Components\Hidden::make('users_id')
+                            ->default(fn() => auth()->id()),
                     ]),
             ]);
     }

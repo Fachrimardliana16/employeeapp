@@ -20,7 +20,9 @@ class RecordAttendance extends Page
 
     protected static ?string $title = 'Rekam Kehadiran';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?string $navigationGroup = 'Utama';
+
+    protected static ?int $navigationSort = 2;
 
     public ?array $data = [];
 

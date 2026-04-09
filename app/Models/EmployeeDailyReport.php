@@ -11,30 +11,17 @@ class EmployeeDailyReport extends Model
     use HasUserTracking;
 
     protected $fillable = [
-        'employees_id',
-        'report_date',
-        'work_start_time',
-        'work_end_time',
-        'break_start_time',
-        'break_end_time',
-        'activities_description',
-        'achievement_description',
-        'problem_description',
-        'solution_description',
-        'tomorrow_plan',
-        'overtime_duration_minutes',
-        'work_location',
-        'attachment_files',
+        'employee_id',
+        'daily_report_date',
+        'work_description',
+        'work_status',
+        'desc',
+        'image',
         'users_id',
     ];
 
     protected $casts = [
-        'report_date' => 'date',
-        'work_start_time' => 'datetime',
-        'work_end_time' => 'datetime',
-        'break_start_time' => 'datetime',
-        'break_end_time' => 'datetime',
-        'attachment_files' => 'array',
+        'daily_report_date' => 'date',
     ];
 
     /**
@@ -42,7 +29,7 @@ class EmployeeDailyReport extends Model
      */
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'employees_id');
+        return $this->belongsTo(Employee::class, 'employee_id');
     }
 
     /**
