@@ -924,8 +924,14 @@ class EmployeeResource extends Resource
                         Infolists\Components\Section::make('Kontak & Alamat')
                             ->schema([
                                 Infolists\Components\TextEntry::make('email')
-                                    ->label('Email')
+                                    ->label('Email Pribadi')
                                     ->icon('heroicon-m-envelope'),
+                                Infolists\Components\TextEntry::make('office_email')
+                                    ->label('Email Kantor')
+                                    ->icon('heroicon-m-briefcase')
+                                    ->color('primary')
+                                    ->weight('bold')
+                                    ->copyable(),
                                 Infolists\Components\TextEntry::make('phone_number')
                                     ->label('No. Telepon')
                                     ->icon('heroicon-m-phone'),

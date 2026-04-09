@@ -613,6 +613,26 @@ class JobApplicationResource extends Resource
                             if ($data['decision'] === 'accepted') {
                                 $agreement = EmployeeAgreement::createFromJobApplication($archive);
 
+                                // Generate Office Email (first name @pdampurbalingga.co.id)
+                                $firstName = Str::slug(Str::before($record->name, ' '), '');
+                                $officeEmail = $firstName . '@pdampurbalingga.co.id';
+                                
+                                // Ensure uniqueness for office email
+                                $counter = 1;
+                                while (\App\Models\Employee::where('office_email', $officeEmail)->exists() || \App\Models\User::where('email', $officeEmail)->exists()) {
+                                    $officeEmail = $firstName . $counter . '@pdampurbalingga.co.id';
+                                    $counter++;
+                                }
+
+                                // Create User Account
+                                $user = \App\Models\User::create([
+                                    'name' => $record->name,
+                                    'email' => $officeEmail,
+                                    'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
+                                    'is_verified' => true,
+                                ]);
+                                $user->assignRole('user');
+
                                 // CREATE OR UPDATE EMPLOYEE RECORD
                                 $employee = Employee::updateOrCreate(
                                     ['email' => $record->email],
@@ -620,7 +640,9 @@ class JobApplicationResource extends Resource
                                         'name' => $record->name,
                                         'phone_number' => $record->phone_number,
                                         'id_number' => $record->id_number,
-                                        'image' => $record->photo, // Fulfill photo sync request
+                                        'image' => $record->photo,
+                                        'office_email' => $officeEmail,
+                                        'users_id' => $user->id,
                                         'place_birth' => $record->place_birth,
                                         'date_birth' => $record->date_birth,
                                         'marital_status' => $record->marital_status,

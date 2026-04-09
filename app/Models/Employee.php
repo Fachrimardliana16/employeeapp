@@ -33,6 +33,7 @@ class Employee extends Model
         'rek_dplk_bersama',
         'username',
         'email',
+        'office_email',
         'password',
         'image',
         'leave_balance',

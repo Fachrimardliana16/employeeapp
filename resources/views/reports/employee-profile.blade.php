@@ -202,8 +202,12 @@
                         </div>
                         <div class="grid gap-5 text-sm">
                             <div class="flex flex-col">
-                                <span class="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">Email</span>
+                                <span class="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">Email Pribadi</span>
                                 <span class="text-gray-900 font-medium">{{ $record->email ?: '-' }}</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">Email Kantor</span>
+                                <span class="text-blue-600 font-bold">{{ $record->office_email ?: '-' }}</span>
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">No. Telepon</span>
