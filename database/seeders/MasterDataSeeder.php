@@ -88,6 +88,14 @@ class MasterDataSeeder extends Seeder
             ['name' => 'Perencanaan', 'parent' => 'Bagian Teknik'],
             ['name' => 'Produksi', 'parent' => 'Bagian Teknik'],
             ['name' => 'Transmisi dan Distribusi', 'parent' => 'Bagian Teknik'],
+
+            // Sub Bagian Hubungan Langganan
+            ['name' => 'Pemasaran', 'parent' => 'Bagian Hubungan Langganan'],
+            ['name' => 'Layanan Langganan', 'parent' => 'Bagian Hubungan Langganan'],
+            ['name' => 'Baca Meter', 'parent' => 'Bagian Hubungan Langganan'],
+
+            // Sub Bagian Umum tambahan
+            ['name' => 'Hukum dan Humas', 'parent' => 'Bagian Umum'],
         ];
 
         foreach ($subDepartments as $subDept) {
@@ -175,6 +183,9 @@ class MasterDataSeeder extends Seeder
             ['name' => 'SD', 'desc' => 'Sekolah Dasar'],
             ['name' => 'SMP', 'desc' => 'Sekolah Menengah Pertama'],
             ['name' => 'SMA', 'desc' => 'Sekolah Menengah Atas'],
+            ['name' => 'D1', 'desc' => 'Diploma 1'],
+            ['name' => 'D3', 'desc' => 'Diploma 3'],
+            ['name' => 'D4', 'desc' => 'Diploma 4'],
             ['name' => 'S1', 'desc' => 'Sarjana Strata 1'],
             ['name' => 'S2', 'desc' => 'Sarjana Strata 2 (Magister)'],
             ['name' => 'S3', 'desc' => 'Sarjana Strata 3 (Doktor)'],
@@ -270,6 +281,7 @@ class MasterDataSeeder extends Seeder
     {
         $positions = [
             ['name' => 'Staff', 'desc' => 'Posisi Staff'],
+            ['name' => 'Koordinator Lapangan', 'desc' => 'Posisi Koordinator Lapangan'],
             ['name' => 'Kepala Seksi Teknik', 'desc' => 'Posisi Kepala Cabang'],
             ['name' => 'Kepala Seksi Umum', 'desc' => 'Posisi Kepala Unit'],
             ['name' => 'Kepala Cabang', 'desc' => 'Posisi Kepala Cabang'],

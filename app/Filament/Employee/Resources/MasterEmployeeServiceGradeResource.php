@@ -23,11 +23,11 @@ class MasterEmployeeServiceGradeResource extends Resource
 
     protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?string $navigationLabel = 'Golongan Pegawai';
+    protected static ?string $navigationLabel = 'Golongan Masa Kerja';
 
-    protected static ?string $modelLabel = 'Golongan Pegawai';
+    protected static ?string $modelLabel = 'Golongan Masa Kerja';
 
-    protected static ?string $pluralModelLabel = 'Golongan Pegawai';
+    protected static ?string $pluralModelLabel = 'Golongan Masa Kerja';
 
     protected static ?int $navigationSort = 806;
 
@@ -36,13 +36,13 @@ class MasterEmployeeServiceGradeResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Select::make('employee_grade_id')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id'))
                     ->required()
                     ->searchable()
                     ->preload(),
                 Forms\Components\TextInput::make('service_grade')
-                    ->label('Service Grade')
+                    ->label('Pangkat / Golongan')
                     ->required()
                     ->maxLength(255)
                     ->placeholder('e.g., A1, B2, C3'),
@@ -61,11 +61,11 @@ class MasterEmployeeServiceGradeResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('employeeGrade.name')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('service_grade')
-                    ->label('Service Grade')
+                    ->label('Pangkat / Golongan')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('desc')
@@ -89,7 +89,7 @@ class MasterEmployeeServiceGradeResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('employee_grade_id')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id')),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active Status'),

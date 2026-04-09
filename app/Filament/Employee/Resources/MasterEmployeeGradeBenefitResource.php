@@ -37,7 +37,7 @@ class MasterEmployeeGradeBenefitResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Select::make('employee_grade_id')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id'))
                     ->required()
                     ->searchable()
@@ -70,7 +70,7 @@ class MasterEmployeeGradeBenefitResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('employeeGrade.name')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('benefit.name')
@@ -102,7 +102,7 @@ class MasterEmployeeGradeBenefitResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('employee_grade_id')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id')),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active Status'),

@@ -13,10 +13,26 @@ class MasterDepartment extends Model
 
     protected $fillable = [
         'name',
+        'type',
         'desc',
         'is_active',
         'users_id',
     ];
+
+    public function scopeBagian($query)
+    {
+        return $query->where('type', 'Bagian');
+    }
+
+    public function scopeCabang($query)
+    {
+        return $query->where('type', 'Cabang');
+    }
+
+    public function scopeUnit($query)
+    {
+        return $query->where('type', 'Unit');
+    }
 
     public function user(): BelongsTo
     {

@@ -208,12 +208,12 @@ class EmployeePromotionResource extends Resource
                     ->icon('heroicon-m-calendar'),
 
                 Tables\Columns\TextColumn::make('oldSalaryGrade.name')
-                    ->label('Grade Lama')
+                    ->label('Golongan Lama')
                     ->badge()
                     ->color('gray'),
 
                 Tables\Columns\TextColumn::make('newSalaryGrade.name')
-                    ->label('Grade Baru')
+                    ->label('Golongan Baru')
                     ->badge()
                     ->color('success'),
 

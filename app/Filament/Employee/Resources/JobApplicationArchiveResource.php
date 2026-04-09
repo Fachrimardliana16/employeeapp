@@ -82,7 +82,7 @@ class JobApplicationArchiveResource extends Resource
                             ->disabled(),
 
                         Forms\Components\Select::make('proposed_grade_id')
-                            ->label('Grade Gaji')
+                            ->label('Golongan')
                             ->relationship('proposedGrade', 'name')
                             ->disabled(),
 

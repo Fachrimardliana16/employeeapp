@@ -350,12 +350,60 @@ class EmployeeResource extends Resource
                                     ->schema([
                                         Forms\Components\Grid::make(2)
                                             ->schema([
-                                                Forms\Components\Select::make('departments_id')
-                                                    ->label('Departemen')
-                                                    ->relationship('department', 'name')
+                                                Forms\Components\Radio::make('work_unit_type')
+                                                    ->label('Tipe Unit Kerja')
+                                                    ->options([
+                                                        'bagian' => 'Bagian (Pusat)',
+                                                        'cabang' => 'Cabang (Wilayah)',
+                                                        'unit' => 'Unit (Wilayah)',
+                                                    ])
+                                                    ->live()
+                                                    ->afterStateHydrated(function (Forms\Components\Radio $component, $state, ?Employee $record) {
+                                                        if (!$record) return;
+                                                        if ($record->unit_id) $component->state('unit');
+                                                        elseif ($record->cabang_id) $component->state('cabang');
+                                                        elseif ($record->bagian_id) $component->state('bagian');
+                                                    })
+                                                    ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                                        $set('bagian_id', null);
+                                                        $set('cabang_id', null);
+                                                        $set('unit_id', null);
+                                                        $set('departments_id', null);
+                                                    })
+                                                    ->dehydrated(false)
+                                                    ->columnSpanFull(),
+
+                                                Forms\Components\Select::make('bagian_id')
+                                                    ->label('Pilih Bagian')
+                                                    ->options(\App\Models\MasterDepartment::bagian()->pluck('name', 'id'))
                                                     ->searchable()
                                                     ->preload()
-                                                    ->required(),
+                                                    ->required()
+                                                    ->visible(fn (Forms\Get $get) => $get('work_unit_type') === 'bagian')
+                                                    ->live()
+                                                    ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('departments_id', $state)),
+
+                                                Forms\Components\Select::make('cabang_id')
+                                                    ->label('Pilih Cabang')
+                                                    ->options(\App\Models\MasterDepartment::cabang()->pluck('name', 'id'))
+                                                    ->searchable()
+                                                    ->preload()
+                                                    ->required()
+                                                    ->visible(fn (Forms\Get $get) => $get('work_unit_type') === 'cabang')
+                                                    ->live()
+                                                    ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('departments_id', $state)),
+
+                                                Forms\Components\Select::make('unit_id')
+                                                    ->label('Pilih Unit')
+                                                    ->options(\App\Models\MasterDepartment::unit()->pluck('name', 'id'))
+                                                    ->searchable()
+                                                    ->preload()
+                                                    ->required()
+                                                    ->visible(fn (Forms\Get $get) => $get('work_unit_type') === 'unit')
+                                                    ->live()
+                                                    ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('departments_id', $state)),
+
+                                                Forms\Components\Hidden::make('departments_id'),
                                                 Forms\Components\Select::make('employee_position_id')
                                                     ->label('Posisi/Jabatan')
                                                     ->relationship('position', 'name')
@@ -363,7 +411,7 @@ class EmployeeResource extends Resource
                                                     ->preload()
                                                     ->required(),
                                                 Forms\Components\Select::make('basic_salary_id')
-                                                    ->label('Grade Gaji')
+                                                    ->label('Gaji Pokok')
                                                     ->relationship('grade', 'name')
                                                     ->searchable()
                                                     ->preload(),
@@ -439,22 +487,15 @@ class EmployeeResource extends Resource
                     ->label('Username')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('department_info')
-                    ->label('Bagian / Sub Bagian')
+                Tables\Columns\TextColumn::make('unit_kerja')
+                    ->label('Unit Kerja')
                     ->getStateUsing(function (Employee $record) {
-                        $department = $record->department->name ?? '-';
-                        $subDepartment = $record->subDepartment->name ?? '-';
-                        return $department . "\n" . $subDepartment;
+                        return $record->active_organizational_unit->name ?? '-';
                     })
-                    ->html()
-                    ->formatStateUsing(function ($state) {
-                        $lines = explode("\n", $state);
-                        return '<div class="leading-tight">' .
-                            '<div class="font-semibold text-gray-900 dark:text-gray-100">' . $lines[0] . '</div>' .
-                            '<div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">' . $lines[1] . '</div>' .
-                            '</div>';
+                    ->description(function (Employee $record) {
+                        return $record->active_organizational_unit->type ?? '';
                     })
-                    ->searchable(['department.name', 'subDepartment.name'])
+                    ->searchable(['department.name', 'bagian.name', 'cabang.name', 'unit.name'])
                     ->sortable(),
                 Tables\Columns\TextColumn::make('position_status')
                     ->label('Posisi / Status')

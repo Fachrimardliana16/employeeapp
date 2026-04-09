@@ -9,6 +9,10 @@ use Filament\Infolists\Infolist;
 use Filament\Infolists;
 use Filament\Infolists\Contracts\HasInfolists;
 use Filament\Infolists\Concerns\InteractsWithInfolists;
+use App\Models\AttendanceSchedule;
+use App\Models\EmployeeAttendanceRecord;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DataKepegawaian extends Page implements HasInfolists
 {
@@ -23,8 +27,14 @@ class DataKepegawaian extends Page implements HasInfolists
     protected static ?int $navigationSort = 1;
     
     public ?Employee $employee = null;
-    public int $attendanceCount = 0;
-    public int $permissionCount = 0;
+    
+    // Stats properties
+    public int $monthlyPresence = 0;
+    public int $monthlyAbsence = 0;
+    public int $monthlyLate = 0;
+    public int $monthlyPermit = 0;
+    public int $monthlyOvertimeCount = 0;
+    public string $monthlyOvertimeHours = '0j 0m';
     
     public function mount(): void
     {
@@ -52,21 +62,86 @@ class DataKepegawaian extends Page implements HasInfolists
         ->first();
 
         if (!$this->employee) {
-            // Silently fail, view will handle null employee
             return;
         }
 
-        // Calculate stats
-        $this->attendanceCount = $this->employee->attendanceRecords()
-            ->whereMonth('attendance_time', now()->month)
-            ->whereYear('attendance_time', now()->year)
-            ->count();
+        $this->calculateMonthlyStats();
+    }
+
+    protected function calculateMonthlyStats(): void
+    {
+        $now = now();
+        $startOfMonth = $now->copy()->startOfMonth();
+        $today = $now->copy();
+
+        // 1. Presence & Tardiness
+        $records = $this->employee->attendanceRecords()
+            ->whereMonth('attendance_time', $now->month)
+            ->whereYear('attendance_time', $now->year)
+            ->get();
+
+        $presenceDays = $records->where('state', 'in')->pluck('attendance_time')->map(fn($t) => $t->format('Y-m-d'))->unique();
+        $this->monthlyPresence = $presenceDays->count();
+
+        // Calculate Late
+        $lateCount = 0;
+        $schedules = AttendanceSchedule::where('is_active', true)->get();
+        
+        foreach ($records->where('state', 'in') as $record) {
+            $dayName = $record->attendance_time->format('l');
+            $sched = $schedules->where('day', $dayName)->first();
+            $threshold = $sched ? $sched->late_threshold : '07:30:59';
             
-        $this->permissionCount = $this->employee->employeePermissions()
+            if ($record->attendance_time->format('H:i:s') > $threshold) {
+                $lateCount++;
+            }
+        }
+        $this->monthlyLate = $lateCount;
+
+        // 2. Permits/Leave (Days)
+        $this->monthlyPermit = (int) $this->employee->employeePermissions()
             ->where('approval_status', 'approved')
-            ->whereYear('start_permission_date', now()->year)
-            ->selectRaw('SUM(julianday(end_permission_date) - julianday(start_permission_date) + 1) as total_days')
-            ->value('total_days') ?? 0;
+            ->where(function($q) use ($startOfMonth, $today) {
+                 $q->whereBetween('start_permission_date', [$startOfMonth, $today])
+                   ->orWhereBetween('end_permission_date', [$startOfMonth, $today]);
+            })
+            ->get()
+            ->sum(function($p) {
+                // Simplified calculation
+                return $p->start_permission_date->diffInDays($p->end_permission_date) + 1;
+            });
+
+        // 3. Absence Calculation
+        $workDays = 0;
+        $current = $startOfMonth->copy();
+        while ($current <= $today) {
+            if (!$current->isSunday()) { // Assuming Sunday is the only off day generally
+                $workDays++;
+            }
+            $current->addDay();
+        }
+        $this->monthlyAbsence = max(0, $workDays - $this->monthlyPresence - $this->monthlyPermit);
+
+        // 4. Overtime
+        $otIn = $records->where('state', 'ot_in')->sortBy('attendance_time');
+        $otOut = $records->where('state', 'ot_out')->sortBy('attendance_time');
+        
+        $this->monthlyOvertimeCount = $otIn->count();
+        $totalMinutes = 0;
+
+        foreach ($otIn as $in) {
+            $out = $otOut->where('attendance_time', '>', $in->attendance_time)
+                ->where('attendance_time', '<', $in->attendance_time->copy()->endOfDay())
+                ->first();
+            
+            if ($out) {
+                $totalMinutes += $in->attendance_time->diffInMinutes($out->attendance_time);
+            }
+        }
+
+        $hours = floor($totalMinutes / 60);
+        $mins = $totalMinutes % 60;
+        $this->monthlyOvertimeHours = "{$hours}j {$mins}m";
     }
 
     public function employeeInfolist(Infolist $infolist): Infolist
@@ -119,26 +194,45 @@ class DataKepegawaian extends Page implements HasInfolists
                             ]),
                     ]),
 
-                Infolists\Components\Grid::make(3)
+                Infolists\Components\Section::make('Statistik Kehadiran Bulan Ini')
                     ->schema([
-                        Infolists\Components\Section::make('Statistik Bulan Ini')
+                        Infolists\Components\Grid::make(4)
                             ->schema([
-                                Infolists\Components\TextEntry::make('attendance_stat')
+                                Infolists\Components\TextEntry::make('monthly_presence')
                                     ->label('Total Kehadiran')
-                                    ->state($this->attendanceCount . ' Hari')
-                                    ->icon('heroicon-o-check-circle')
+                                    ->state($this->monthlyPresence . ' Hari')
                                     ->color('success')
-                                    ->weight('bold'),
-                            ])->columnSpan(1),
-                        Infolists\Components\Section::make('Statistik Tahun Ini')
-                            ->schema([
-                                Infolists\Components\TextEntry::make('permission_stat')
-                                    ->label('Izin & Cuti')
-                                    ->state($this->permissionCount . ' Hari')
-                                    ->icon('heroicon-o-calendar')
+                                    ->icon('heroicon-m-check-circle'),
+                                Infolists\Components\TextEntry::make('monthly_absence')
+                                    ->label('Ketidak Hadiran')
+                                    ->state($this->monthlyAbsence . ' Hari')
+                                    ->color('danger')
+                                    ->icon('heroicon-m-x-circle'),
+                                Infolists\Components\TextEntry::make('monthly_late')
+                                    ->label('Keterlambatan')
+                                    ->state($this->monthlyLate . ' Kali')
                                     ->color('warning')
-                                    ->weight('bold'),
-                            ])->columnSpan(1),
+                                    ->icon('heroicon-m-clock'),
+                                Infolists\Components\TextEntry::make('monthly_permit')
+                                    ->label('Izin & Cuti')
+                                    ->state($this->monthlyPermit . ' Hari')
+                                    ->color('info')
+                                    ->icon('heroicon-m-calendar'),
+                            ]),
+                        
+                        Infolists\Components\Grid::make(2)
+                            ->schema([
+                                Infolists\Components\TextEntry::make('overtime_count')
+                                    ->label('Total Overtime')
+                                    ->state($this->monthlyOvertimeCount . ' Sesi')
+                                    ->color('primary')
+                                    ->icon('heroicon-m-fire'),
+                                Infolists\Components\TextEntry::make('overtime_hours')
+                                    ->label('Jumlah Jam Overtime')
+                                    ->state($this->monthlyOvertimeHours)
+                                    ->color('primary')
+                                    ->icon('heroicon-m-variable'),
+                            ]),
                     ]),
 
                 Infolists\Components\Grid::make(3)

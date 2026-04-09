@@ -37,7 +37,7 @@ class MasterEmployeeBasicSalaryResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Select::make('employee_service_grade_id')
-                    ->label('Service Grade')
+                    ->label('Golongan Masa Kerja')
                     ->options(function () {
                         return MasterEmployeeServiceGrade::with('employeeGrade')
                             ->where('is_active', true)
@@ -50,7 +50,7 @@ class MasterEmployeeBasicSalaryResource extends Resource
                     ->searchable()
                     ->preload(),
                 Forms\Components\Select::make('employee_grade_id')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id'))
                     ->required()
                     ->searchable()
@@ -77,15 +77,15 @@ class MasterEmployeeBasicSalaryResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('serviceGrade.employeeGrade.name')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('serviceGrade.service_grade')
-                    ->label('Service Grade')
+                    ->label('Golongan Masa Kerja')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('employeeGrade.name')
-                    ->label('Grade')
+                    ->label('Golongan')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
@@ -113,7 +113,7 @@ class MasterEmployeeBasicSalaryResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('employee_grade_id')
-                    ->label('Employee Grade')
+                    ->label('Golongan Pegawai')
                     ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id')),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active Status'),

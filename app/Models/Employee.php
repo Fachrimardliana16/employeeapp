@@ -54,6 +54,9 @@ class Employee extends Model
         'employee_position_id',
         'departments_id',
         'sub_department_id',
+        'bagian_id',
+        'cabang_id',
+        'unit_id',
         'users_id',
     ];
 
@@ -179,6 +182,21 @@ class Employee extends Model
     public function subDepartment(): BelongsTo
     {
         return $this->belongsTo(MasterSubDepartment::class, 'sub_department_id');
+    }
+
+    public function bagian(): BelongsTo
+    {
+        return $this->belongsTo(MasterDepartment::class, 'bagian_id');
+    }
+
+    public function cabang(): BelongsTo
+    {
+        return $this->belongsTo(MasterDepartment::class, 'cabang_id');
+    }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(MasterDepartment::class, 'unit_id');
     }
 
     // One-to-Many Relationships
@@ -457,5 +475,10 @@ class Employee extends Model
     public static function getSignatoryById($id)
     {
         return static::with('position')->find($id);
+    }
+
+    public function getActiveOrganizationalUnitAttribute()
+    {
+        return $this->unit ?? $this->cabang ?? $this->bagian ?? $this->department;
     }
 }
