@@ -21,4 +21,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/job-applications/{record}/print', function (\App\Models\JobApplication $record) {
         return view('job-applications.print-profile', compact('record'));
     })->name('job-applications.print');
+
+    Route::get('/employees/{record}/print', function (\App\Models\Employee $record) {
+        return view('reports.employee-profile', compact('record'));
+    })->name('employees.print');
 });

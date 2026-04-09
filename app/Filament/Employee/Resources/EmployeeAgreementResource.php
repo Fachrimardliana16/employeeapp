@@ -188,13 +188,13 @@ class EmployeeAgreementResource extends Resource
                                     ->searchable()
                                     ->preload(),
                                 Forms\Components\Select::make('basic_salary_id')
-                                    ->label('Grade Gaji')
+                                    ->label('Golongan')
                                     ->relationship('basicSalaryGrade', 'name')
                                     ->required()
                                     ->searchable()
                                     ->preload()
                                     ->getOptionLabelFromRecordUsing(fn($record) => $record->name . ' - Rp ' . number_format($record->basic_salary, 0, ',', '.'))
-                                    ->helperText('Gaji pokok akan otomatis sesuai dengan grade yang dipilih'),
+                                    ->helperText('Gaji pokok akan otomatis sesuai dengan golongan yang dipilih'),
                                 Forms\Components\Select::make('employee_education_id')
                                     ->label('Tingkat Pendidikan')
                                     ->relationship('education', 'name')

@@ -76,6 +76,9 @@ class JobApplicationArchive extends Model
     // Create archive from job application
     public static function createFromJobApplication(JobApplication $jobApplication, array $decisionData): self
     {
+        // Load relations to ensure they are captured in the snapshot
+        $jobApplication->load(['appliedPosition', 'appliedDepartment', 'appliedSubDepartment']);
+
         return static::create([
             'job_application_id' => $jobApplication->id,
             'application_data' => $jobApplication->toArray(),
@@ -91,4 +94,12 @@ class JobApplicationArchive extends Model
             'proposed_start_date' => $decisionData['proposed_start_date'] ?? null,
         ]);
     }
+
+    // Snapshot Accessors
+    public function getSnapshotNameAttribute() { return $this->application_data['name'] ?? 'N/A'; }
+    public function getSnapshotEmailAttribute() { return $this->application_data['email'] ?? 'N/A'; }
+    public function getSnapshotAppNumberAttribute() { return $this->application_data['application_number'] ?? 'N/A'; }
+    public function getSnapshotPositionAttribute() { return $this->application_data['applied_position']['name'] ?? 'N/A'; }
+    public function getSnapshotDepartmentAttribute() { return $this->application_data['applied_department']['name'] ?? 'N/A'; }
+    public function getSnapshotExpectedSalaryAttribute() { return $this->application_data['expected_salary'] ?? 0; }
 }

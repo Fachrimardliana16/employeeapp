@@ -140,7 +140,8 @@ class JobApplication extends Model
     {
         $year = date('Y');
         $month = date('m');
-        $lastNumber = static::whereYear('created_at', $year)
+        $lastNumber = static::withTrashed()
+            ->whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
             ->count() + 1;
 

@@ -33,7 +33,7 @@ class MasterEmployeeGradeResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Grade Information')
+                Forms\Components\Section::make('Golongan Information')
                     ->schema([
                         Forms\Components\TextInput::make('name')
                             ->required()

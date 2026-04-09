@@ -13,6 +13,8 @@ use App\Models\MasterSubDepartment;
 use App\Models\MasterEmployeeAgreement;
 use App\Models\MasterEmployeeStatusEmployment;
 use App\Models\MasterEmployeeGrade;
+use App\Models\InterviewProcess;
+use App\Models\Employee;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -54,9 +56,10 @@ class JobApplicationResource extends Resource
                                     ->required()
                                     ->maxLength(255),
                                 Forms\Components\TextInput::make('id_number')
-                                    ->label('No. KTP')
+                                    ->label('NIK (KTP)')
                                     ->required()
                                     ->numeric()
+                                    ->minLength(16)
                                     ->maxLength(16)
                                     ->unique(ignoreRecord: true),
                             ]),
@@ -117,7 +120,7 @@ class JobApplicationResource extends Resource
                 Forms\Components\Section::make('Dokumen Lamaran')
                     ->schema([
                         Forms\Components\FileUpload::make('photo')
-                            ->label('Pas Foto')
+                            ->label('Foto Pas')
                             ->image()
                             ->imageEditor()
                             ->directory('job-applications/photos')
@@ -182,6 +185,7 @@ class JobApplicationResource extends Resource
                                 Forms\Components\TextInput::make('education_graduation_year')
                                     ->label('Tahun Lulus')
                                     ->numeric()
+                                    ->required()
                                     ->minValue(1980)
                                     ->maxValue(date('Y')),
                             ]),
@@ -282,7 +286,7 @@ class JobApplicationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\ImageColumn::make('photo')
-                    ->label('Foto')
+                    ->label('Foto Pas')
                     ->disk('public')
                     ->circular(),
 
@@ -400,12 +404,22 @@ class JobApplicationResource extends Resource
                         ->form([
                             Forms\Components\DateTimePicker::make('interview_datetime')
                                 ->label('Tanggal & Waktu Interview')
-                                ->required(),
-                            Forms\Components\TextInput::make('interview_location')
+                                ->required()
+                                ->default(now()->addDays(1)->setHour(9)->setMinute(0)),
+                            Forms\Components\Select::make('interview_location')
                                 ->label('Lokasi Interview')
+                                ->options([
+                                    'Kantor Pusat' => 'Kantor Pusat',
+                                    'Kantor Cabang' => 'Kantor Cabang',
+                                    'Online (Zoom/Meet)' => 'Online (Zoom/Meet)',
+                                ])
+                                ->required(),
+                            Forms\Components\TextInput::make('interviewer_name')
+                                ->label('Nama Pewawancara')
+                                ->placeholder('Contoh: Nama HRD / Manajer')
                                 ->required(),
                             Forms\Components\Textarea::make('interview_notes')
-                                ->label('Catatan Interview')
+                                ->label('Catatan / Instruksi')
                                 ->rows(3),
                         ])
                         ->action(function (?JobApplication $record, array $data): void {
@@ -417,13 +431,31 @@ class JobApplicationResource extends Resource
                                     'datetime' => $data['interview_datetime'],
                                     'location' => $data['interview_location'],
                                     'notes' => $data['interview_notes'],
+                                    'interviewer_name' => $data['interviewer_name'],
                                     'scheduled_by' => auth()->id() ?? 0,
                                     'scheduled_at' => now(),
                                 ],
                             ]);
 
+                            // Create InterviewProcess record
+                            InterviewProcess::create([
+                                'job_application_id' => $record->id,
+                                'interview_stage' => 1,
+                                'interview_type' => 'HR Interview',
+                                'interview_date' => Carbon::parse($data['interview_datetime'])->toDateString(),
+                                'interview_time' => Carbon::parse($data['interview_datetime'])->format('H:i'),
+                                'interview_location' => $data['interview_location'],
+                                'interviewer_name' => $data['interviewer_name'],
+                                'interviewer_id' => auth()->id(), // System user
+                                'notes' => $data['interview_notes'],
+                                'status' => 'scheduled',
+                                'result' => 'pending',
+                                'users_id' => auth()->id(),
+                            ]);
+
                             Notification::make()
                                 ->title('Interview berhasil dijadwalkan')
+                                ->body('Data sudah diteruskan ke Proses Interview')
                                 ->success()
                                 ->send();
                         }),
@@ -516,13 +548,26 @@ class JobApplicationResource extends Resource
 
                                     Forms\Components\Select::make('proposed_employment_status_id')
                                         ->label('Status Kepegawaian')
-                                        ->options(MasterEmployeeStatusEmployment::pluck('name', 'id'))
-                                        ->required(),
+                                        ->options(MasterEmployeeStatusEmployment::where('id', '!=', 6)->pluck('name', 'id'))
+                                        ->required()
+                                        ->live()
+                                        ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                            if ($state == 1 || $state == 2) { // THL atau Magang
+                                                $set('proposed_salary', 0);
+                                                $set('proposed_grade_id', null);
+                                            } elseif ($state == 3) { // Kontrak
+                                                $set('proposed_salary', 2500000); // Default UMR
+                                                $set('proposed_grade_id', null);
+                                            } else {
+                                                $set('proposed_salary', null);
+                                            }
+                                        }),
 
                                     Forms\Components\Select::make('proposed_grade_id')
-                                        ->label('Grade Gaji')
+                                        ->label('Golongan')
                                         ->options(MasterEmployeeGrade::all()->pluck('name', 'id'))
-                                        ->required()
+                                        ->required(fn(Forms\Get $get): bool => in_array($get('proposed_employment_status_id'), [4, 5]))
+                                        ->visible(fn(Forms\Get $get): bool => in_array($get('proposed_employment_status_id'), [4, 5]))
                                         ->live()
                                         ->afterStateUpdated(function ($state, Forms\Set $set) {
                                             if ($state) {
@@ -532,15 +577,16 @@ class JobApplicationResource extends Resource
                                                 }
                                             }
                                         })
-                                        ->helperText('Pilih grade untuk auto-fill gaji'),
+                                        ->helperText('Pilih golongan untuk auto-fill gaji'),
 
                                     Forms\Components\TextInput::make('proposed_salary')
                                         ->label('Gaji Pokok')
                                         ->numeric()
                                         ->prefix('Rp')
-                                        ->required()
+                                        ->required(fn(Forms\Get $get): bool => !in_array($get('proposed_employment_status_id'), [1, 2]))
+                                        ->visible(fn(Forms\Get $get): bool => !in_array($get('proposed_employment_status_id'), [1, 2]))
                                         ->step(100000)
-                                        ->helperText('Gaji akan terisi otomatis saat memilih grade')
+                                        ->helperText('Gaji akan terisi otomatis berdasarkan status atau golongan')
                                         ->live()
                                         ->formatStateUsing(fn($state) => $state ? number_format($state, 0, ',', '.') : '')
                                         ->dehydrateStateUsing(fn($state) => $state ? (int) str_replace(['.', ','], '', $state) : null),
@@ -563,18 +609,42 @@ class JobApplicationResource extends Resource
                             // Buat archive
                             $archive = JobApplicationArchive::createFromJobApplication($record, $data);
 
-                            // Jika diterima, buat kontrak otomatis
+                            // Jika diterima, buat kontrak otomatis dan record pegawai
                             if ($data['decision'] === 'accepted') {
                                 $agreement = EmployeeAgreement::createFromJobApplication($archive);
 
+                                // CREATE OR UPDATE EMPLOYEE RECORD
+                                $employee = Employee::updateOrCreate(
+                                    ['email' => $record->email],
+                                    [
+                                        'name' => $record->name,
+                                        'phone_number' => $record->phone_number,
+                                        'id_number' => $record->id_number,
+                                        'image' => $record->photo, // Fulfill photo sync request
+                                        'place_birth' => $record->place_birth,
+                                        'date_birth' => $record->date_birth,
+                                        'marital_status' => $record->marital_status,
+                                        'gender' => $record->gender,
+                                        'address' => $record->address,
+                                        'employee_education_id' => $record->education_level_id,
+                                        'employee_position_id' => $record->applied_position_id,
+                                        'departments_id' => $record->applied_department_id,
+                                        'sub_department_id' => $record->applied_sub_department_id,
+                                        'entry_date' => $data['proposed_start_date'],
+                                        'employment_status_id' => $data['proposed_employment_status_id'],
+                                        'master_employee_agreement_id' => $data['proposed_agreement_type_id'],
+                                        'basic_salary_id' => $data['proposed_grade_id'] ?? null,
+                                    ]
+                                );
+
                                 Notification::make()
-                                    ->title('Pelamar diterima dan kontrak berhasil dibuat')
-                                    ->body("Nomor kontrak: {$agreement->agreement_number}")
+                                    ->title('Pelamar diterima, kontrak & data pegawai berhasil dibuat')
+                                    ->body("Nomor NIK: {$employee->nippam}")
                                     ->success()
                                     ->actions([
-                                        \Filament\Notifications\Actions\Action::make('view_contract')
-                                            ->label('Lihat Kontrak')
-                                            ->url(route('filament.employee.resources.employee-agreements.view', ['record' => $agreement->id]))
+                                        \Filament\Notifications\Actions\Action::make('view_employee')
+                                            ->label('Lihat Pegawai')
+                                            ->url(route('filament.employee.resources.employees.view', ['record' => $employee->id]))
                                             ->button(),
                                     ])
                                     ->send();
@@ -585,6 +655,43 @@ class JobApplicationResource extends Resource
                                     ->success()
                                     ->send();
                             }
+                        }),
+
+                    Tables\Actions\Action::make('archive')
+                        ->label('Arsipkan')
+                        ->icon('heroicon-o-archive-box')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Arsipkan Lamaran')
+                        ->modalDescription('Apakah Anda yakin ingin mengarsipkan lamaran ini? Data akan dipindahkan ke Arsip Lamaran.')
+                        ->form([
+                            Forms\Components\Textarea::make('decision_reason')
+                                ->label('Alasan Pengarsipan')
+                                ->required()
+                                ->rows(3),
+                        ])
+                        ->visible(
+                            fn(?JobApplication $record): bool =>
+                            $record && !in_array($record->status, ['accepted', 'rejected', 'archived'])
+                        )
+                        ->action(function (?JobApplication $record, array $data): void {
+                            if (!$record) return;
+
+                            // Create Archive Record
+                            JobApplicationArchive::createFromJobApplication($record, [
+                                'decision' => 'archived',
+                                'decision_reason' => $data['decision_reason'],
+                                'decision_date' => now()->toDateString(),
+                            ]);
+
+                            // Update Status and Soft Delete
+                            $record->update(['status' => 'archived']);
+                            $record->delete();
+
+                            Notification::make()
+                                ->title('Lamaran berhasil diarsipkan')
+                                ->success()
+                                ->send();
                         }),
                       
                 ])
@@ -655,7 +762,7 @@ class JobApplicationResource extends Resource
                         Infolists\Components\Section::make('Data Pribadi')
                             ->icon('heroicon-o-user')
                             ->schema([
-                                Infolists\Components\TextEntry::make('id_number')->label('No. KTP'),
+                                Infolists\Components\TextEntry::make('id_number')->label('NIK (KTP)'),
                                 Infolists\Components\Grid::make(2)
                                     ->schema([
                                         Infolists\Components\TextEntry::make('gender_label')->label('J. Kelamin'),

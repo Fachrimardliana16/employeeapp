@@ -133,14 +133,14 @@ class EmployeePromotionResource extends Resource
                 Forms\Components\Section::make('Perubahan Gaji')
                     ->schema([
                         Forms\Components\Select::make('old_basic_salary_id')
-                            ->label('Grade Gaji Lama')
+                            ->label('Golongan Lama')
                             ->relationship('oldSalaryGrade', 'name')
                             ->required()
                             ->disabled()
                             ->dehydrated(),
 
                         Forms\Components\Select::make('new_basic_salary_id')
-                            ->label('Grade Gaji Baru')
+                            ->label('Golongan Baru')
                             ->relationship('newSalaryGrade', 'name')
                             ->required()
                             ->searchable()

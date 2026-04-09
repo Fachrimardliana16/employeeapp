@@ -112,6 +112,31 @@ class Employee extends Model
 
             $this->username = $username;
         }
+
+        // Auto-generate NIPPAM if empty
+        if (!$this->nippam) {
+            $this->nippam = static::generateNippam();
+        }
+    }
+
+    /**
+     * Generate unique NIPPAM
+     */
+    public static function generateNippam(): string
+    {
+        $prefix = 'NIP-' . date('Ym');
+        $lastEmployee = static::where('nippam', 'LIKE', $prefix . '%')
+            ->orderBy('nippam', 'desc')
+            ->first();
+
+        if (!$lastEmployee) {
+            return $prefix . '-0001';
+        }
+
+        $lastNumber = intval(substr($lastEmployee->nippam, -4));
+        $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+
+        return $prefix . '-' . $newNumber;
     }
 
     // Relationships
@@ -183,7 +208,30 @@ class Employee extends Model
 
     public function employeeAgreements(): HasMany
     {
-        return $this->hasMany(EmployeeAgreement::class);
+        return $this->hasMany(EmployeeAgreement::class, 'email', 'email');
+    }
+
+    /**
+     * Get the job application associated with this employee's email.
+     */
+    public function jobApplication(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(JobApplication::class, 'email', 'email');
+    }
+
+    /**
+     * Get the interview processes associated with this employee's applications.
+     */
+    public function interviewProcesses(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(
+            InterviewProcess::class,
+            JobApplication::class,
+            'email',
+            'job_application_id',
+            'email',
+            'id'
+        );
     }
 
     // Helper Methods

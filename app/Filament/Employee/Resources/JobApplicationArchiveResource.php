@@ -104,17 +104,17 @@ class JobApplicationArchiveResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('jobApplication.application_number')
+                Tables\Columns\TextColumn::make('snapshot_app_number')
                     ->label('No. Lamaran')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('jobApplication.name')
+                Tables\Columns\TextColumn::make('snapshot_name')
                     ->label('Nama Pelamar')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('jobApplication.appliedPosition.name')
+                Tables\Columns\TextColumn::make('snapshot_position')
                     ->label('Posisi')
                     ->searchable(),
 
@@ -208,7 +208,7 @@ class JobApplicationArchiveResource extends Resource
                     ->schema([
                         Infolists\Components\Grid::make(2)
                             ->schema([
-                                Infolists\Components\TextEntry::make('jobApplication.application_number')
+                                Infolists\Components\TextEntry::make('snapshot_app_number')
                                     ->label('No. Lamaran'),
                                 Infolists\Components\TextEntry::make('decision')
                                     ->label('Keputusan')
@@ -242,21 +242,21 @@ class JobApplicationArchiveResource extends Resource
                     ->schema([
                         Infolists\Components\Grid::make(2)
                             ->schema([
-                                Infolists\Components\TextEntry::make('jobApplication.name')
+                                Infolists\Components\TextEntry::make('snapshot_name')
                                     ->label('Nama'),
-                                Infolists\Components\TextEntry::make('jobApplication.email')
+                                Infolists\Components\TextEntry::make('snapshot_email')
                                     ->label('Email'),
                             ]),
 
                         Infolists\Components\Grid::make(2)
                             ->schema([
-                                Infolists\Components\TextEntry::make('jobApplication.appliedPosition.name')
+                                Infolists\Components\TextEntry::make('snapshot_position')
                                     ->label('Posisi'),
-                                Infolists\Components\TextEntry::make('jobApplication.appliedDepartment.name')
+                                Infolists\Components\TextEntry::make('snapshot_department')
                                     ->label('Departemen'),
                             ]),
 
-                        Infolists\Components\TextEntry::make('jobApplication.expected_salary')
+                        Infolists\Components\TextEntry::make('snapshot_expected_salary')
                             ->label('Ekspektasi Gaji')
                             ->money('IDR'),
                     ]),
@@ -276,7 +276,7 @@ class JobApplicationArchiveResource extends Resource
                         Infolists\Components\Grid::make(2)
                             ->schema([
                                 Infolists\Components\TextEntry::make('proposedGrade.name')
-                                    ->label('Grade Gaji')
+                                    ->label('Golongan')
                                     ->placeholder('Tidak disebutkan'),
                                 Infolists\Components\TextEntry::make('proposed_salary')
                                     ->label('Gaji Pokok')

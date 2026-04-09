@@ -21,6 +21,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 
 class EmployeeResource extends Resource
 {
@@ -191,14 +193,24 @@ class EmployeeResource extends Resource
                                     ->schema([
                                         Forms\Components\Grid::make(2)
                                             ->schema([
-                                                Forms\Components\TextInput::make('name')
-                                                    ->label('Nama Lengkap')
-                                                    ->required()
-                                                    ->maxLength(255),
-                                                Forms\Components\TextInput::make('nippam')
-                                                    ->label('NIPPAM')
-                                                    ->unique(ignoreRecord: true)
-                                                    ->maxLength(50),
+                                                Forms\Components\FileUpload::make('image')
+                                                    ->label('Foto Pas')
+                                                    ->image()
+                                                    ->avatar()
+                                                    ->disk('public')
+                                                    ->directory('employees/photos')
+                                                    ->columnSpan(1),
+                                                Forms\Components\Group::make()
+                                                    ->schema([
+                                                        Forms\Components\TextInput::make('name')
+                                                            ->label('Nama Lengkap')
+                                                            ->required()
+                                                            ->maxLength(255),
+                                                        Forms\Components\TextInput::make('nippam')
+                                                            ->label('NIPPAM')
+                                                            ->unique(ignoreRecord: true)
+                                                            ->maxLength(50),
+                                                    ])->columnSpan(1),
                                                 Forms\Components\Select::make('gender')
                                                     ->label('Jenis Kelamin')
                                                     ->options([
@@ -253,7 +265,7 @@ class EmployeeResource extends Resource
                                                     ->helperText('Hanya boleh angka, +, -, spasi, dan kurung')
                                                     ->maxLength(20),
                                                 Forms\Components\TextInput::make('id_number')
-                                                    ->label('Nomor KTP')
+                                                    ->label('NIK (KTP)')
                                                     ->numeric()
                                                     ->rules(['digits:16'])
                                                     ->placeholder('1234567890123456')
@@ -408,6 +420,10 @@ class EmployeeResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('image')
+                    ->label('Foto Pas')
+                    ->circular()
+                    ->disk('public'),
                 Tables\Columns\TextColumn::make('nippam')
                     ->label('NIPPAM')
                     ->searchable(),
@@ -415,6 +431,10 @@ class EmployeeResource extends Resource
                     ->label('Nama')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('id_number')
+                    ->label('NIK (KTP)')
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('username')
                     ->label('Username')
                     ->searchable()
@@ -565,6 +585,105 @@ class EmployeeResource extends Resource
                         );
                     })
                     ->tooltip('Generate laporan Pegawai dalam format PDF dengan filter'),
+
+                Tables\Actions\Action::make('download_template')
+                    ->label('Download Template')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('info')
+                    ->action(function () {
+                        $headers = [
+                            'nippam',
+                            'name',
+                            'gender',
+                            'place_birth',
+                            'date_birth',
+                            'marital_status',
+                            'email',
+                            'phone_number',
+                            'id_number',
+                            'address',
+                            'department_name',
+                            'position_name',
+                            'employment_status_name'
+                        ];
+
+                        $callback = function () use ($headers) {
+                            $file = fopen('php://output', 'w');
+                            fputcsv($file, $headers);
+                            // Add example row
+                            fputcsv($file, [
+                                '12345',
+                                'Nama Pegawai',
+                                'male',
+                                'Jakarta',
+                                '1990-01-01',
+                                'email@example.com',
+                                '08123456789',
+                                '1234567890123456',
+                                'Alamat Lengkap',
+                                'IT',
+                                'Staff IT',
+                                'Tetap'
+                            ]);
+                            fclose($file);
+                        };
+
+                        return response()->streamDownload($callback, 'template_import_pegawai.csv');
+                    }),
+
+                Tables\Actions\Action::make('import_pegawai')
+                    ->label('Import CSV')
+                    ->icon('heroicon-o-document-plus')
+                    ->color('success')
+                    ->form([
+                        Forms\Components\FileUpload::make('csv_file')
+                            ->label('File CSV')
+                            ->required()
+                            ->acceptedFileTypes(['text/csv', 'application/csv']),
+                    ])
+                    ->action(function (array $data) {
+                        $path = \Illuminate\Support\Facades\Storage::disk('public')->path($data['csv_file']);
+                        $file = fopen($path, 'r');
+                        $header = fgetcsv($file);
+
+                        $count = 0;
+                        while (($row = fgetcsv($file)) !== false) {
+                            $rowData = array_combine($header, $row);
+
+                            // Find IDs from names
+                            $dept = \App\Models\MasterDepartment::where('name', 'LIKE', '%' . ($rowData['department_name'] ?? '') . '%')->first();
+                            $pos = \App\Models\MasterEmployeePosition::where('name', 'LIKE', '%' . ($rowData['position_name'] ?? '') . '%')->first();
+                            $status = \App\Models\MasterEmployeeStatusEmployment::where('name', 'LIKE', '%' . ($rowData['employment_status_name'] ?? '') . '%')->first();
+
+                            Employee::updateOrCreate(
+                                [
+                                    'nippam' => $rowData['nippam'],
+                                ],
+                                [
+                                    'name' => $rowData['name'],
+                                    'gender' => $rowData['gender'],
+                                    'place_birth' => $rowData['place_birth'],
+                                    'date_birth' => $rowData['date_birth'],
+                                    'marital_status' => $rowData['marital_status'],
+                                    'email' => $rowData['email'],
+                                    'phone_number' => $rowData['phone_number'],
+                                    'id_number' => $rowData['id_number'],
+                                    'address' => $rowData['address'],
+                                    'departments_id' => $dept?->id,
+                                    'employee_position_id' => $pos?->id,
+                                    'employment_status_id' => $status?->id,
+                                    'entry_date' => now(), // Default to today if not provided
+                                ]
+                            );
+                            $count++;
+                        }
+                        fclose($file);
+
+                        Notification::make()
+                            ->title($count . ' data pegawai berhasil diimport')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('departments_id')
@@ -611,6 +730,12 @@ class EmployeeResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('print')
+                        ->label('Cetak Profil')
+                        ->icon('heroicon-o-printer')
+                        ->color('info')
+                        ->url(fn(Employee $record): string => route('employees.print', $record))
+                        ->openUrlInNewTab(),
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat'),
                     Tables\Actions\EditAction::make()
@@ -639,7 +764,7 @@ class EmployeeResource extends Resource
                                 Forms\Components\Grid::make(2)
                                     ->schema([
                                         Forms\Components\TextInput::make('id_number')
-                                            ->label('Nomor KTP')
+                                            ->label('NIK (KTP)')
                                             ->numeric()
                                             ->rules(['digits:16'])
                                             ->placeholder('1234567890123456')
@@ -741,6 +866,97 @@ class EmployeeResource extends Resource
             ->defaultSort('created_at', 'desc');
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Informasi Pegawai')
+                    ->schema([
+                        Infolists\Components\Grid::make(3)
+                            ->schema([
+                                Infolists\Components\Section::make()
+                                    ->schema([
+                                        Infolists\Components\ImageEntry::make('image')
+                                            ->label('Pas Foto')
+                                            ->circular()
+                                            ->height(120)
+                                            ->disk('public'),
+                                    ])->columnSpan(1),
+                                Infolists\Components\Group::make([
+                                    Infolists\Components\TextEntry::make('nippam')
+                                        ->label('NIPPAM')
+                                        ->weight('bold'),
+                                    Infolists\Components\TextEntry::make('name')
+                                        ->label('Nama Lengkap')
+                                        ->weight('bold')
+                                        ->size('lg'),
+                                    Infolists\Components\TextEntry::make('position.name')
+                                        ->label('Jabatan')
+                                        ->color('primary'),
+                                    Infolists\Components\TextEntry::make('employmentStatus.name')
+                                        ->label('Status Kepegawaian')
+                                        ->badge()
+                                        ->color('success'),
+                                ])->columnSpan(2),
+                            ]),
+                    ]),
+
+                Infolists\Components\Grid::make(3)
+                    ->schema([
+                        Infolists\Components\Section::make('Data Pribadi')
+                            ->schema([
+                                Infolists\Components\TextEntry::make('id_number')
+                                    ->label('NIK (KTP)'),
+                                Infolists\Components\TextEntry::make('gender')
+                                    ->label('Jenis Kelamin')
+                                    ->formatStateUsing(fn(string $state): string => $state === 'male' ? 'Laki-laki' : 'Perempuan'),
+                                Infolists\Components\TextEntry::make('place_birth')
+                                    ->label('Tempat Lahir'),
+                                Infolists\Components\TextEntry::make('date_birth')
+                                    ->label('Tanggal Lahir')
+                                    ->date('d F Y'),
+                                Infolists\Components\TextEntry::make('marital_status')
+                                    ->label('Status Perkawinan'),
+                            ])->columnSpan(1),
+
+                        Infolists\Components\Section::make('Kontak & Alamat')
+                            ->schema([
+                                Infolists\Components\TextEntry::make('email')
+                                    ->label('Email')
+                                    ->icon('heroicon-m-envelope'),
+                                Infolists\Components\TextEntry::make('phone_number')
+                                    ->label('No. Telepon')
+                                    ->icon('heroicon-m-phone'),
+                                Infolists\Components\TextEntry::make('address')
+                                    ->label('Alamat')
+                                    ->columnSpanFull(),
+                            ])->columnSpan(1),
+
+                        Infolists\Components\Section::make('Kepegawaian & Finansial')
+                            ->schema([
+                                Infolists\Components\TextEntry::make('department.name')
+                                    ->label('Departemen'),
+                                Infolists\Components\TextEntry::make('education.name')
+                                    ->label('Pendidikan Terakhir')
+                                    ->badge()
+                                    ->color('info'),
+                                Infolists\Components\TextEntry::make('entry_date')
+                                    ->label('Tanggal Masuk')
+                                    ->date('d M Y'),
+                                Infolists\Components\TextEntry::make('bank_account_number')
+                                    ->label('No. Rekening Bank'),
+                                Infolists\Components\TextEntry::make('npwp_number')
+                                    ->label('NPWP'),
+                            ])->columnSpan(1),
+                    ]),
+
+                Infolists\Components\ViewEntry::make('recruitment_progress')
+                    ->view('filament.components.recruitment-progress-bar')
+                    ->columnSpanFull()
+                    ->hiddenLabel(),
+            ]);
+    }
+
     public static function getRelations(): array
     {
         return [
@@ -760,6 +976,7 @@ class EmployeeResource extends Resource
         return [
             'index' => Pages\ListEmployees::route('/'),
             'create' => Pages\CreateEmployee::route('/create'),
+            'view' => Pages\ViewEmployee::route('/{record}'),
             'edit' => Pages\EditEmployee::route('/{record}/edit'),
         ];
     }

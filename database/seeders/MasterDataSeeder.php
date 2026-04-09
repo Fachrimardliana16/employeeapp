@@ -349,6 +349,9 @@ class MasterDataSeeder extends Seeder
 
     private function createBasicSalaries($user)
     {
+        // UMR Baseline (e.g. for Kontrak or Entry Level)
+        $umrValue = 2500000;
+
         $salaries = [
             'A1' => 1000000,
             'A2' => 1200000,
@@ -373,7 +376,7 @@ class MasterDataSeeder extends Seeder
         foreach ($salaries as $gradeName => $amount) {
             $grade = MasterEmployeeGrade::where('name', $gradeName)->first();
             if ($grade && $serviceGrade) {
-                MasterEmployeeBasicSalary::firstOrCreate(
+                MasterEmployeeBasicSalary::updateOrCreate(
                     [
                         'employee_grade_id' => $grade->id,
                         'employee_service_grade_id' => $serviceGrade->id,
@@ -385,6 +388,9 @@ class MasterDataSeeder extends Seeder
                         'users_id' => $user->id,
                     ]
                 );
+
+                // Sync to MasterEmployeeGrade.basic_salary if field exists for easy access
+                $grade->update(['basic_salary' => $amount]);
             }
         }
     }
