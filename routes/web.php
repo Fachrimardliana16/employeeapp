@@ -3,10 +3,11 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AttendanceController;
 
-Route::get('/', function () {
-    // Redirect langsung ke halaman login admin sebagai default
-    return redirect('/admin');
-});
+// Root path is now handled by the User Panel
+Route::get('/login', \App\Filament\Pages\Auth\Login::class)->name('login');
+Route::redirect('/admin/login', '/login');
+Route::redirect('/employee/login', '/login');
+Route::redirect('/user/login', '/login');
 
 // API routes for attendance
 Route::prefix('api/attendance')->group(function () {

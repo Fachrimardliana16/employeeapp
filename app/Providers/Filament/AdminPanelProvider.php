@@ -28,7 +28,6 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
             ->brandName('Admin Panel')
             ->colors([
                 'primary' => Color::Amber,
@@ -40,18 +39,19 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Default widgets removed
             ])
             ->userMenuItems([
                 MenuItem::make()
                     ->label('Panel Employee')
                     ->url('/employee')
-                    ->icon('heroicon-o-building-office-2'),
+                    ->icon('heroicon-o-building-office-2')
+                    ->visible(fn () => auth()->user()?->hasRole('superadmin')),
                 MenuItem::make()
                     ->label('Portal Pegawai')
                     ->url('/user')
-                    ->icon('heroicon-o-users'),
+                    ->icon('heroicon-o-users')
+                    ->visible(fn () => auth()->user()?->hasRole('superadmin')),
             ])
             ->authMiddleware([
                 Authenticate::class,

@@ -52,9 +52,9 @@ class RoleResource extends Resource
                                     ->label('Centang panel mana saja yang dapat diakses oleh role ini.')
                                     ->dehydrated(false)
                                     ->afterStateHydrated(fn ($component, $record) => $component->state($record?->permissions->where('name', 'like', 'access_%')->pluck('name')->toArray() ?? []))
-                                    ->saveRelationshipsUsing(function ($record, $state, $form) {
+                                    ->saveRelationshipsUsing(function ($record, $state, $livewire) {
                                         // Collect all permissions from virtual fields in the form
-                                        $formState = $form->getRawState();
+                                        $formState = $livewire->data;
                                         $allPermissions = $state ?? [];
                                         
                                         foreach ($formState as $key => $value) {

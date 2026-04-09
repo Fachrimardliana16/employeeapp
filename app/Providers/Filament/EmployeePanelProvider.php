@@ -33,7 +33,6 @@ class EmployeePanelProvider extends PanelProvider
             ->brandLogo(asset('images/logo.png'))
             ->brandLogoHeight('2rem')
             ->favicon(asset('images/favicon.ico'))
-            ->login()
             ->discoverResources(in: app_path('Filament/Employee/Resources'), for: 'App\\Filament\\Employee\\Resources')
             ->discoverPages(in: app_path('Filament/Employee/Pages'), for: 'App\\Filament\\Employee\\Pages')
             ->pages([
@@ -47,11 +46,13 @@ class EmployeePanelProvider extends PanelProvider
                 MenuItem::make()
                     ->label('Panel Admin')
                     ->url('/admin')
-                    ->icon('heroicon-o-cog-6-tooth'),
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->visible(fn () => auth()->user()?->hasRole('superadmin')),
                 MenuItem::make()
                     ->label('Portal Pegawai')
                     ->url('/user')
-                    ->icon('heroicon-o-users'),
+                    ->icon('heroicon-o-users')
+                    ->visible(fn () => auth()->user()?->hasRole('superadmin')),
             ])
             ->authMiddleware([
                 Authenticate::class,
