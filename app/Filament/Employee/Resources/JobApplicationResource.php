@@ -47,10 +47,19 @@ class JobApplicationResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Informasi Pribadi')
                     ->schema([
-                        Forms\Components\TextInput::make('name')
-                            ->label('Nama Lengkap')
-                            ->required()
-                            ->maxLength(255),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nama Lengkap')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('id_number')
+                                    ->label('No. KTP')
+                                    ->required()
+                                    ->numeric()
+                                    ->maxLength(16)
+                                    ->unique(ignoreRecord: true),
+                            ]),
 
                         Forms\Components\Grid::make(2)
                             ->schema([
@@ -94,30 +103,50 @@ class JobApplicationResource extends Resource
                                     ->label('No. Telepon')
                                     ->tel()
                                     ->required()
-                                    ->maxLength(20),
+                                    ->numeric()
+                                    ->maxLength(20)
+                                    ->unique(ignoreRecord: true),
                                 Forms\Components\TextInput::make('email')
                                     ->label('Email')
                                     ->email()
                                     ->required()
                                     ->unique(ignoreRecord: true),
                             ]),
+                    ]),
 
-                        Forms\Components\TextInput::make('id_number')
-                            ->label('No. KTP')
-                            ->maxLength(16),
+                Forms\Components\Section::make('Dokumen Lamaran')
+                    ->schema([
+                        Forms\Components\FileUpload::make('photo')
+                            ->label('Pas Foto')
+                            ->image()
+                            ->imageEditor()
+                            ->directory('job-applications/photos')
+                            ->visibility('public')
+                            ->required(),
+
+                        Forms\Components\FileUpload::make('documents')
+                            ->label('Unggah Dokumen (CV, Ijazah, KTP, dll)')
+                            ->multiple()
+                            ->directory('job-applications/documents')
+                            ->visibility('public')
+                            ->openable()
+                            ->downloadable()
+                            ->reorderable()
+                            ->appendFiles()
+                            ->maxSize(10240),
                     ]),
 
                 Forms\Components\Section::make('Posisi yang Dilamar')
                     ->schema([
                         Forms\Components\Select::make('applied_department_id')
-                            ->label('Departemen')
+                            ->label('Bagian')
                             ->options(MasterDepartment::pluck('name', 'id'))
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn($state, Forms\Set $set) => $set('applied_sub_department_id', null)),
 
                         Forms\Components\Select::make('applied_sub_department_id')
-                            ->label('Sub Departemen')
+                            ->label('Sub Bagian')
                             ->options(
                                 fn(Forms\Get $get): array =>
                                 MasterSubDepartment::where('departments_id', $get('applied_department_id'))
@@ -162,7 +191,7 @@ class JobApplicationResource extends Resource
                             ->numeric()
                             ->step(0.01)
                             ->minValue(0)
-                            ->maxValue(4),
+                            ->maxValue(5),
                     ]),
 
                 Forms\Components\Section::make('Pengalaman Kerja Terakhir')
@@ -252,26 +281,20 @@ class JobApplicationResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('application_number')
-                    ->label('No. Lamaran')
-                    ->searchable()
-                    ->sortable(),
+                Tables\Columns\ImageColumn::make('photo')
+                    ->label('Foto')
+                    ->disk('public')
+                    ->circular(),
 
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama')
+                    ->label('Pelamar')
+                    ->description(fn (JobApplication $record): string => $record->application_number)
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('email')
-                    ->label('Email')
-                    ->searchable(),
-
                 Tables\Columns\TextColumn::make('appliedPosition.name')
-                    ->label('Posisi')
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('appliedDepartment.name')
-                    ->label('Departemen')
+                    ->label('Posisi/Dept')
+                    ->description(fn (JobApplication $record): string => $record->appliedDepartment->name ?? '')
                     ->searchable(),
 
                 Tables\Columns\BadgeColumn::make('status')
@@ -297,30 +320,14 @@ class JobApplicationResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('submitted_at')
-                    ->label('Tanggal Melamar')
-                    ->dateTime('d/m/Y H:i')
+                    ->label('Tgl Melamar')
+                    ->dateTime('d/m/Y')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('expected_salary')
-                    ->label('Ekspektasi Gaji')
-                    ->money('IDR')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('interview_info')
-                    ->label('Info Interview')
-                    ->getStateUsing(function (?JobApplication $record): ?string {
-                        if (!$record || $record->status !== 'interview_scheduled' || !$record->interview_schedule) {
-                            return null;
-                        }
-
-                        $schedule = $record->interview_schedule;
-                        $datetime = isset($schedule['datetime']) ?
-                            Carbon::parse($schedule['datetime'])->format('d/m/Y H:i') : '';
-                        $location = $schedule['location'] ?? '';
-                        return $datetime . ($location ? " di {$location}" : '');
-                    })
-                    ->placeholder('Belum dijadwalkan')
-                    ->wrap(),
+                Tables\Columns\TextColumn::make('email')
+                    ->label('Kontak')
+                    ->description(fn (JobApplication $record): string => $record->phone_number)
+                    ->searchable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -365,210 +372,224 @@ class JobApplicationResource extends Resource
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
-                    ->visible(
-                        fn(?JobApplication $record): bool =>
-                        $record && !in_array($record->status, ['accepted', 'rejected'])
-                    ),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat Profil')
+                        ->icon('heroicon-o-eye')
+                        ->color('info'),
+                    Tables\Actions\Action::make('print')
+                        ->label('Cetak Profil')
+                        ->icon('heroicon-o-printer')
+                        ->color('info')
+                        ->url(fn(JobApplication $record): string => route('job-applications.print', $record))
+                        ->openUrlInNewTab(),
+                    Tables\Actions\EditAction::make()
+                        ->visible(
+                            fn(?JobApplication $record): bool =>
+                            $record && !in_array($record->status, ['accepted', 'rejected'])
+                        ),
 
-                Tables\Actions\Action::make('schedule_interview')
-                    ->label('Jadwalkan Interview')
-                    ->icon('heroicon-o-calendar')
-                    ->color('info')
-                    ->visible(
-                        fn(?JobApplication $record): bool =>
-                        $record && in_array($record->status, ['submitted', 'reviewed'])
-                    )
-                    ->form([
-                        Forms\Components\DateTimePicker::make('interview_datetime')
-                            ->label('Tanggal & Waktu Interview')
-                            ->required(),
-                        Forms\Components\TextInput::make('interview_location')
-                            ->label('Lokasi Interview')
-                            ->required(),
-                        Forms\Components\Textarea::make('interview_notes')
-                            ->label('Catatan Interview')
-                            ->rows(3),
-                    ])
-                    ->action(function (?JobApplication $record, array $data): void {
-                        if (!$record) return;
+                    Tables\Actions\Action::make('schedule_interview')
+                        ->label('Jadwalkan Interview')
+                        ->icon('heroicon-o-calendar')
+                        ->color('danger')
+                        ->visible(
+                            fn(?JobApplication $record): bool =>
+                            $record && in_array($record->status, ['submitted', 'reviewed'])
+                        )
+                        ->form([
+                            Forms\Components\DateTimePicker::make('interview_datetime')
+                                ->label('Tanggal & Waktu Interview')
+                                ->required(),
+                            Forms\Components\TextInput::make('interview_location')
+                                ->label('Lokasi Interview')
+                                ->required(),
+                            Forms\Components\Textarea::make('interview_notes')
+                                ->label('Catatan Interview')
+                                ->rows(3),
+                        ])
+                        ->action(function (?JobApplication $record, array $data): void {
+                            if (!$record) return;
 
-                        $record->update([
-                            'status' => 'interview_scheduled',
-                            'interview_schedule' => [
-                                'datetime' => $data['interview_datetime'],
-                                'location' => $data['interview_location'],
-                                'notes' => $data['interview_notes'],
-                                'scheduled_by' => auth()->id() ?? 0,
-                                'scheduled_at' => now(),
-                            ],
-                        ]);
-
-                        Notification::make()
-                            ->title('Interview berhasil dijadwalkan')
-                            ->success()
-                            ->send();
-                    }),
-
-                Tables\Actions\Action::make('mark_interviewed')
-                    ->label('Tandai Sudah Interview')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('primary')
-                    ->visible(
-                        fn(?JobApplication $record): bool =>
-                        $record && $record->status === 'interview_scheduled'
-                    )
-                    ->form([
-                        Forms\Components\TextInput::make('technical_score')
-                            ->label('Nilai Teknis')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->suffix('%'),
-                        Forms\Components\TextInput::make('soft_skills_score')
-                            ->label('Nilai Soft Skills')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->suffix('%'),
-                        Forms\Components\TextInput::make('overall_score')
-                            ->label('Nilai Keseluruhan')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->suffix('%'),
-                        Forms\Components\Textarea::make('interviewer_notes')
-                            ->label('Catatan Interviewer')
-                            ->rows(3),
-                        Forms\Components\Select::make('recommendation')
-                            ->label('Rekomendasi')
-                            ->options([
-                                'highly_recommended' => 'Sangat Direkomendasikan',
-                                'recommended' => 'Direkomendasikan',
-                                'consider' => 'Perlu Pertimbangan',
-                                'not_recommended' => 'Tidak Direkomendasikan',
-                            ])
-                            ->required(),
-                    ])
-                    ->action(function (?JobApplication $record, array $data): void {
-                        if (!$record) return;
-
-                        $record->update([
-                            'status' => 'interviewed',
-                            'interview_at' => now(),
-                            'interview_results' => $data,
-                        ]);
-
-                        Notification::make()
-                            ->title('Status interview berhasil diupdate')
-                            ->success()
-                            ->send();
-                    }),
-
-                Tables\Actions\Action::make('process_decision')
-                    ->label('Proses Keputusan')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('warning')
-                    ->visible(
-                        fn(?JobApplication $record): bool =>
-                        $record && in_array($record->status, ['interviewed'])
-                    )
-                    ->form([
-                        Forms\Components\Select::make('decision')
-                            ->label('Keputusan')
-                            ->options([
-                                'accepted' => 'Diterima',
-                                'rejected' => 'Ditolak',
-                            ])
-                            ->required()
-                            ->live(),
-
-                        Forms\Components\Textarea::make('decision_reason')
-                            ->label('Alasan Keputusan')
-                            ->required()
-                            ->rows(3),
-
-                        // Form untuk data kontrak jika diterima
-                        Forms\Components\Section::make('Data Kontrak (Jika Diterima)')
-                            ->schema([
-                                Forms\Components\Select::make('proposed_agreement_type_id')
-                                    ->label('Jenis Kontrak')
-                                    ->options(MasterEmployeeAgreement::pluck('name', 'id'))
-                                    ->required(),
-
-                                Forms\Components\Select::make('proposed_employment_status_id')
-                                    ->label('Status Kepegawaian')
-                                    ->options(MasterEmployeeStatusEmployment::pluck('name', 'id'))
-                                    ->required(),
-
-                                Forms\Components\Select::make('proposed_grade_id')
-                                    ->label('Grade Gaji')
-                                    ->options(MasterEmployeeGrade::all()->pluck('name', 'id'))
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                        if ($state) {
-                                            $grade = MasterEmployeeGrade::find($state);
-                                            if ($grade && $grade->basic_salary > 0) {
-                                                $set('proposed_salary', $grade->basic_salary);
-                                            }
-                                        }
-                                    })
-                                    ->helperText('Pilih grade untuk auto-fill gaji'),
-
-                                Forms\Components\TextInput::make('proposed_salary')
-                                    ->label('Gaji Pokok')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->required()
-                                    ->step(100000)
-                                    ->helperText('Gaji akan terisi otomatis saat memilih grade')
-                                    ->live()
-                                    ->formatStateUsing(fn($state) => $state ? number_format($state, 0, ',', '.') : '')
-                                    ->dehydrateStateUsing(fn($state) => $state ? (int) str_replace(['.', ','], '', $state) : null),
-
-                                Forms\Components\DatePicker::make('proposed_start_date')
-                                    ->label('Tanggal Mulai Kerja')
-                                    ->required(),
-                            ])
-                            ->visible(fn(Forms\Get $get): bool => $get('decision') === 'accepted'),
-                    ])
-                    ->action(function (?JobApplication $record, array $data): void {
-                        if (!$record) return;
-
-                        // Update status aplikasi
-                        $record->update([
-                            'status' => $data['decision'],
-                            'decision_at' => now(),
-                        ]);
-
-                        // Buat archive
-                        $archive = JobApplicationArchive::createFromJobApplication($record, $data);
-
-                        // Jika diterima, buat kontrak otomatis
-                        if ($data['decision'] === 'accepted') {
-                            $agreement = EmployeeAgreement::createFromJobApplication($archive);
+                            $record->update([
+                                'status' => 'interview_scheduled',
+                                'interview_schedule' => [
+                                    'datetime' => $data['interview_datetime'],
+                                    'location' => $data['interview_location'],
+                                    'notes' => $data['interview_notes'],
+                                    'scheduled_by' => auth()->id() ?? 0,
+                                    'scheduled_at' => now(),
+                                ],
+                            ]);
 
                             Notification::make()
-                                ->title('Pelamar diterima dan kontrak berhasil dibuat')
-                                ->body("Nomor kontrak: {$agreement->agreement_number}")
+                                ->title('Interview berhasil dijadwalkan')
                                 ->success()
-                                ->actions([
-                                    \Filament\Notifications\Actions\Action::make('view_contract')
-                                        ->label('Lihat Kontrak')
-                                        ->url(route('filament.employee.resources.employee-agreements.view', ['record' => $agreement->id]))
-                                        ->button(),
+                                ->send();
+                        }),
+
+                    Tables\Actions\Action::make('mark_interviewed')
+                        ->label('Tandai Sudah Interview')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('primary')
+                        ->visible(
+                            fn(?JobApplication $record): bool =>
+                            $record && $record->status === 'interview_scheduled'
+                        )
+                        ->form([
+                            Forms\Components\TextInput::make('technical_score')
+                                ->label('Nilai Teknis')
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->suffix('%'),
+                            Forms\Components\TextInput::make('soft_skills_score')
+                                ->label('Nilai Soft Skills')
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->suffix('%'),
+                            Forms\Components\TextInput::make('overall_score')
+                                ->label('Nilai Keseluruhan')
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->suffix('%'),
+                            Forms\Components\Textarea::make('interviewer_notes')
+                                ->label('Catatan Interviewer')
+                                ->rows(3),
+                            Forms\Components\Select::make('recommendation')
+                                ->label('Rekomendasi')
+                                ->options([
+                                    'highly_recommended' => 'Sangat Direkomendasikan',
+                                    'recommended' => 'Direkomendasikan',
+                                    'consider' => 'Perlu Pertimbangan',
+                                    'not_recommended' => 'Tidak Direkomendasikan',
                                 ])
-                                ->send();
-                        } else {
+                                ->required(),
+                        ])
+                        ->action(function (?JobApplication $record, array $data): void {
+                            if (!$record) return;
+
+                            $record->update([
+                                'status' => 'interviewed',
+                                'interview_at' => now(),
+                                'interview_results' => $data,
+                            ]);
+
                             Notification::make()
-                                ->title('Keputusan berhasil diproses')
-                                ->body('Lamaran telah ditolak dan diarsipkan')
+                                ->title('Status interview berhasil diupdate')
                                 ->success()
                                 ->send();
-                        }
-                    }),
+                        }),
+
+                    Tables\Actions\Action::make('process_decision')
+                        ->label('Proses Keputusan')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('warning')
+                        ->visible(
+                            fn(?JobApplication $record): bool =>
+                            $record && in_array($record->status, ['interviewed'])
+                        )
+                        ->form([
+                            Forms\Components\Select::make('decision')
+                                ->label('Keputusan')
+                                ->options([
+                                    'accepted' => 'Diterima',
+                                    'rejected' => 'Ditolak',
+                                ])
+                                ->required()
+                                ->live(),
+
+                            Forms\Components\Textarea::make('decision_reason')
+                                ->label('Alasan Keputusan')
+                                ->required()
+                                ->rows(3),
+
+                            // Form untuk data kontrak jika diterima
+                            Forms\Components\Section::make('Data Kontrak (Jika Diterima)')
+                                ->schema([
+                                    Forms\Components\Select::make('proposed_agreement_type_id')
+                                        ->label('Jenis Kontrak')
+                                        ->options(MasterEmployeeAgreement::pluck('name', 'id'))
+                                        ->required(),
+
+                                    Forms\Components\Select::make('proposed_employment_status_id')
+                                        ->label('Status Kepegawaian')
+                                        ->options(MasterEmployeeStatusEmployment::pluck('name', 'id'))
+                                        ->required(),
+
+                                    Forms\Components\Select::make('proposed_grade_id')
+                                        ->label('Grade Gaji')
+                                        ->options(MasterEmployeeGrade::all()->pluck('name', 'id'))
+                                        ->required()
+                                        ->live()
+                                        ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                            if ($state) {
+                                                $grade = MasterEmployeeGrade::find($state);
+                                                if ($grade && $grade->basic_salary > 0) {
+                                                    $set('proposed_salary', $grade->basic_salary);
+                                                }
+                                            }
+                                        })
+                                        ->helperText('Pilih grade untuk auto-fill gaji'),
+
+                                    Forms\Components\TextInput::make('proposed_salary')
+                                        ->label('Gaji Pokok')
+                                        ->numeric()
+                                        ->prefix('Rp')
+                                        ->required()
+                                        ->step(100000)
+                                        ->helperText('Gaji akan terisi otomatis saat memilih grade')
+                                        ->live()
+                                        ->formatStateUsing(fn($state) => $state ? number_format($state, 0, ',', '.') : '')
+                                        ->dehydrateStateUsing(fn($state) => $state ? (int) str_replace(['.', ','], '', $state) : null),
+
+                                    Forms\Components\DatePicker::make('proposed_start_date')
+                                        ->label('Tanggal Mulai Kerja')
+                                        ->required(),
+                                ])
+                                ->visible(fn(Forms\Get $get): bool => $get('decision') === 'accepted'),
+                        ])
+                        ->action(function (?JobApplication $record, array $data): void {
+                            if (!$record) return;
+
+                            // Update status aplikasi
+                            $record->update([
+                                'status' => $data['decision'],
+                                'decision_at' => now(),
+                            ]);
+
+                            // Buat archive
+                            $archive = JobApplicationArchive::createFromJobApplication($record, $data);
+
+                            // Jika diterima, buat kontrak otomatis
+                            if ($data['decision'] === 'accepted') {
+                                $agreement = EmployeeAgreement::createFromJobApplication($archive);
+
+                                Notification::make()
+                                    ->title('Pelamar diterima dan kontrak berhasil dibuat')
+                                    ->body("Nomor kontrak: {$agreement->agreement_number}")
+                                    ->success()
+                                    ->actions([
+                                        \Filament\Notifications\Actions\Action::make('view_contract')
+                                            ->label('Lihat Kontrak')
+                                            ->url(route('filament.employee.resources.employee-agreements.view', ['record' => $agreement->id]))
+                                            ->button(),
+                                    ])
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Keputusan berhasil diproses')
+                                    ->body('Lamaran telah ditolak dan diarsipkan')
+                                    ->success()
+                                    ->send();
+                            }
+                        }),
+                      
+                ])
+                    ->label('Action')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -584,190 +605,127 @@ class JobApplicationResource extends Resource
     {
         return $infolist
             ->schema([
-                Infolists\Components\Section::make('Informasi Lamaran')
+                // Header Card
+                Infolists\Components\Section::make()
                     ->schema([
-                        Infolists\Components\Grid::make(2)
+                        Infolists\Components\Grid::make(4)
                             ->schema([
-                                Infolists\Components\TextEntry::make('application_number')
-                                    ->label('No. Lamaran'),
-                                Infolists\Components\TextEntry::make('status')
-                                    ->label('Status')
-                                    ->badge()
-                                    ->color(fn(string $state): string => match ($state) {
-                                        'submitted' => 'gray',
-                                        'reviewed' => 'warning',
-                                        'interview_scheduled' => 'info',
-                                        'interviewed' => 'primary',
-                                        'accepted' => 'success',
-                                        'rejected' => 'danger',
-                                        'withdrawn' => 'gray',
-                                        default => 'gray',
-                                    })
-                                    ->formatStateUsing(fn(string $state): string => match ($state) {
-                                        'submitted' => 'Baru Dikirim',
-                                        'reviewed' => 'Sedang Direview',
-                                        'interview_scheduled' => 'Dijadwalkan Interview',
-                                        'interviewed' => 'Sudah Interview',
-                                        'accepted' => 'Diterima',
-                                        'rejected' => 'Ditolak',
-                                        'withdrawn' => 'Dibatalkan',
-                                        default => $state,
-                                    }),
+                                Infolists\Components\ImageEntry::make('photo')
+                                    ->hiddenLabel()
+                                    ->circular()
+                                    ->height(120)
+                                    ->extraImgAttributes(['class' => 'shadow-lg border-2 border-primary-500']),
+                                Infolists\Components\Grid::make(1)
+                                    ->schema([
+                                        Infolists\Components\TextEntry::make('name')
+                                            ->label('Nama Lengkap')
+                                            ->weight('bold')
+                                            ->size('lg'),
+                                        Infolists\Components\TextEntry::make('application_number')
+                                            ->label('No. Lamaran')
+                                            ->color('gray')
+                                            ->copyable(),
+                                    ])->columnSpan(2),
+                                Infolists\Components\Grid::make(1)
+                                    ->schema([
+                                        Infolists\Components\TextEntry::make('status')
+                                            ->badge()
+                                            ->color(fn(string $state): string => match ($state) {
+                                                'submitted' => 'gray',
+                                                'reviewed' => 'warning',
+                                                'interview_scheduled' => 'info',
+                                                'interviewed' => 'primary',
+                                                'accepted' => 'success',
+                                                'rejected' => 'danger',
+                                                'withdrawn' => 'gray',
+                                                default => 'gray',
+                                            }),
+                                        Infolists\Components\TextEntry::make('submitted_at')
+                                            ->label('Tanggal Melamar')
+                                            ->dateTime('d F Y')
+                                            ->color('gray'),
+                                    ])->columnSpan(1),
                             ]),
+                    ])->columnSpanFull(),
 
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('submitted_at')
-                                    ->label('Tanggal Melamar')
-                                    ->dateTime('d/m/Y H:i'),
-                                Infolists\Components\TextEntry::make('decision_at')
-                                    ->label('Tanggal Keputusan')
-                                    ->dateTime('d/m/Y H:i')
-                                    ->placeholder('Belum ada keputusan'),
-                            ]),
-                    ]),
-
-                Infolists\Components\Section::make('Data Pribadi')
+                // Main Info Grid
+                Infolists\Components\Grid::make(3)
                     ->schema([
-                        Infolists\Components\Grid::make(2)
+                        // Column 1: Data Pribadi
+                        Infolists\Components\Section::make('Data Pribadi')
+                            ->icon('heroicon-o-user')
                             ->schema([
-                                Infolists\Components\TextEntry::make('name')
-                                    ->label('Nama Lengkap'),
-                                Infolists\Components\TextEntry::make('email')
-                                    ->label('Email'),
-                            ]),
+                                Infolists\Components\TextEntry::make('id_number')->label('No. KTP'),
+                                Infolists\Components\Grid::make(2)
+                                    ->schema([
+                                        Infolists\Components\TextEntry::make('gender_label')->label('J. Kelamin'),
+                                        Infolists\Components\TextEntry::make('marital_status_label')->label('Status Sipil'),
+                                    ]),
+                                Infolists\Components\TextEntry::make('birth_info')
+                                    ->label('Tempat, Tgl Lahir')
+                                    ->state(fn($record) => "{$record->place_birth}, " . $record->date_birth->format('d/m/Y')),
+                                Infolists\Components\TextEntry::make('email')->icon('heroicon-m-envelope'),
+                                Infolists\Components\TextEntry::make('phone_number')->icon('heroicon-m-phone'),
+                                Infolists\Components\TextEntry::make('address')->label('Alamat'),
+                            ])->columnSpan(1),
 
-                        Infolists\Components\Grid::make(3)
+                        // Column 2: Pendidikan & Target
+                        Infolists\Components\Section::make('Pendidikan & Posisi')
+                            ->icon('heroicon-o-academic-cap')
                             ->schema([
-                                Infolists\Components\TextEntry::make('place_birth')
-                                    ->label('Tempat Lahir'),
-                                Infolists\Components\TextEntry::make('date_birth')
-                                    ->label('Tanggal Lahir')
-                                    ->date('d/m/Y'),
-                                Infolists\Components\TextEntry::make('gender_label')
-                                    ->label('Jenis Kelamin'),
-                            ]),
+                                Infolists\Components\TextEntry::make('appliedPosition.name')
+                                    ->label('Posisi Dilamar')
+                                    ->weight('bold')
+                                    ->color('primary'),
+                                Infolists\Components\TextEntry::make('appliedDepartment.name')->label('Bagian'),
+                                Infolists\Components\TextEntry::make('education_summary')
+                                    ->label('Pendidikan Terakhir')
+                                    ->state(fn($record) => "{$record->educationLevel->name} - {$record->education_institution}"),
+                                Infolists\Components\Grid::make(2)
+                                    ->schema([
+                                        Infolists\Components\TextEntry::make('education_major')->label('Jurusan'),
+                                        Infolists\Components\TextEntry::make('education_gpa')->label('IPK/Nilai'),
+                                    ]),
+                                Infolists\Components\TextEntry::make('expected_salary')->label('Ekspektasi Gaji')->money('IDR'),
+                                Infolists\Components\TextEntry::make('available_start_date')->label('Tersedia Mulai')->date('d F Y'),
+                            ])->columnSpan(1),
 
-                        Infolists\Components\Grid::make(2)
+                        // Column 3: Pengalaman & Lampiran
+                        Infolists\Components\Grid::make(1)
                             ->schema([
-                                Infolists\Components\TextEntry::make('marital_status_label')
-                                    ->label('Status Pernikahan'),
-                                Infolists\Components\TextEntry::make('phone_number')
-                                    ->label('No. Telepon'),
-                            ]),
+                                Infolists\Components\Section::make('Pengalaman Terakhir')
+                                    ->icon('heroicon-o-briefcase')
+                                    ->schema([
+                                        Infolists\Components\TextEntry::make('last_company_name')->label('Perusahaan'),
+                                        Infolists\Components\TextEntry::make('last_position')->label('Jabatan'),
+                                        Infolists\Components\TextEntry::make('last_salary')->label('Gaji Terakhir')->money('IDR'),
+                                    ])->collapsed(),
 
-                        Infolists\Components\TextEntry::make('address')
-                            ->label('Alamat'),
-                    ]),
-
-                Infolists\Components\Section::make('Posisi yang Dilamar')
-                    ->schema([
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('appliedDepartment.name')
-                                    ->label('Departemen'),
-                                Infolists\Components\TextEntry::make('appliedSubDepartment.name')
-                                    ->label('Sub Departemen')
-                                    ->placeholder('Tidak ada'),
-                            ]),
-
-                        Infolists\Components\TextEntry::make('appliedPosition.name')
-                            ->label('Posisi'),
-                    ]),
-
-                Infolists\Components\Section::make('Pendidikan')
-                    ->schema([
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('educationLevel.name')
-                                    ->label('Tingkat Pendidikan'),
-                                Infolists\Components\TextEntry::make('education_institution')
-                                    ->label('Institusi'),
-                            ]),
-
-                        Infolists\Components\Grid::make(3)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('education_major')
-                                    ->label('Jurusan')
-                                    ->placeholder('Tidak disebutkan'),
-                                Infolists\Components\TextEntry::make('education_graduation_year')
-                                    ->label('Tahun Lulus'),
-                                Infolists\Components\TextEntry::make('education_gpa')
-                                    ->label('IPK/Nilai')
-                                    ->placeholder('Tidak disebutkan'),
-                            ]),
-                    ]),
-
-                Infolists\Components\Section::make('Pengalaman Kerja Terakhir')
-                    ->schema([
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('last_company_name')
-                                    ->label('Perusahaan')
-                                    ->placeholder('Tidak ada'),
-                                Infolists\Components\TextEntry::make('last_position')
-                                    ->label('Posisi')
-                                    ->placeholder('Tidak ada'),
-                            ]),
-
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('last_work_start_date')
-                                    ->label('Tanggal Mulai')
-                                    ->date('d/m/Y')
-                                    ->placeholder('Tidak ada'),
-                                Infolists\Components\TextEntry::make('last_work_end_date')
-                                    ->label('Tanggal Berakhir')
-                                    ->date('d/m/Y')
-                                    ->placeholder('Tidak ada'),
-                            ]),
-
-                        Infolists\Components\TextEntry::make('last_work_description')
-                            ->label('Deskripsi Pekerjaan')
-                            ->placeholder('Tidak ada'),
-
-                        Infolists\Components\TextEntry::make('last_salary')
-                            ->label('Gaji Terakhir')
-                            ->money('IDR')
-                            ->placeholder('Tidak disebutkan'),
-                    ]),
-
-                Infolists\Components\Section::make('Ekspektasi & Referensi')
-                    ->schema([
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('expected_salary')
-                                    ->label('Ekspektasi Gaji')
-                                    ->money('IDR')
-                                    ->placeholder('Tidak disebutkan'),
-                                Infolists\Components\TextEntry::make('available_start_date')
-                                    ->label('Bisa Mulai Kerja')
-                                    ->date('d/m/Y')
-                                    ->placeholder('Tidak disebutkan'),
-                            ]),
-
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('reference_name')
-                                    ->label('Nama Referensi')
-                                    ->placeholder('Tidak ada'),
-                                Infolists\Components\TextEntry::make('reference_phone')
-                                    ->label('No. Telepon Referensi')
-                                    ->placeholder('Tidak ada'),
-                            ]),
-
-                        Infolists\Components\TextEntry::make('reference_relation')
-                            ->label('Hubungan dengan Referensi')
-                            ->placeholder('Tidak disebutkan'),
-                    ]),
-
-                Infolists\Components\Section::make('Catatan')
-                    ->schema([
-                        Infolists\Components\TextEntry::make('notes')
-                            ->label('Catatan HR')
-                            ->placeholder('Tidak ada catatan'),
-                    ])
-                    ->visible(fn(JobApplication $record): bool => !empty($record->notes)),
+                                Infolists\Components\Section::make('Lampiran Dokumen')
+                                    ->icon('heroicon-o-paper-clip')
+                                    ->schema([
+                                        Infolists\Components\RepeatableEntry::make('documents')
+                                            ->hiddenLabel()
+                                            ->schema([
+                                                Infolists\Components\TextEntry::make('')
+                                                    ->hiddenLabel()
+                                                    ->formatStateUsing(fn ($state) => basename($state))
+                                                    ->url(fn ($state) => asset('storage/' . $state), true)
+                                                    ->color('primary')
+                                                    ->icon('heroicon-o-document-arrow-down')
+                                                    ->size('sm'),
+                                            ])
+                                            ->grid(1),
+                                    ]),
+                                
+                                Infolists\Components\Section::make('Referensi')
+                                    ->icon('heroicon-o-identification')
+                                    ->schema([
+                                        Infolists\Components\TextEntry::make('reference_name')->label('Nama'),
+                                        Infolists\Components\TextEntry::make('reference_phone')->label('Telepon'),
+                                    ])->collapsed(),
+                            ])->columnSpan(1),
+                    ])->columnSpanFull(),
             ]);
     }
 

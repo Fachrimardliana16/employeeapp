@@ -25,7 +25,7 @@ class UserPanelProvider extends PanelProvider
     {
         return $panel
             ->id('user')
-            ->path('')
+            ->path('user')
             ->login(\App\Filament\Pages\Auth\Login::class)
             ->registration()
             ->brandName('Portal Pegawai')

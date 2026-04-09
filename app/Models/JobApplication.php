@@ -24,6 +24,7 @@ class JobApplication extends Model
         'phone_number',
         'email',
         'id_number',
+        'photo',
         'applied_position_id',
         'applied_department_id',
         'applied_sub_department_id',
