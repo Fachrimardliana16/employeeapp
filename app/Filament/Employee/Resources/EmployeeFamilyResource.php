@@ -37,58 +37,73 @@ class EmployeeFamilyResource extends Resource
                     ->description('Kelola data keluarga Pegawai')
                     ->icon('heroicon-o-users')
                     ->schema([
-                        Forms\Components\Select::make('employees_id')
-                            ->label('Pegawai')
-                            ->relationship('employee', 'name')
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->placeholder('Pilih Pegawai...'),
-                        Forms\Components\Select::make('master_employee_families_id')
-                            ->label('Hubungan Keluarga')
-                            ->relationship('masterFamily', 'name')
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->placeholder('Pilih hubungan keluarga...'),
-                        Forms\Components\TextInput::make('family_name')
-                            ->label('Nama Lengkap')
-                            ->required()
-                            ->maxLength(255)
-                            ->placeholder('Masukkan nama lengkap anggota keluarga...'),
-                        Forms\Components\Select::make('family_gender')
-                            ->label('Jenis Kelamin')
-                            ->options([
-                                'male' => 'Laki-laki',
-                                'female' => 'Perempuan',
-                            ])
-                            ->required()
-                            ->placeholder('Pilih jenis kelamin...'),
-                        Forms\Components\TextInput::make('family_id_number')
-                            ->label('Nomor KTP')
-                            ->maxLength(20)
-                            ->placeholder('Masukkan nomor KTP (opsional)...'),
-                        Forms\Components\TextInput::make('family_place_birth')
-                            ->label('Tempat Lahir')
-                            ->maxLength(255)
-                            ->placeholder('Masukkan tempat lahir...'),
-                        Forms\Components\DatePicker::make('family_date_birth')
-                            ->label('Tanggal Lahir')
-                            ->native(false)
-                            ->placeholder('Pilih tanggal lahir...'),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Select::make('employees_id')
+                                    ->label('Pegawai')
+                                    ->relationship('employee', 'name')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->placeholder('Pilih Pegawai...'),
+                                Forms\Components\Select::make('master_employee_families_id')
+                                    ->label('Hubungan Keluarga')
+                                    ->relationship('masterFamily', 'name')
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->placeholder('Pilih hubungan keluarga...'),
+                            ]),
+                        Forms\Components\Grid::make(3)
+                            ->schema([
+                                Forms\Components\TextInput::make('family_name')
+                                    ->label('Nama Lengkap')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->placeholder('Masukkan nama lengkap anggota keluarga...'),
+                                Forms\Components\Select::make('family_gender')
+                                    ->label('Jenis Kelamin')
+                                    ->options([
+                                        'male' => 'Laki-laki',
+                                        'female' => 'Perempuan',
+                                    ])
+                                    ->required()
+                                    ->placeholder('Pilih jenis kelamin...'),
+                                Forms\Components\TextInput::make('family_id_number')
+                                    ->label('Nomor KTP (NIP)')
+                                    ->maxLength(20)
+                                    ->placeholder('Masukkan nomor KTP...'),
+                            ]),
                         Forms\Components\Textarea::make('family_address')
                             ->label('Alamat')
                             ->maxLength(500)
                             ->rows(3)
-                            ->placeholder('Masukkan alamat lengkap...'),
-                        Forms\Components\TextInput::make('family_phone')
-                            ->label('Nomor Telepon')
-                            ->maxLength(20)
-                            ->placeholder('Masukkan nomor telepon...'),
-                        Forms\Components\Toggle::make('is_emergency_contact')
-                            ->label('Kontak Darurat')
-                            ->helperText('Centang jika anggota keluarga ini adalah kontak darurat')
-                            ->default(false),
+                            ->placeholder('Masukkan alamat lengkap...')
+                            ->columnSpanFull(),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('family_place_birth')
+                                    ->label('Tempat Lahir')
+                                    ->maxLength(255)
+                                    ->placeholder('Masukkan tempat lahir...'),
+                                Forms\Components\DatePicker::make('family_date_birth')
+                                    ->label('Tanggal Lahir')
+                                    ->native(false)
+                                    ->suffixIcon('heroicon-m-calendar')
+                                    ->placeholder('Pilih tanggal lahir...'),
+                            ]),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('family_phone')
+                                    ->label('Nomor Telepon')
+                                    ->maxLength(20)
+                                    ->placeholder('Masukkan nomor telepon...'),
+                                Forms\Components\Toggle::make('is_emergency_contact')
+                                    ->label('Kontak Darurat')
+                                    ->helperText('Jadikan sebagai kontak darurat')
+                                    ->default(false)
+                                    ->inline(false),
+                            ]),
                         Forms\Components\Hidden::make('users_id')
                             ->default(fn() => auth()->id() ?? 0),
                     ]),
@@ -169,18 +184,25 @@ class EmployeeFamilyResource extends Resource
                     ->native(false),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat Detail')
-                    ->modalHeading('Detail Data Keluarga'),
-                Tables\Actions\EditAction::make()
-                    ->label('Ubah Data')
-                    ->modalHeading('Ubah Data Keluarga'),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus')
-                    ->modalHeading('Hapus Data Keluarga')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus data keluarga ini?')
-                    ->modalSubmitActionLabel('Ya, Hapus')
-                    ->modalCancelActionLabel('Batal'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat Detail')
+                        ->modalHeading('Detail Data Keluarga'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Ubah Data')
+                        ->modalHeading('Ubah Data Keluarga'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus')
+                        ->modalHeading('Hapus Data Keluarga')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus data keluarga ini?')
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

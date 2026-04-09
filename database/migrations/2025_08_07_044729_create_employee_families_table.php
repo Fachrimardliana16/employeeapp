@@ -13,13 +13,16 @@ return new class extends Migration
     {
         Schema::create('employee_families', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_id')->constrained('employees')->onDelete('cascade');
-            $table->foreignId('family_id')->constrained('master_employee_families')->onDelete('cascade');
-            $table->string('name');
-            $table->enum('gender', ['male', 'female']);
-            $table->string('id_number', 20)->nullable();
-            $table->string('place_birth')->nullable();
-            $table->date('date_birth')->nullable();
+            $table->foreignId('employees_id')->constrained('employees')->onDelete('cascade');
+            $table->foreignId('master_employee_families_id')->constrained('master_employee_families')->onDelete('cascade');
+            $table->string('family_name');
+            $table->enum('family_gender', ['male', 'female']);
+            $table->string('family_id_number', 20)->nullable();
+            $table->string('family_place_birth')->nullable();
+            $table->date('family_date_birth')->nullable();
+            $table->text('family_address')->nullable();
+            $table->string('family_phone', 20)->nullable();
+            $table->boolean('is_emergency_contact')->default(false);
             $table->foreignId('users_id')->constrained('users')->onDelete('cascade');
             $table->timestamps();
             $table->softDeletes();

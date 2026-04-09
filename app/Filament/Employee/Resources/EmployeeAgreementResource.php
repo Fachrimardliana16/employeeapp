@@ -117,6 +117,7 @@ class EmployeeAgreementResource extends Resource
                                     ->label('Jenis Kontrak')
                                     ->required()
                                     ->searchable()
+                                    ->reactive()
                                     ->preload(),
                             ]),
 
@@ -186,6 +187,7 @@ class EmployeeAgreementResource extends Resource
                                     ->relationship('employmentStatus', 'name')
                                     ->required()
                                     ->searchable()
+                                    ->reactive()
                                     ->preload(),
                                 Forms\Components\Select::make('basic_salary_id')
                                     ->label('Golongan')
@@ -222,7 +224,29 @@ class EmployeeAgreementResource extends Resource
                                     ->helperText('Tanggal berakhir akan otomatis diset 2 tahun dari tanggal mulai'),
                                 Forms\Components\DatePicker::make('agreement_date_end')
                                     ->label('Tanggal Berakhir Kontrak')
-                                    ->helperText('Otomatis diisi berdasarkan tanggal mulai + 2 tahun'),
+                                    ->helperText('Otomatis diisi berdasarkan tanggal mulai + 2 tahun')
+                                    ->hidden(function (callable $get) {
+                                        $agreementId = $get('agreement_id');
+                                        $statusId = $get('employment_status_id');
+                                        
+                                        $isPkwtt = false;
+                                        if ($agreementId) {
+                                            $agreement = \App\Models\MasterEmployeeAgreement::find($agreementId);
+                                            if ($agreement && (stripos($agreement->name, 'PKWTT') !== false || stripos($agreement->name, 'Tetap') !== false)) {
+                                                $isPkwtt = true;
+                                            }
+                                        }
+                                        
+                                        if ($statusId) {
+                                            $status = \App\Models\MasterEmployeeStatusEmployment::find($statusId);
+                                            // Tetap sembunyikan jika Calon Pegawai atau Pegawai Tetap
+                                            if ($status && (stripos($status->name, 'Calon Pegawai') !== false || stripos($status->name, 'Pegawai') !== false || stripos($status->name, 'Tetap') !== false)) {
+                                                $isPkwtt = true;
+                                            }
+                                        }
+                                        
+                                        return $isPkwtt;
+                                    }),
                                 Forms\Components\Grid::make(2)
                                     ->schema([
                                         Forms\Components\Select::make('departments_id')
@@ -292,11 +316,11 @@ class EmployeeAgreementResource extends Resource
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('phone_number')
                     ->label('No. Telepon')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('masterAgreement.name')
                     ->label('Jenis Kontrak')
                     ->sortable(),
@@ -313,14 +337,15 @@ class EmployeeAgreementResource extends Resource
                     ->placeholder('Belum diisi')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('basicSalaryGrade.name')
-                    ->label('Grade')
+                    ->label('Golongan')
                     ->badge()
                     ->color('info')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('basic_salary')
                     ->label('Gaji Pokok')
                     ->money('IDR')
-                    ->getStateUsing(fn($record) => $record->basic_salary),
+                    ->getStateUsing(fn($record) => $record->basic_salary)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('agreement_date_start')
                     ->label('Tanggal Mulai')
                     ->date('d/m/Y')
@@ -331,9 +356,9 @@ class EmployeeAgreementResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('contract_duration')
                     ->label('Durasi Kontrak')
-                    ->getStateUsing(fn($record) => $record->contract_duration . ' tahun')
+                    ->getStateUsing(fn($record) => $record->agreement_date_end ? $record->contract_duration . ' tahun' : 'Tidak Terbatas')
                     ->badge()
-                    ->color('info'),
+                    ->color(fn($record) => $record->agreement_date_end ? 'info' : 'success'),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Status Kontrak')
                     ->boolean()
@@ -343,14 +368,14 @@ class EmployeeAgreementResource extends Resource
                     ->falseColor('danger'),
                 Tables\Columns\TextColumn::make('days_remaining')
                     ->label('Sisa Hari')
-                    ->getStateUsing(fn($record) => $record->days_remaining > 0 ? $record->days_remaining . ' hari' : 'Berakhir')
+                    ->getStateUsing(fn($record) => $record->agreement_date_end ? ($record->days_remaining > 0 ? $record->days_remaining . ' hari' : 'Berakhir') : 'Tidak Terbatas')
                     ->badge()
-                    ->color(fn($record) => $record->days_remaining > 30 ? 'success' : ($record->days_remaining > 0 ? 'warning' : 'danger')),
+                    ->color(fn($record) => !$record->agreement_date_end || $record->days_remaining > 30 ? 'success' : ($record->days_remaining > 0 ? 'warning' : 'danger')),
                 Tables\Columns\TextColumn::make('department.name')
-                    ->label('Departemen')
+                    ->label('Bagian')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('subDepartment.name')
-                    ->label('Sub Departemen')
+                    ->label('Sub Bagian')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('docs')
                     ->label('Dokumen')
@@ -370,6 +395,7 @@ class EmployeeAgreementResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('agreement_date_end', 'asc')
             ->headerActions([
                 Tables\Actions\Action::make('generate_report')
                     ->label('Cetak Report PDF')
@@ -392,20 +418,22 @@ class EmployeeAgreementResource extends Resource
                     ->label('Status Kepegawaian'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat'),
-                Tables\Actions\EditAction::make()
-                    ->label('Edit'),
-                Tables\Actions\Action::make('renew_contract')
-                    ->label('Perpanjang Kontrak')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->visible(
-                        fn(EmployeeAgreement $record): bool =>
-                        $record->agreement_date_end &&
-                            Carbon::parse($record->agreement_date_end)->diffInDays(Carbon::now(), false) <= 90 &&
-                            $record->is_active
-                    )
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\Action::make('renew_contract')
+                        ->label('Perpanjang Kontrak')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->visible(
+                            fn(EmployeeAgreement $record): bool =>
+                                $record->is_active &&
+                                $record->masterAgreement &&
+                                stripos($record->masterAgreement->name, 'PKWT') !== false &&
+                                stripos($record->masterAgreement->name, 'PKWTT') === false
+                        )
                     ->form([
                         Forms\Components\Placeholder::make('current_contract_info')
                             ->label('Kontrak Saat Ini')
@@ -503,9 +531,15 @@ class EmployeeAgreementResource extends Resource
                     ->modalHeading('Perpanjang Kontrak Kerja')
                     ->modalDescription('Kontrak baru akan dibuat dan kontrak lama akan dinonaktifkan.')
                     ->modalSubmitActionLabel('Perpanjang Kontrak'),
-
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus'),
+                
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

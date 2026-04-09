@@ -19,6 +19,8 @@ class EmployeeDocumentResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationGroup = 'Manajemen Pegawai';
     protected static ?string $navigationLabel = 'Dokumen Pegawai';
+    protected static ?string $modelLabel = 'Dokumen Pegawai';
+    protected static ?string $pluralModelLabel = 'Dokumen Pegawai';
     protected static ?int $navigationSort = 203;
 
     public static function form(Form $form): Form
@@ -28,7 +30,7 @@ class EmployeeDocumentResource extends Resource
                 Forms\Components\Section::make('Informasi Dokumen')
                     ->schema([
                         Forms\Components\Select::make('employee_id')
-                            ->label('Karyawan')
+                            ->label('Pegawai')
                             ->relationship('employee', 'name')
                             ->searchable()
                             ->preload()
@@ -99,21 +101,10 @@ class EmployeeDocumentResource extends Resource
                             ->columnSpanFull(),
                     ])->columns(2),
 
-                Forms\Components\Section::make('Informasi Upload')
-                    ->schema([
-                        Forms\Components\Select::make('uploaded_by')
-                            ->label('Diupload Oleh')
-                            ->options([
-                                'hr' => 'HR/Admin',
-                                'employee' => 'Karyawan Sendiri',
-                            ])
-                            ->required()
-                            ->default('hr')
-                            ->native(false),
-
-                        Forms\Components\Hidden::make('users_id')
-                            ->default(fn() => \Illuminate\Support\Facades\Auth::id()),
-                    ])->columns(1),
+                Forms\Components\Hidden::make('uploaded_by')
+                    ->default('hr'),
+                Forms\Components\Hidden::make('users_id')
+                    ->default(fn() => \Illuminate\Support\Facades\Auth::id()),
             ]);
     }
 
@@ -122,7 +113,7 @@ class EmployeeDocumentResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('employee.name')
-                    ->label('Karyawan')
+                    ->label('Pegawai')
                     ->searchable()
                     ->sortable(),
 
@@ -173,10 +164,10 @@ class EmployeeDocumentResource extends Resource
                     })
                     ->formatStateUsing(fn(string $state): string => match ($state) {
                         'hr' => 'HR',
-                        'employee' => 'Karyawan',
+                        'employee' => 'Pegawai',
                         default => $state,
                     })
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Diupload Pada')
@@ -203,7 +194,7 @@ class EmployeeDocumentResource extends Resource
                     ->label('Diupload Oleh')
                     ->options([
                         'hr' => 'HR',
-                        'employee' => 'Karyawan',
+                        'employee' => 'Pegawai',
                     ]),
 
                 Tables\Filters\Filter::make('expired')
@@ -221,9 +212,16 @@ class EmployeeDocumentResource extends Resource
                     ->toggle(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

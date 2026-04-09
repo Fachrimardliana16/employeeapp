@@ -203,7 +203,7 @@ class Employee extends Model
 
     public function families(): HasMany
     {
-        return $this->hasMany(EmployeeFamily::class);
+        return $this->hasMany(EmployeeFamily::class, 'employees_id');
     }
 
     public function employeeAgreements(): HasMany

@@ -113,11 +113,6 @@ class EmployeeMutationResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Tabs::make('mutation_tabs')
-                    ->tabs([
-                        Forms\Components\Tabs\Tab::make('Informasi Mutasi')
-                            ->icon('heroicon-m-document-text')
-                            ->schema([
                                 Forms\Components\Section::make('Detail Surat Keputusan')
                                     ->description('Informasi dasar tentang keputusan mutasi')
                                     ->schema([
@@ -161,32 +156,32 @@ class EmployeeMutationResource extends Resource
                                             ->getOptionLabelFromRecordUsing(fn($record) => $record->name . ' - ' . ($record->nippam ?? 'No NIPPAM'))
                                             ->helperText('Pilih Pegawai yang akan dimutasi'),
                                     ]),
-                            ]),
-
-                        Forms\Components\Tabs\Tab::make('Data Lama')
-                            ->icon('heroicon-m-arrow-left-circle')
-                            ->schema([
+                                    
                                 Forms\Components\Section::make('Posisi Sebelum Mutasi')
-                                    ->description('Data jabatan dan departemen sebelum mutasi (akan otomatis terisi)')
+                                    ->description('Data jabatan dan bagian sebelum mutasi (akan otomatis terisi)')
                                     ->schema([
                                         Forms\Components\Grid::make(2)
                                             ->schema([
                                                 Forms\Components\Select::make('old_department_id')
-                                                    ->label('Departemen Lama')
+                                                    ->label('Bagian Lama')
                                                     ->relationship('oldDepartment', 'name')
                                                     ->required()
                                                     ->searchable()
                                                     ->preload()
+                                                    ->disabled()
+                                                    ->dehydrated()
                                                     ->live()
                                                     ->afterStateUpdated(function (callable $set) {
                                                         $set('old_sub_department_id', null);
                                                     })
-                                                    ->helperText('Departemen sebelum mutasi'),
+                                                    ->helperText('Bagian sebelum mutasi'),
                                                 Forms\Components\Select::make('old_sub_department_id')
-                                                    ->label('Sub Departemen Lama')
+                                                    ->label('Sub Bagian Lama')
                                                     ->relationship('oldSubDepartment', 'name')
                                                     ->searchable()
                                                     ->preload()
+                                                    ->disabled()
+                                                    ->dehydrated()
                                                     ->options(function (callable $get) {
                                                         $departmentId = $get('old_department_id');
                                                         if (!$departmentId) {
@@ -196,8 +191,7 @@ class EmployeeMutationResource extends Resource
                                                             ->pluck('name', 'id')
                                                             ->toArray();
                                                     })
-                                                    ->disabled(fn(callable $get) => !$get('old_department_id'))
-                                                    ->helperText('Sub departemen sebelum mutasi (opsional)'),
+                                                    ->helperText('Sub bagian sebelum mutasi (opsional)'),
                                             ]),
                                         Forms\Components\Select::make('old_position_id')
                                             ->label('Jabatan Lama')
@@ -205,20 +199,18 @@ class EmployeeMutationResource extends Resource
                                             ->required()
                                             ->searchable()
                                             ->preload()
+                                            ->disabled()
+                                            ->dehydrated()
                                             ->helperText('Jabatan sebelum mutasi'),
                                     ]),
-                            ]),
-
-                        Forms\Components\Tabs\Tab::make('Data Baru')
-                            ->icon('heroicon-m-arrow-right-circle')
-                            ->schema([
+                                    
                                 Forms\Components\Section::make('Posisi Setelah Mutasi')
-                                    ->description('Data jabatan dan departemen baru setelah mutasi')
+                                    ->description('Data jabatan dan bagian baru setelah mutasi')
                                     ->schema([
                                         Forms\Components\Grid::make(2)
                                             ->schema([
                                                 Forms\Components\Select::make('new_department_id')
-                                                    ->label('Departemen Baru')
+                                                    ->label('Bagian Baru')
                                                     ->relationship('newDepartment', 'name')
                                                     ->required()
                                                     ->searchable()
@@ -227,9 +219,9 @@ class EmployeeMutationResource extends Resource
                                                     ->afterStateUpdated(function (callable $set) {
                                                         $set('new_sub_department_id', null);
                                                     })
-                                                    ->helperText('Departemen tujuan mutasi'),
+                                                    ->helperText('Bagian tujuan mutasi'),
                                                 Forms\Components\Select::make('new_sub_department_id')
-                                                    ->label('Sub Departemen Baru')
+                                                    ->label('Sub Bagian Baru')
                                                     ->relationship('newSubDepartment', 'name')
                                                     ->searchable()
                                                     ->preload()
@@ -243,7 +235,7 @@ class EmployeeMutationResource extends Resource
                                                             ->toArray();
                                                     })
                                                     ->disabled(fn(callable $get) => !$get('new_department_id'))
-                                                    ->helperText('Sub departemen tujuan mutasi (opsional)'),
+                                                    ->helperText('Sub bagian tujuan mutasi (opsional)'),
                                             ]),
                                         Forms\Components\Select::make('new_position_id')
                                             ->label('Jabatan Baru')
@@ -253,11 +245,7 @@ class EmployeeMutationResource extends Resource
                                             ->preload()
                                             ->helperText('Jabatan baru setelah mutasi'),
                                     ]),
-                            ]),
-
-                        Forms\Components\Tabs\Tab::make('Dokumen')
-                            ->icon('heroicon-m-document-arrow-up')
-                            ->schema([
+                                    
                                 Forms\Components\Section::make('Dokumen Pendukung')
                                     ->description('Upload dokumen terkait mutasi')
                                     ->schema([
@@ -274,9 +262,6 @@ class EmployeeMutationResource extends Resource
                                         Forms\Components\Hidden::make('users_id')
                                             ->default(fn() => auth()->id() ?? 0),
                                     ]),
-                            ]),
-                    ])
-                    ->columnSpanFull(),
             ]);
     }
 
@@ -368,7 +353,7 @@ class EmployeeMutationResource extends Resource
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Dibuat Oleh')
                     ->searchable()
-                    ->toggleable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('System'),
 
                 Tables\Columns\TextColumn::make('created_at')
@@ -469,7 +454,11 @@ class EmployeeMutationResource extends Resource
                                 ->send();
                         }
                     })
-                    ->visible(fn(EmployeeMutation $record) => $record->employee !== null),
+                    ->visible(fn(EmployeeMutation $record) => $record->employee !== null && (
+                        $record->employee->departments_id != $record->new_department_id ||
+                        $record->employee->sub_department_id != $record->new_sub_department_id ||
+                        $record->employee->employee_position_id != $record->new_position_id
+                    )),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('generate_report')

@@ -954,6 +954,24 @@ class EmployeeResource extends Resource
                     ->view('filament.components.recruitment-progress-bar')
                     ->columnSpanFull()
                     ->hiddenLabel(),
+
+                Infolists\Components\ViewEntry::make('family_data')
+                    ->view('filament.components.family-data-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->families->isEmpty()),
+
+                Infolists\Components\ViewEntry::make('agreement_data')
+                    ->view('filament.components.agreement-data-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->employeeAgreements->isEmpty()),
+
+                Infolists\Components\ViewEntry::make('mutation_data')
+                    ->view('filament.components.mutation-data-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->mutations->isEmpty()),
             ]);
     }
 
