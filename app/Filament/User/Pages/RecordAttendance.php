@@ -124,17 +124,13 @@ class RecordAttendance extends Page
             return;
         }
 
-        // 3. Find Office Locations for this Department
-        $officeLocations = MasterOfficeLocation::where('departments_id', $employee->departments_id)
+        // 3. Find Office Locations - Specific Department OR Global (NULL)
+        $officeLocations = MasterOfficeLocation::where(function($query) use ($employee) {
+                $query->where('departments_id', $employee->departments_id)
+                      ->orWhereNull('departments_id');
+            })
             ->where('is_active', true)
             ->get();
-
-        // Fallback to "Pusat" if no specific location found for department
-        if ($officeLocations->isEmpty()) {
-            $officeLocations = MasterOfficeLocation::where('name', 'LIKE', '%Pusat%')
-                ->where('is_active', true)
-                ->get();
-        }
 
         if ($officeLocations->isEmpty()) {
             Notification::make()

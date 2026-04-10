@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('master_employee_service_grade', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_grade_id')->constrained('master_employee_grades')->onDelete('cascade');
+            $table->foreignId('employee_grade_id')->nullable()->constrained('master_employee_grades')->onDelete('cascade');
             $table->string('service_grade');
             $table->text('desc')->nullable();
             $table->boolean('is_active')->default(true);

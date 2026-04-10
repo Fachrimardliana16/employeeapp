@@ -43,12 +43,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->userMenuItems([
                 MenuItem::make()
-                    ->label('Panel Employee')
+                    ->label('Panel Kepagawaian')
                     ->url('/employee')
                     ->icon('heroicon-o-building-office-2')
                     ->visible(fn () => auth()->user()?->hasRole('superadmin')),
                 MenuItem::make()
-                    ->label('Portal Pegawai')
+                    ->label('Panel Pegawai')
                     ->url('/user')
                     ->icon('heroicon-o-users')
                     ->visible(fn () => auth()->user()?->hasRole('superadmin')),

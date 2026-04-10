@@ -23,11 +23,11 @@ class MasterEmployeeServiceGradeResource extends Resource
 
     protected static ?string $navigationGroup = 'Master Data';
 
-    protected static ?string $navigationLabel = 'Golongan Masa Kerja';
+    protected static ?string $navigationLabel = 'Masa Kerja Golongan (MKG)';
 
-    protected static ?string $modelLabel = 'Golongan Masa Kerja';
+    protected static ?string $modelLabel = 'Masa Kerja Golongan (MKG)';
 
-    protected static ?string $pluralModelLabel = 'Golongan Masa Kerja';
+    protected static ?string $pluralModelLabel = 'Masa Kerja Golongan (MKG)';
 
     protected static ?int $navigationSort = 806;
 
@@ -35,17 +35,13 @@ class MasterEmployeeServiceGradeResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('employee_grade_id')
-                    ->label('Golongan Pegawai')
-                    ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id'))
-                    ->required()
-                    ->searchable()
-                    ->preload(),
                 Forms\Components\TextInput::make('service_grade')
-                    ->label('Pangkat / Golongan')
+                    ->label('Masa Kerja Golongan (MKG) Tahun')
                     ->required()
-                    ->maxLength(255)
-                    ->placeholder('e.g., A1, B2, C3'),
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(33)
+                    ->placeholder('e.g., 0, 5, 10'),
                 Forms\Components\Textarea::make('desc')
                     ->label('Description')
                     ->columnSpanFull(),
@@ -60,12 +56,8 @@ class MasterEmployeeServiceGradeResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('employeeGrade.name')
-                    ->label('Golongan Pegawai')
-                    ->searchable()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('service_grade')
-                    ->label('Pangkat / Golongan')
+                    ->label('MKG (Tahun)')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('desc')

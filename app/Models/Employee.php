@@ -57,6 +57,7 @@ class Employee extends Model
         'bagian_id',
         'cabang_id',
         'unit_id',
+        'employee_service_grade_id',
         'users_id',
     ];
 
@@ -167,6 +168,11 @@ class Employee extends Model
     public function grade(): BelongsTo
     {
         return $this->belongsTo(MasterEmployeeGrade::class, 'basic_salary_id');
+    }
+
+    public function serviceGrade(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeServiceGrade::class, 'employee_service_grade_id');
     }
 
     public function position(): BelongsTo
@@ -480,5 +486,19 @@ class Employee extends Model
     public function getActiveOrganizationalUnitAttribute()
     {
         return $this->unit ?? $this->cabang ?? $this->bagian ?? $this->department;
+    }
+
+    /**
+     * Get basic salary amount based on grade and service grade
+     */
+    public function getBasicSalaryAmountAttribute()
+    {
+        if (!$this->basic_salary_id || !$this->employee_service_grade_id) {
+            return 0;
+        }
+
+        return \App\Models\MasterEmployeeBasicSalary::where('employee_grade_id', $this->basic_salary_id)
+            ->where('employee_service_grade_id', $this->employee_service_grade_id)
+            ->value('amount') ?? 0;
     }
 }

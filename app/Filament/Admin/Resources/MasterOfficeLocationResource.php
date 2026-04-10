@@ -141,52 +141,35 @@ class MasterOfficeLocationResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('code')
-                    ->label('Kode')
-                    ->searchable()
-                    ->sortable()
-                    ->badge()
-                    ->color('primary'),
-
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama Lokasi')
-                    ->searchable()
+                    ->label('Lokasi')
+                    ->description(fn(MasterOfficeLocation $record): string => "Kode: {$record->code}")
+                    ->searchable(['name', 'code'])
                     ->sortable()
                     ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('department.name')
-                    ->label('Departemen/Cabang')
+                    ->label('Unit Kerja')
                     ->searchable()
                     ->badge()
                     ->color('info')
-                    ->default('Semua Departemen')
+                    ->default('Semua Unit')
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('address')
                     ->label('Alamat')
                     ->searchable()
-                    ->limit(50)
-                    ->tooltip(fn($record): ?string => $record->address),
+                    ->limit(30)
+                    ->tooltip(fn($record): ?string => $record->address)
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('latitude')
-                    ->label('Latitude')
-                    ->numeric(decimalPlaces: 6)
-                    ->sortable()
+                    ->label('Koordinat & Radius')
+                    ->getStateUsing(fn(MasterOfficeLocation $record): string => "{$record->latitude}, {$record->longitude}")
+                    ->description(fn(MasterOfficeLocation $record): string => "Radius: {$record->radius} meter")
+                    ->icon('heroicon-o-map-pin')
+                    ->color('primary')
                     ->toggleable(),
-
-                Tables\Columns\TextColumn::make('longitude')
-                    ->label('Longitude')
-                    ->numeric(decimalPlaces: 6)
-                    ->sortable()
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('radius')
-                    ->label('Radius')
-                    ->numeric()
-                    ->sortable()
-                    ->suffix(' meter')
-                    ->badge()
-                    ->color(fn($state) => $state <= 50 ? 'danger' : ($state <= 100 ? 'warning' : 'success')),
 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Status')
@@ -196,20 +179,9 @@ class MasterOfficeLocationResource extends Resource
                     ->trueColor('success')
                     ->falseColor('danger'),
 
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Dibuat Oleh')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Diperbarui')
-                    ->dateTime('d/m/Y H:i')
+                    ->dateTime('d/m/Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -219,52 +191,32 @@ class MasterOfficeLocationResource extends Resource
                     ->placeholder('Semua Status')
                     ->trueLabel('Aktif')
                     ->falseLabel('Tidak Aktif'),
-
-                Tables\Filters\Filter::make('radius')
-                    ->form([
-                        Forms\Components\Grid::make(2)
-                            ->schema([
-                                Forms\Components\TextInput::make('radius_from')
-                                    ->label('Radius Dari')
-                                    ->numeric()
-                                    ->suffix('meter'),
-                                Forms\Components\TextInput::make('radius_to')
-                                    ->label('Radius Sampai')
-                                    ->numeric()
-                                    ->suffix('meter'),
-                            ]),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['radius_from'],
-                                fn(Builder $query, $value): Builder => $query->where('radius', '>=', $value),
-                            )
-                            ->when(
-                                $data['radius_to'],
-                                fn(Builder $query, $value): Builder => $query->where('radius', '<=', $value),
-                            );
-                    }),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat Detail'),
 
-                Tables\Actions\Action::make('view_map')
-                    ->label('Lihat di Map')
-                    ->icon('heroicon-o-map')
-                    ->color('info')
-                    ->url(
-                        fn(MasterOfficeLocation $record): string =>
-                        "https://www.google.com/maps?q={$record->latitude},{$record->longitude}"
-                    )
-                    ->openUrlInNewTab(),
+                    Tables\Actions\Action::make('view_map')
+                        ->label('Buka di Google Maps')
+                        ->icon('heroicon-o-map')
+                        ->color('info')
+                        ->url(
+                            fn(MasterOfficeLocation $record): string =>
+                            "https://www.google.com/maps?q={$record->latitude},{$record->longitude}"
+                        )
+                        ->openUrlInNewTab(),
 
-                Tables\Actions\EditAction::make()
-                    ->label('Edit'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
 
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])
+                ->button()
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->color('gray'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

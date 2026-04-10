@@ -2,7 +2,7 @@
     <div class="space-y-6">
         <x-filament::section>
             <x-slot name="heading">
-                Selamat Datang di Portal Pegawai
+                Selamat Datang di Panel Pegawai
             </x-slot>
 
             <x-slot name="description">

@@ -37,36 +37,29 @@ class MasterEmployeeBasicSalaryResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Select::make('employee_service_grade_id')
-                    ->label('Golongan Masa Kerja')
-                    ->options(function () {
-                        return MasterEmployeeServiceGrade::with('employeeGrade')
-                            ->where('is_active', true)
-                            ->get()
-                            ->mapWithKeys(function ($serviceGrade) {
-                                return [$serviceGrade->id => $serviceGrade->employeeGrade->name . ' - ' . $serviceGrade->service_grade];
-                            });
-                    })
+                    ->label('Masa Kerja Golongan (MKG)')
+                    ->options(MasterEmployeeServiceGrade::where('is_active', true)->pluck('service_grade', 'id')->map(fn($val) => $val . ' Tahun'))
                     ->required()
                     ->searchable()
                     ->preload(),
                 Forms\Components\Select::make('employee_grade_id')
-                    ->label('Golongan Pegawai')
+                    ->label('Golongan')
                     ->options(MasterEmployeeGrade::where('is_active', true)->pluck('name', 'id'))
                     ->required()
                     ->searchable()
                     ->preload(),
                 Forms\Components\TextInput::make('amount')
-                    ->label('Salary Amount')
+                    ->label('Jumlah Gaji')
                     ->required()
                     ->numeric()
                     ->prefix('Rp')
                     ->step(1000)
                     ->minValue(0),
                 Forms\Components\Textarea::make('desc')
-                    ->label('Description')
+                    ->label('Keterangan')
                     ->columnSpanFull(),
                 Forms\Components\Toggle::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->default(true)
                     ->required(),
             ]);
@@ -76,16 +69,12 @@ class MasterEmployeeBasicSalaryResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('serviceGrade.employeeGrade.name')
-                    ->label('Golongan Pegawai')
+                Tables\Columns\TextColumn::make('employeeGrade.name')
+                    ->label('Golongan')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('serviceGrade.service_grade')
-                    ->label('Golongan Masa Kerja')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('employeeGrade.name')
-                    ->label('Golongan')
+                    ->label('MKG (Tahun)')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')

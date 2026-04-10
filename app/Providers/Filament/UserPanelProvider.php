@@ -28,7 +28,7 @@ class UserPanelProvider extends PanelProvider
             ->path('user')
             ->login(\App\Filament\Pages\Auth\Login::class)
             ->registration()
-            ->brandName('Portal Pegawai')
+            ->brandName('Panel Pegawai')
             ->colors([
                 'primary' => Color::Green,
             ])
@@ -48,7 +48,7 @@ class UserPanelProvider extends PanelProvider
                     ->icon('heroicon-o-cog-6-tooth')
                     ->visible(fn () => auth()->user()?->hasRole('superadmin')),
                 MenuItem::make()
-                    ->label('Panel Employee')
+                    ->label('Panel Kepegawaian')
                     ->url('/employee')
                     ->icon('heroicon-o-building-office-2')
                     ->visible(fn () => auth()->user()?->hasRole('superadmin')),

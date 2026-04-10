@@ -410,11 +410,38 @@ class EmployeeResource extends Resource
                                                     ->searchable()
                                                     ->preload()
                                                     ->required(),
-                                                Forms\Components\Select::make('basic_salary_id')
-                                                    ->label('Gaji Pokok')
-                                                    ->relationship('grade', 'name')
-                                                    ->searchable()
-                                                    ->preload(),
+                                                Forms\Components\Group::make([
+                                                    Forms\Components\Select::make('basic_salary_id')
+                                                        ->label('Golongan')
+                                                        ->relationship('grade', 'name')
+                                                        ->live()
+                                                        ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                                            $set('employee_service_grade_id', null);
+                                                        })
+                                                        ->searchable()
+                                                        ->preload()
+                                                        ->required(),
+                                                    Forms\Components\Select::make('employee_service_grade_id')
+                                                        ->label('Masa Kerja Golongan (MKG)')
+                                                        ->options(\App\Models\MasterEmployeeServiceGrade::all()->pluck('desc', 'id'))
+                                                        ->live()
+                                                        ->searchable()
+                                                        ->preload()
+                                                        ->required(),
+                                                    Forms\Components\Placeholder::make('calculated_salary')
+                                                        ->label('Gaji Pokok Terhitung')
+                                                        ->content(function (Forms\Get $get) {
+                                                            $gradeId = $get('basic_salary_id');
+                                                            $mkgId = $get('employee_service_grade_id');
+                                                            if ($gradeId && $mkgId) {
+                                                                $salary = \App\Models\MasterEmployeeBasicSalary::where('employee_grade_id', $gradeId)
+                                                                    ->where('employee_service_grade_id', $mkgId)
+                                                                    ->first();
+                                                                return $salary ? 'Rp ' . number_format($salary->amount, 0, ',', '.') : 'Data gaji belum diinput';
+                                                            }
+                                                            return 'Pilih Golongan dan MKG';
+                                                        }),
+                                                ])->columns(3)->columnSpanFull(),
                                                 Forms\Components\Select::make('employee_education_id')
                                                     ->label('Tingkat Pendidikan')
                                                     ->relationship('education', 'name')
@@ -496,6 +523,18 @@ class EmployeeResource extends Resource
                         return $record->active_organizational_unit->type ?? '';
                     })
                     ->searchable(['department.name', 'bagian.name', 'cabang.name', 'unit.name'])
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('grade.name')
+                    ->label('Golongan')
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('serviceGrade.service_grade')
+                    ->label('MKG (Thn)')
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('basic_salary_amount')
+                    ->label('Gaji Pokok')
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('position_status')
                     ->label('Posisi / Status')
@@ -638,10 +677,18 @@ class EmployeeResource extends Resource
                             'gender',
                             'place_birth',
                             'date_birth',
+                            'religion',
                             'marital_status',
                             'email',
                             'phone_number',
                             'id_number',
+                            'familycard_number',
+                            'npwp_number',
+                            'bank_account_number',
+                            'bpjs_tk_number',
+                            'bpjs_kes_number',
+                            'rek_dplk_pribadi',
+                            'rek_dplk_bersama',
                             'address',
                             'department_name',
                             'position_name',
@@ -658,13 +705,22 @@ class EmployeeResource extends Resource
                                 'male',
                                 'Jakarta',
                                 '1990-01-01',
+                                'Islam',
+                                'single',
                                 'email@example.com',
                                 '08123456789',
                                 '1234567890123456',
+                                '1234567890123456',
+                                '12.345.678.9-012.345',
+                                '1234567890',
+                                '12345678901',
+                                '0001234567890',
+                                '1234567890',
+                                '1234567890',
                                 'Alamat Lengkap',
-                                'IT',
-                                'Staff IT',
-                                'Tetap'
+                                'Bagian Umum',
+                                'Staff',
+                                'Pegawai Tetap'
                             ]);
                             fclose($file);
                         };
@@ -703,17 +759,26 @@ class EmployeeResource extends Resource
                                 [
                                     'name' => $rowData['name'],
                                     'gender' => $rowData['gender'],
+                                    'religion' => $rowData['religion'] ?? null,
                                     'place_birth' => $rowData['place_birth'],
                                     'date_birth' => $rowData['date_birth'],
                                     'marital_status' => $rowData['marital_status'],
                                     'email' => $rowData['email'],
                                     'phone_number' => $rowData['phone_number'],
                                     'id_number' => $rowData['id_number'],
+                                    'familycard_number' => $rowData['familycard_number'] ?? null,
+                                    'npwp_number' => $rowData['npwp_number'] ?? null,
+                                    'bank_account_number' => $rowData['bank_account_number'] ?? null,
+                                    'bpjs_tk_number' => $rowData['bpjs_tk_number'] ?? null,
+                                    'bpjs_kes_number' => $rowData['bpjs_kes_number'] ?? null,
+                                    'rek_dplk_pribadi' => $rowData['rek_dplk_pribadi'] ?? null,
+                                    'rek_dplk_bersama' => $rowData['rek_dplk_bersama'] ?? null,
                                     'address' => $rowData['address'],
                                     'departments_id' => $dept?->id,
                                     'employee_position_id' => $pos?->id,
                                     'employment_status_id' => $status?->id,
-                                    'entry_date' => now(), // Default to today if not provided
+                                    'entry_date' => now(),
+                                    'users_id' => auth()->id() ?? 1,
                                 ]
                             );
                             $count++;
@@ -992,6 +1057,18 @@ class EmployeeResource extends Resource
                                 Infolists\Components\TextEntry::make('entry_date')
                                     ->label('Tanggal Masuk')
                                     ->date('d M Y'),
+                                Infolists\Components\TextEntry::make('grade.name')
+                                    ->label('Golongan')
+                                    ->badge()
+                                    ->color('success'),
+                                Infolists\Components\TextEntry::make('serviceGrade.service_grade')
+                                    ->label('Masa Kerja Golongan (MKG)')
+                                    ->suffix(' Tahun'),
+                                Infolists\Components\TextEntry::make('basic_salary_amount')
+                                    ->label('Gaji Pokok')
+                                    ->money('IDR')
+                                    ->weight('bold')
+                                    ->color('primary'),
                                 Infolists\Components\TextEntry::make('bank_account_number')
                                     ->label('No. Rekening Bank'),
                                 Infolists\Components\TextEntry::make('npwp_number')

@@ -60,7 +60,7 @@ class EmployeePanelProvider extends PanelProvider
                     ->icon('heroicon-o-cog-6-tooth')
                     ->visible(fn () => auth()->user()?->hasRole('superadmin')),
                 MenuItem::make()
-                    ->label('Portal Pegawai')
+                    ->label('Panel Pegawai')
                     ->url('/user')
                     ->icon('heroicon-o-users')
                     ->visible(fn () => auth()->user()?->hasRole('superadmin')),
