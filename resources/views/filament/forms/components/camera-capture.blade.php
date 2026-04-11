@@ -71,7 +71,7 @@
         <!-- Camera Preview Container -->
         <div 
             class="relative overflow-hidden rounded-xl bg-gray-950 shadow-inner flex items-center justify-center border border-gray-200 dark:border-gray-800"
-            style="aspect-ratio: 16/9; max-width: 500px; margin: 0 auto; min-height: 200px;"
+            style="aspect-ratio: 1/1; max-width: 400px; margin: 0 auto; width: 100%;"
         >
             <!-- Loading Indicator -->
             <div x-show="showVideo && !stream" class="flex flex-col items-center gap-3 text-gray-500">
@@ -99,8 +99,8 @@
 
             <!-- Overlay Indicators -->
             <div class="absolute inset-0 pointer-events-none border border-white/10 rounded-xl m-2"></div>
-            <div class="absolute top-2 left-2 flex items-center gap-2 px-2 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[8px] font-medium tracking-wider uppercase">
-                <div class="w-1 h-1 rounded-full bg-red-500 animate-pulse"></div>
+            <div class="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold tracking-widest uppercase shadow-lg">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
                 LIVE
             </div>
 
@@ -119,14 +119,14 @@
                 <button
                     type="button"
                     @click="capture()"
-                    class="group relative flex items-center gap-2 px-8 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-full font-semibold transition-all shadow-lg hover:shadow-primary-500/25 active:scale-95 overflow-hidden"
+                    class="w-full relative group flex items-center justify-center gap-3 px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-bold text-md transition-all active:scale-[0.98] shadow-lg hover:shadow-primary-500/25 overflow-hidden"
                     >
                     <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
-                    Ambil Foto
+                    <span>Ambil Foto</span>
                 </button>
             </template>
 
@@ -134,12 +134,12 @@
                 <button
                     type="button"
                     @click="retake()"
-                    class="flex items-center gap-2 px-8 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-full font-semibold transition-all active:scale-95"
+                    class="w-full flex items-center justify-center gap-3 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-bold text-md transition-all active:scale-[0.98]"
                     >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                     </svg>
-                    Foto Ulang
+                    <span>Foto Ulang</span>
                 </button>
             </template>
         </div>

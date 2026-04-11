@@ -38,7 +38,7 @@
             <div class="lg:col-span-7 space-y-6">
                 <!-- Status Card -->
                 <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 p-4 transition-all hover:shadow-md">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
                             <div class="p-2 bg-primary-50 dark:bg-primary-950/20 rounded-lg">
                                 <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,8 +51,8 @@
                                 <p class="text-sm font-bold text-gray-900 dark:text-white" x-text="latitude && longitude ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Mencari...'"></p>
                             </div>
                         </div>
-                        <div class="text-right">
-                             <h2 class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">Waktu</h2>
+                        <div class="flex flex-row sm:flex-col justify-between items-center sm:items-end sm:text-right border-t sm:border-t-0 border-gray-100 dark:border-white/5 pt-3 sm:pt-0">
+                             <h2 class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] sm:mb-1">Waktu</h2>
                              <p class="text-xl font-bold text-gray-900 dark:text-white font-mono" x-text="currentTime"></p>
                         </div>
                     </div>
