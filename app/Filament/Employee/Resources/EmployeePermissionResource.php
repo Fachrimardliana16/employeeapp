@@ -186,60 +186,67 @@ class EmployeePermissionResource extends Resource
                     ->placeholder('Semua Jenis'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat'),
-                Tables\Actions\EditAction::make()
-                    ->label('Ubah'),
-                Tables\Actions\Action::make('approve')
-                    ->label('Setujui')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn(EmployeePermission $record) => $record->approval_status === 'pending')
-                    ->requiresConfirmation()
-                    ->form([
-                        Forms\Components\Textarea::make('approval_notes')
-                            ->label('Catatan Persetujuan')
-                            ->rows(3)
-                            ->placeholder('Catatan (opsional)...'),
-                    ])
-                    ->action(function (EmployeePermission $record, array $data) {
-                        $record->update([
-                            'approval_status' => 'approved',
-                            'approved_by' => \Illuminate\Support\Facades\Auth::id(),
-                            'approved_at' => now(),
-                            'approval_notes' => $data['approval_notes'] ?? null,
-                        ]);
-                    })
-                    ->successNotificationTitle('Berhasil disetujui'),
-                Tables\Actions\Action::make('reject')
-                    ->label('Tolak')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn(EmployeePermission $record) => $record->approval_status === 'pending')
-                    ->requiresConfirmation()
-                    ->form([
-                        Forms\Components\Textarea::make('approval_notes')
-                            ->label('Alasan Penolakan')
-                            ->required()
-                            ->rows(3)
-                            ->placeholder('Jelaskan alasan penolakan...'),
-                    ])
-                    ->action(function (EmployeePermission $record, array $data) {
-                        $record->update([
-                            'approval_status' => 'rejected',
-                            'approved_by' => \Illuminate\Support\Facades\Auth::id(),
-                            'approved_at' => now(),
-                            'approval_notes' => $data['approval_notes'],
-                        ]);
-                    })
-                    ->successNotificationTitle('Berhasil ditolak'),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\Action::make('approve')
+                        ->label('Setujui')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn(EmployeePermission $record) => $record->approval_status === 'pending')
+                        ->requiresConfirmation()
+                        ->form([
+                            Forms\Components\Textarea::make('approval_notes')
+                                ->label('Catatan Persetujuan')
+                                ->rows(3)
+                                ->placeholder('Catatan (opsional)...'),
+                        ])
+                        ->action(function (EmployeePermission $record, array $data) {
+                            $record->update([
+                                'approval_status' => 'approved',
+                                'approved_by' => \Illuminate\Support\Facades\Auth::id(),
+                                'approved_at' => now(),
+                                'approval_notes' => $data['approval_notes'] ?? null,
+                            ]);
+                        })
+                        ->successNotificationTitle('Berhasil disetujui'),
+                    Tables\Actions\Action::make('reject')
+                        ->label('Tolak')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn(EmployeePermission $record) => $record->approval_status === 'pending')
+                        ->requiresConfirmation()
+                        ->form([
+                            Forms\Components\Textarea::make('approval_notes')
+                                ->label('Alasan Penolakan')
+                                ->required()
+                                ->rows(3)
+                                ->placeholder('Jelaskan alasan penolakan...'),
+                        ])
+                        ->action(function (EmployeePermission $record, array $data) {
+                            $record->update([
+                                'approval_status' => 'rejected',
+                                'approved_by' => \Illuminate\Support\Facades\Auth::id(),
+                                'approved_at' => now(),
+                                'approval_notes' => $data['approval_notes'],
+                            ]);
+                        })
+                        ->successNotificationTitle('Berhasil ditolak'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->emptyStateHeading('Belum Ada Data Izin/Cuti')
             ->emptyStateDescription('Mulai dengan menambahkan data izin atau cuti Pegawai pertama.')

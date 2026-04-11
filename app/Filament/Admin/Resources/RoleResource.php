@@ -17,13 +17,10 @@ class RoleResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
 
-    protected static ?string $navigationLabel = 'Roles';
-
-    protected static ?string $modelLabel = 'Role';
-
-    protected static ?string $pluralModelLabel = 'Roles';
-
-    protected static ?string $navigationGroup = 'User Management';
+    protected static ?string $navigationLabel = 'Peran';
+    protected static ?string $modelLabel = 'Peran';
+    protected static ?string $pluralModelLabel = 'Peran';
+    protected static ?string $navigationGroup = 'Manajemen Pengguna';
 
     public static function form(Form $form): Form
     {
@@ -36,7 +33,7 @@ class RoleResource extends Resource
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(255)
-                            ->label('Nama Role'),
+                            ->label('Nama Peran'),
                     ]),
                 
                 Forms\Components\Tabs::make('Permissions')
@@ -182,22 +179,24 @@ class RoleResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable()
-                    ->label('Role Name'),
+                    ->label('Nama Peran'),
                 Tables\Columns\TextColumn::make('permissions.name')
-                    ->label('Permissions')
+                    ->label('Hak Akses')
                     ->badge()
                     ->searchable()
                     ->wrap(),
                 Tables\Columns\TextColumn::make('users_count')
                     ->counts('users')
-                    ->label('Users Count')
+                    ->label('Jumlah Pengguna')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Dibuat Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->label('Diperbarui Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -205,13 +204,20 @@ class RoleResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

@@ -23,7 +23,7 @@ class EmployeeMutationResource extends Resource
 {
     protected static ?string $model = EmployeeMutation::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
+    protected static ?string $navigationIcon = 'heroicon-o-arrows-right-left';
 
     protected static ?string $navigationGroup = 'Operasional Pegawai';
 
@@ -378,13 +378,13 @@ class EmployeeMutationResource extends Resource
 
                 Tables\Filters\SelectFilter::make('old_department_id')
                     ->relationship('oldDepartment', 'name')
-                    ->label('Departemen Asal')
+                    ->label('Bagian Asal')
                     ->searchable()
                     ->preload(),
 
                 Tables\Filters\SelectFilter::make('new_department_id')
                     ->relationship('newDepartment', 'name')
-                    ->label('Departemen Tujuan')
+                    ->label('Bagian Tujuan')
                     ->searchable()
                     ->preload(),
 
@@ -422,6 +422,34 @@ class EmployeeMutationResource extends Resource
                         ->label('Lihat'),
                     Tables\Actions\EditAction::make()
                         ->label('Edit'),
+                    Tables\Actions\Action::make('apply_mutation')
+                        ->label('Terapkan Mutasi')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Terapkan Mutasi Pegawai')
+                        ->modalSubheading('Apakah Anda yakin ingin menerapkan mutasi ini? Data Pegawai akan diperbarui sesuai dengan mutasi.')
+                        ->modalIcon('heroicon-o-arrow-path')
+                        ->action(function (EmployeeMutation $record) {
+                            if ($record->employee) {
+                                $record->employee->update([
+                                    'departments_id' => $record->new_department_id,
+                                    'sub_department_id' => $record->new_sub_department_id,
+                                    'employee_position_id' => $record->new_position_id,
+                                ]);
+
+                                Notification::make()
+                                    ->title('Mutasi Berhasil Diterapkan')
+                                    ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui sesuai mutasi.')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn(EmployeeMutation $record) => $record->employee !== null && (
+                            $record->employee->departments_id != $record->new_department_id ||
+                            $record->employee->sub_department_id != $record->new_sub_department_id ||
+                            $record->employee->employee_position_id != $record->new_position_id
+                        )),
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
                 ])
@@ -430,35 +458,6 @@ class EmployeeMutationResource extends Resource
                     ->size('sm')
                     ->color('gray')
                     ->button(),
-
-                Tables\Actions\Action::make('apply_mutation')
-                    ->label('Terapkan Mutasi')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading('Terapkan Mutasi Pegawai')
-                    ->modalSubheading('Apakah Anda yakin ingin menerapkan mutasi ini? Data Pegawai akan diperbarui sesuai dengan mutasi.')
-                    ->modalIcon('heroicon-o-arrow-path')
-                    ->action(function (EmployeeMutation $record) {
-                        if ($record->employee) {
-                            $record->employee->update([
-                                'departments_id' => $record->new_department_id,
-                                'sub_department_id' => $record->new_sub_department_id,
-                                'employee_position_id' => $record->new_position_id,
-                            ]);
-
-                            Notification::make()
-                                ->title('Mutasi Berhasil Diterapkan')
-                                ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui sesuai mutasi.')
-                                ->success()
-                                ->send();
-                        }
-                    })
-                    ->visible(fn(EmployeeMutation $record) => $record->employee !== null && (
-                        $record->employee->departments_id != $record->new_department_id ||
-                        $record->employee->sub_department_id != $record->new_sub_department_id ||
-                        $record->employee->employee_position_id != $record->new_position_id
-                    )),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('generate_report')
@@ -472,9 +471,8 @@ class EmployeeMutationResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->label('Hapus yang Dipilih'),
-                ]),
+                    Tables\Actions\DeleteBulkAction::make(),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->emptyStateHeading('Belum Ada Data Mutasi')
             ->emptyStateDescription('Klik tombol "Buat Baru" untuk menambahkan data mutasi Pegawai.')

@@ -260,18 +260,26 @@ class EmployeePromotionResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\Action::make('download_document')
-                    ->label('Unduh Dokumen')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->url(fn ($record) => $record->doc_promotion ? asset('storage/' . $record->doc_promotion) : null)
-                    ->openUrlInNewTab()
-                    ->visible(fn ($record) => !empty($record->doc_promotion)),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\Action::make('download_document')
+                        ->label('Unduh Dokumen')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->url(fn ($record) => $record->doc_promotion ? asset('storage/' . $record->doc_promotion) : null)
+                        ->openUrlInNewTab()
+                        ->visible(fn ($record) => !empty($record->doc_promotion)),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()->label('Hapus yang Dipilih'),
                 ]),
             ])
             ->defaultSort('promotion_date', 'desc');

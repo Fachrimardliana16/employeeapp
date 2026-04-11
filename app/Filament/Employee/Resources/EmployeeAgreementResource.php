@@ -412,7 +412,7 @@ class EmployeeAgreementResource extends Resource
                     ->label('Jenis Kontrak'),
                 Tables\Filters\SelectFilter::make('departments_id')
                     ->relationship('department', 'name')
-                    ->label('Departemen'),
+                    ->label('Bagian'),
                 Tables\Filters\SelectFilter::make('employment_status_id')
                     ->relationship('employmentStatus', 'name')
                     ->label('Status Kepegawaian'),

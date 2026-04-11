@@ -53,41 +53,49 @@ class MasterEmployeeSalaryCutResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Nama')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('desc')
-                    ->label('Description')
+                    ->label('Keterangan')
                     ->limit(50)
                     ->searchable(),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
-                    ->label('Created By')
+                    ->label('Dibuat Oleh')
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat Pada')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Active')
+                    ->label('Status Aktif')
                     ->boolean()
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only')
+                    ->trueLabel('Aktif')
+                    ->falseLabel('Tidak Aktif')
                     ->native(false),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])->label('Aksi'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

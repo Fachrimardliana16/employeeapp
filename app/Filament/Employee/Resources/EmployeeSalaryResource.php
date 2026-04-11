@@ -33,29 +33,36 @@ class EmployeeSalaryResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Employee Information')
+                Forms\Components\Section::make('Informasi Pegawai')
                     ->schema([
                         Forms\Components\Select::make('employees_id')
+                            ->label('Pegawai')
                             ->relationship('employee', 'name')
                             ->required()
                             ->searchable()
                             ->preload(),
                     ]),
-                Forms\Components\Section::make('Salary Details')
+                Forms\Components\Section::make('Rincian Gaji')
                     ->schema([
                         Forms\Components\TextInput::make('current_basic_salary')
+                            ->label('Gaji Pokok Saat Ini')
                             ->required()
                             ->numeric()
-                            ->prefix('$'),
+                            ->prefix('Rp'),
                         Forms\Components\DatePicker::make('salary_effective_date')
+                            ->label('Tanggal Efektif Gaji')
                             ->required(),
                         Forms\Components\TextInput::make('previous_basic_salary')
+                            ->label('Gaji Pokok Sebelumnya')
                             ->numeric()
-                            ->prefix('$'),
-                        Forms\Components\DatePicker::make('salary_change_date'),
+                            ->prefix('Rp'),
+                        Forms\Components\DatePicker::make('salary_change_date')
+                            ->label('Tanggal Perubahan Gaji'),
                         Forms\Components\Textarea::make('salary_change_reason')
+                            ->label('Alasan Perubahan Gaji')
                             ->maxLength(500),
                         Forms\Components\Toggle::make('is_active')
+                            ->label('Aktif')
                             ->default(true),
                         Forms\Components\Hidden::make('users_id')
                             ->default(fn() => Auth::id()),
@@ -68,41 +75,55 @@ class EmployeeSalaryResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('employee.employee_name')
+                    ->label('Nama Pegawai')
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('current_basic_salary')
-                    ->money('USD')
+                    ->label('Gaji Pokok Saat Ini')
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('salary_effective_date')
-                    ->date()
+                    ->label('Tanggal Efektif')
+                    ->date('d/m/Y')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('previous_basic_salary')
-                    ->money('USD')
+                    ->label('Gaji Pokok Sebelumnya')
+                    ->money('IDR')
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('is_active')
+                    ->label('Aktif')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Dibuat Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->label('Diperbarui Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Active Status'),
+                    ->label('Status Aktif'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

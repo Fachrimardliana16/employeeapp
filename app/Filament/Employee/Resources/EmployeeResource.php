@@ -31,13 +31,9 @@ class EmployeeResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     protected static ?string $navigationLabel = 'Pegawai';
-
     protected static ?string $modelLabel = 'Pegawai';
-
     protected static ?string $pluralModelLabel = 'Pegawai';
-
     protected static ?string $navigationGroup = 'Manajemen Pegawai';
-
     protected static ?int $navigationSort = 201;
 
     public static function getModelLabel(): string
@@ -183,7 +179,7 @@ class EmployeeResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Tabs::make('Employee Information')
+                Forms\Components\Tabs::make('Informasi Pegawai')
                     ->tabs([
                         Forms\Components\Tabs\Tab::make('Data Personal')
                             ->icon('heroicon-m-user')
@@ -842,6 +838,110 @@ class EmployeeResource extends Resource
                         ->color('info')
                         ->url(fn(Employee $record): string => route('employees.print', $record))
                         ->openUrlInNewTab(),
+                    Tables\Actions\Action::make('update_incomplete_data')
+                        ->label('Lengkapi Data')
+                        ->icon('heroicon-o-exclamation-triangle')
+                        ->color('warning')
+                        ->visible(fn(Employee $record) => $record->hasIncompleteData())
+                        ->modalHeading(fn(Employee $record) => 'Lengkapi Data - ' . $record->name)
+                        ->modalSubheading('Silakan lengkapi data yang masih kosong')
+                        ->modalWidth('6xl')
+                        ->form([
+                            Forms\Components\Section::make('Data Identitas')
+                                ->description('Informasi identitas kependudukan')
+                                ->schema([
+                                    Forms\Components\Grid::make(2)
+                                        ->schema([
+                                            Forms\Components\TextInput::make('id_number')
+                                                ->label('NIK (KTP)')
+                                                ->numeric()
+                                                ->rules(['digits:16'])
+                                                ->placeholder('1234567890123456')
+                                                ->helperText('16 digit nomor KTP')
+                                                ->maxLength(16),
+                                            Forms\Components\TextInput::make('familycard_number')
+                                                ->label('Nomor Kartu Keluarga')
+                                                ->numeric()
+                                                ->rules(['digits:16'])
+                                                ->placeholder('1234567890123456')
+                                                ->helperText('16 digit nomor Kartu Keluarga')
+                                                ->maxLength(16),
+                                        ]),
+                                ]),
+                            Forms\Components\Section::make('Data Finansial')
+                                ->description('Informasi rekening dan BPJS')
+                                ->schema([
+                                    Forms\Components\Grid::make(2)
+                                        ->schema([
+                                            Forms\Components\TextInput::make('bank_account_number')
+                                                ->label('Nomor Rekening Bank')
+                                                ->numeric()
+                                                ->rules(['regex:/^[0-9\-]+$/'])
+                                                ->placeholder('1234567890')
+                                                ->helperText('Hanya boleh angka dan tanda strip (-)')
+                                                ->maxLength(25),
+                                            Forms\Components\TextInput::make('bpjs_kes_number')
+                                                ->label('BPJS Kesehatan')
+                                                ->numeric()
+                                                ->rules(['regex:/^[0-9]+$/'])
+                                                ->placeholder('0001234567890')
+                                                ->helperText('13 digit nomor BPJS Kesehatan')
+                                                ->maxLength(13),
+                                        ]),
+                                    Forms\Components\Grid::make(3)
+                                        ->schema([
+                                            Forms\Components\TextInput::make('bpjs_tk_number')
+                                                ->label('BPJS Ketenagakerjaan')
+                                                ->numeric()
+                                                ->rules(['regex:/^[0-9]+$/'])
+                                                ->placeholder('12345678901')
+                                                ->helperText('Hanya boleh angka')
+                                                ->maxLength(15),
+                                            Forms\Components\TextInput::make('rek_dplk_pribadi')
+                                                ->label('DPLK Pribadi')
+                                                ->numeric()
+                                                ->rules(['regex:/^[0-9\-]+$/'])
+                                                ->placeholder('1234567890')
+                                                ->helperText('Hanya boleh angka')
+                                                ->maxLength(20),
+                                            Forms\Components\TextInput::make('rek_dplk_bersama')
+                                                ->label('DPLK Bersama')
+                                                ->numeric()
+                                                ->rules(['regex:/^[0-9\-]+$/'])
+                                                ->placeholder('1234567890')
+                                                ->helperText('Hanya boleh angka')
+                                                ->maxLength(20),
+                                        ]),
+                                ]),
+                            Forms\Components\Section::make('Data Kepegawaian')
+                                ->description('Informasi career dan masa kerja')
+                                ->schema([
+                                    Forms\Components\Grid::make(2)
+                                        ->schema([
+                                            Forms\Components\Select::make('employee_education_id')
+                                                ->label('Education Level')
+                                                ->relationship('education', 'name')
+                                                ->placeholder('Pilih tingkat pendidikan')
+                                                ->searchable()
+                                                ->preload(),
+                                            Forms\Components\DatePicker::make('probation_appointment_date')
+                                                ->label('Probation Appointment Date')
+                                                ->placeholder('Pilih tanggal pengangkatan tetap')
+                                                ->helperText('Retirement date dan length of service akan otomatis dihitung'),
+                                        ]),
+                                ]),
+                        ])
+                        ->action(function (Employee $record, array $data): void {
+                            $filteredData = array_filter($data, function ($value) {
+                                return $value !== null && $value !== '';
+                            });
+                            $record->update($filteredData);
+                            Notification::make()
+                                ->title('Data berhasil diperbarui')
+                                ->body('Data tambahan berhasil disimpan')
+                                ->success()
+                                ->send();
+                        }),
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat'),
                     Tables\Actions\EditAction::make()
@@ -854,114 +954,6 @@ class EmployeeResource extends Resource
                     ->size('sm')
                     ->color('gray')
                     ->button(),
-                Tables\Actions\Action::make('update_incomplete_data')
-                    ->label('Lengkapi Data')
-                    ->icon('heroicon-o-exclamation-triangle')
-                    ->color('warning')
-                    ->size('sm')
-                    ->visible(fn(Employee $record) => $record->hasIncompleteData())
-                    ->modalHeading(fn(Employee $record) => 'Lengkapi Data - ' . $record->name)
-                    ->modalSubheading('Silakan lengkapi data yang masih kosong')
-                    ->modalWidth('6xl')
-                    ->form([
-                        Forms\Components\Section::make('Data Identitas')
-                            ->description('Informasi identitas kependudukan')
-                            ->schema([
-                                Forms\Components\Grid::make(2)
-                                    ->schema([
-                                        Forms\Components\TextInput::make('id_number')
-                                            ->label('NIK (KTP)')
-                                            ->numeric()
-                                            ->rules(['digits:16'])
-                                            ->placeholder('1234567890123456')
-                                            ->helperText('16 digit nomor KTP')
-                                            ->maxLength(16),
-                                        Forms\Components\TextInput::make('familycard_number')
-                                            ->label('Nomor Kartu Keluarga')
-                                            ->numeric()
-                                            ->rules(['digits:16'])
-                                            ->placeholder('1234567890123456')
-                                            ->helperText('16 digit nomor Kartu Keluarga')
-                                            ->maxLength(16),
-                                    ]),
-                            ]),
-                        Forms\Components\Section::make('Data Finansial')
-                            ->description('Informasi rekening dan BPJS')
-                            ->schema([
-                                Forms\Components\Grid::make(2)
-                                    ->schema([
-                                        Forms\Components\TextInput::make('bank_account_number')
-                                            ->label('Nomor Rekening Bank')
-                                            ->numeric()
-                                            ->rules(['regex:/^[0-9\-]+$/'])
-                                            ->placeholder('1234567890')
-                                            ->helperText('Hanya boleh angka dan tanda strip (-)')
-                                            ->maxLength(25),
-                                        Forms\Components\TextInput::make('bpjs_kes_number')
-                                            ->label('BPJS Kesehatan')
-                                            ->numeric()
-                                            ->rules(['regex:/^[0-9]+$/'])
-                                            ->placeholder('0001234567890')
-                                            ->helperText('13 digit nomor BPJS Kesehatan')
-                                            ->maxLength(13),
-                                    ]),
-                                Forms\Components\Grid::make(3)
-                                    ->schema([
-                                        Forms\Components\TextInput::make('bpjs_tk_number')
-                                            ->label('BPJS Ketenagakerjaan')
-                                            ->numeric()
-                                            ->rules(['regex:/^[0-9]+$/'])
-                                            ->placeholder('12345678901')
-                                            ->helperText('Hanya boleh angka')
-                                            ->maxLength(15),
-                                        Forms\Components\TextInput::make('rek_dplk_pribadi')
-                                            ->label('DPLK Pribadi')
-                                            ->numeric()
-                                            ->rules(['regex:/^[0-9\-]+$/'])
-                                            ->placeholder('1234567890')
-                                            ->helperText('Hanya boleh angka')
-                                            ->maxLength(20),
-                                        Forms\Components\TextInput::make('rek_dplk_bersama')
-                                            ->label('DPLK Bersama')
-                                            ->numeric()
-                                            ->rules(['regex:/^[0-9\-]+$/'])
-                                            ->placeholder('1234567890')
-                                            ->helperText('Hanya boleh angka')
-                                            ->maxLength(20),
-                                    ]),
-                            ]),
-                        Forms\Components\Section::make('Data Kepegawaian')
-                            ->description('Informasi career dan masa kerja')
-                            ->schema([
-                                Forms\Components\Grid::make(2)
-                                    ->schema([
-                                        Forms\Components\Select::make('employee_education_id')
-                                            ->label('Education Level')
-                                            ->relationship('education', 'name')
-                                            ->placeholder('Pilih tingkat pendidikan')
-                                            ->searchable()
-                                            ->preload(),
-                                        Forms\Components\DatePicker::make('probation_appointment_date')
-                                            ->label('Probation Appointment Date')
-                                            ->placeholder('Pilih tanggal pengangkatan tetap')
-                                            ->helperText('Retirement date dan length of service akan otomatis dihitung'),
-                                    ]),
-                            ]),
-                    ])
-                    ->action(function (Employee $record, array $data): void {
-                        // Filter data yang tidak kosong
-                        $filteredData = array_filter($data, function ($value) {
-                            return $value !== null && $value !== '';
-                        });
-
-                        $record->update($filteredData);
-
-                        Notification::make()
-                            ->title('Data berhasil diperbarui')
-                            ->body('Data tambahan berhasil disimpan')
-                            ->success()
-                            ->send();
-                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

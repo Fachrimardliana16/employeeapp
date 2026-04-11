@@ -65,13 +65,20 @@ class EmployeeAssignmentLetterResource extends Resource
                 Tables\Columns\TextColumn::make('end_date')->label('Selesai')->date('d/m/Y'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\Action::make('download_pdf')
-                    ->label('Download PDF')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->url(fn(EmployeeAssignmentLetter $record) => $record->pdf_file_path ? asset('storage/' . $record->pdf_file_path) : null)
-                    ->openUrlInNewTab()
-                    ->visible(fn(EmployeeAssignmentLetter $record) => !empty($record->pdf_file_path)),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\Action::make('download_pdf')
+                        ->label('Download PDF')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->url(fn(EmployeeAssignmentLetter $record) => $record->pdf_file_path ? asset('storage/' . $record->pdf_file_path) : null)
+                        ->openUrlInNewTab()
+                        ->visible(fn(EmployeeAssignmentLetter $record) => !empty($record->pdf_file_path)),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ]);
     }
 

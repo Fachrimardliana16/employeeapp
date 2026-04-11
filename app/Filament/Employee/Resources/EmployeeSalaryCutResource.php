@@ -25,35 +25,55 @@ class EmployeeSalaryCutResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('employee_id')
-                    ->relationship('employee', 'name')
-                    ->required(),
-                Forms\Components\TextInput::make('cut_name')
-                    ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('cut_type')
-                    ->required(),
-                Forms\Components\TextInput::make('calculation_type')
-                    ->required(),
-                Forms\Components\TextInput::make('amount')
-                    ->required()
-                    ->numeric()
-                    ->default(0.00),
-                Forms\Components\DatePicker::make('start_date')
-                    ->required(),
-                Forms\Components\DatePicker::make('end_date'),
-                Forms\Components\TextInput::make('installment_months')
-                    ->numeric(),
-                Forms\Components\TextInput::make('paid_months')
-                    ->required()
-                    ->numeric()
-                    ->default(0),
-                Forms\Components\Toggle::make('is_active')
-                    ->required(),
-                Forms\Components\Textarea::make('description')
-                    ->columnSpanFull(),
-                Forms\Components\TextInput::make('users_id')
-                    ->numeric(),
+                Forms\Components\Section::make('Informasi Potongan Gaji')
+                    ->schema([
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Pegawai')
+                            ->relationship('employee', 'name')
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\TextInput::make('cut_name')
+                            ->label('Nama Potongan')
+                            ->required()
+                            ->maxLength(255)
+                            ->placeholder('Contoh: Potongan BPJS'),
+                        Forms\Components\TextInput::make('cut_type')
+                            ->label('Jenis Potongan')
+                            ->required()
+                            ->placeholder('Contoh: BPJS'),
+                        Forms\Components\TextInput::make('calculation_type')
+                            ->label('Tipe Perhitungan')
+                            ->required()
+                            ->placeholder('Contoh: Persentase/Nominal'),
+                        Forms\Components\TextInput::make('amount')
+                            ->label('Jumlah')
+                            ->required()
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->default(0),
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Tanggal Mulai')
+                            ->required(),
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Tanggal Berakhir'),
+                        Forms\Components\TextInput::make('installment_months')
+                            ->label('Jumlah Cicilan (Bulan)')
+                            ->numeric(),
+                        Forms\Components\TextInput::make('paid_months')
+                            ->label('Angsuran Dibayar (Bulan)')
+                            ->required()
+                            ->numeric()
+                            ->default(0),
+                        Forms\Components\Toggle::make('is_active')
+                            ->label('Aktif')
+                            ->default(true),
+                        Forms\Components\Textarea::make('description')
+                            ->label('Keterangan')
+                            ->columnSpanFull(),
+                    ])->columns(2),
+                Forms\Components\Hidden::make('users_id')
+                    ->default(fn() => auth()->id()),
             ]);
     }
 
@@ -62,51 +82,65 @@ class EmployeeSalaryCutResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('employee.name')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('cut_name')
+                    ->label('Nama Pegawai')
+                    ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('cut_type'),
-                Tables\Columns\TextColumn::make('calculation_type'),
+                Tables\Columns\TextColumn::make('cut_name')
+                    ->label('Nama Potongan')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('cut_type')
+                    ->label('Jenis'),
+                Tables\Columns\TextColumn::make('calculation_type')
+                    ->label('Tipe Hitung'),
                 Tables\Columns\TextColumn::make('amount')
-                    ->numeric()
+                    ->label('Jumlah')
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('start_date')
-                    ->date()
+                    ->label('Tgl Mulai')
+                    ->date('d/m/Y')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('end_date')
-                    ->date()
+                    ->label('Tgl Berakhir')
+                    ->date('d/m/Y')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('installment_months')
+                    ->label('Tenor')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('paid_months')
+                    ->label('Dibayar')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_active')
+                    ->label('Aktif')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('users_id')
-                    ->numeric()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->label('Dibuat')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Status Aktif'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

@@ -318,70 +318,73 @@ class EmployeeAssignmentLetterResource extends Resource
                     ->preload(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat'),
-                Tables\Actions\EditAction::make()
-                    ->label('Edit'),
-                Tables\Actions\Action::make('view_pdf')
-                    ->label('Lihat PDF')
-                    ->icon('heroicon-o-eye')
-                    ->color('info')
-                    ->visible(fn(EmployeeAssignmentLetter $record): bool => !empty($record->pdf_file_path) && file_exists(storage_path('app/public/' . $record->pdf_file_path)))
-                    ->url(fn(EmployeeAssignmentLetter $record): string => asset('storage/' . $record->pdf_file_path))
-                    ->openUrlInNewTab(),
-                Tables\Actions\Action::make('generate_pdf')
-                    ->label('Cetak PDF')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('success')
-                    ->action(function (EmployeeAssignmentLetter $record) {
-                        // Prioritas: data dari relasi pegawai > data manual > default
-                        $signatoryName = $record->signatory_name;
-                        $signatoryPosition = $record->signatory_position;
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\Action::make('view_pdf')
+                        ->label('Lihat PDF')
+                        ->icon('heroicon-o-eye')
+                        ->color('info')
+                        ->visible(fn(EmployeeAssignmentLetter $record): bool => !empty($record->pdf_file_path) && file_exists(storage_path('app/public/' . $record->pdf_file_path)))
+                        ->url(fn(EmployeeAssignmentLetter $record): string => asset('storage/' . $record->pdf_file_path))
+                        ->openUrlInNewTab(),
+                    Tables\Actions\Action::make('generate_pdf')
+                        ->label('Cetak PDF')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('success')
+                        ->action(function (EmployeeAssignmentLetter $record) {
+                            // Prioritas: data dari relasi pegawai > data manual > default
+                            $signatoryName = $record->signatory_name;
+                            $signatoryPosition = $record->signatory_position;
 
-                        if ($record->signatoryEmployee) {
-                            $signatoryName = $record->signatoryEmployee->name;
-                            $signatoryPosition = $record->signatoryEmployee->position->name ?? $signatoryPosition;
-                        }
+                            if ($record->signatoryEmployee) {
+                                $signatoryName = $record->signatoryEmployee->name;
+                                $signatoryPosition = $record->signatoryEmployee->position->name ?? $signatoryPosition;
+                            }
 
-                        // Fallback ke default jika kosong
-                        $signatoryName = $signatoryName ?: 'Direktur PERUMDA';
-                        $signatoryPosition = $signatoryPosition ?: 'Direktur';
+                            // Fallback ke default jika kosong
+                            $signatoryName = $signatoryName ?: 'Direktur PERUMDA';
+                            $signatoryPosition = $signatoryPosition ?: 'Direktur';
 
-                        // Generate PDF dengan data dinamis
-                        $pdf = Pdf::loadView('pdf.assignment-letter', [
-                            'assignment' => $record,
-                            'signatory_name' => $signatoryName,
-                            'signatory_position' => $signatoryPosition
-                        ]);
+                            // Generate PDF dengan data dinamis
+                            $pdf = Pdf::loadView('pdf.assignment-letter', [
+                                'assignment' => $record,
+                                'signatory_name' => $signatoryName,
+                                'signatory_position' => $signatoryPosition
+                            ]);
 
-                        $filename = 'Surat_Tugas_' . $record->registration_number . '_' . date('Y-m-d') . '.pdf';
-                        $filename = str_replace(['/', '\\', ' '], '_', $filename);
+                            $filename = 'Surat_Tugas_' . $record->registration_number . '_' . date('Y-m-d') . '.pdf';
+                            $filename = str_replace(['/', '\\', ' '], '_', $filename);
 
-                        // Simpan PDF ke storage
-                        $pdfPath = 'assignment_letters/' . $filename;
-                        $fullPath = storage_path('app/public/' . $pdfPath);
+                            // Simpan PDF ke storage
+                            $pdfPath = 'assignment_letters/' . $filename;
+                            $fullPath = storage_path('app/public/' . $pdfPath);
 
-                        // Buat direktori jika belum ada
-                        if (!file_exists(dirname($fullPath))) {
-                            mkdir(dirname($fullPath), 0755, true);
-                        }
+                            // Buat direktori jika belum ada
+                            if (!file_exists(dirname($fullPath))) {
+                                mkdir(dirname($fullPath), 0755, true);
+                            }
 
-                        // Simpan file PDF
-                        $pdf->save($fullPath);
+                            // Simpan file PDF
+                            $pdf->save($fullPath);
 
-                        // Update record dengan path PDF
-                        $record->update(['pdf_file_path' => $pdfPath]);
+                            // Update record dengan path PDF
+                            $record->update(['pdf_file_path' => $pdfPath]);
 
-                        return response()->streamDownload(function () use ($pdf) {
-                            echo $pdf->output();
-                        }, $filename);
-                    }),
+                            return response()->streamDownload(function () use ($pdf) {
+                                echo $pdf->output();
+                            }, $filename);
+                        }),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])->label('Aksi'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->label('Hapus'),
-                ]),
+                    Tables\Actions\DeleteBulkAction::make(),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->emptyStateHeading('Belum ada surat tugas')
             ->emptyStateDescription('Mulai dengan membuat surat tugas pertama Anda.')

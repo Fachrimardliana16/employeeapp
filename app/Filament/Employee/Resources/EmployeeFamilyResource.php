@@ -186,10 +186,10 @@ class EmployeeFamilyResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()
-                        ->label('Lihat Detail')
+                        ->label('Lihat')
                         ->modalHeading('Detail Data Keluarga'),
                     Tables\Actions\EditAction::make()
-                        ->label('Ubah Data')
+                        ->label('Edit')
                         ->modalHeading('Ubah Data Keluarga'),
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus')

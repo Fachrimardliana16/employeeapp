@@ -179,23 +179,33 @@ class JobApplicationArchiveResource extends Resource
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
 
-                Tables\Actions\Action::make('view_employee_agreement')
-                    ->label('Lihat Kontrak')
-                    ->icon('heroicon-o-document')
-                    ->color('info')
-                    ->visible(fn($record) => $record->decision === 'accepted' && $record->employeeAgreement()->exists())
-                    ->url(fn($record) => route('filament.employee.resources.employee-agreements.view', [
-                        'record' => $record->employeeAgreement->id
-                    ])),
+                    Tables\Actions\Action::make('view_employee_agreement')
+                        ->label('Lihat Kontrak')
+                        ->icon('heroicon-o-document')
+                        ->color('info')
+                        ->visible(fn($record) => $record->decision === 'accepted' && $record->employeeAgreement()->exists())
+                        ->url(fn($record) => route('filament.employee.resources.employee-agreements.view', [
+                            'record' => $record->employeeAgreement->id
+                        ])),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                    Tables\Actions\RestoreAction::make()->label('Pulihkan'),
+                    Tables\Actions\ForceDeleteAction::make()->label('Hapus Permanen'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\ForceDeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->defaultSort('decision_date', 'desc');
     }

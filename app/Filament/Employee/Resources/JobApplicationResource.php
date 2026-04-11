@@ -328,10 +328,17 @@ class JobApplicationResource extends Resource
                     ->dateTime('d/m/Y')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('email')
-                    ->label('Kontak')
-                    ->description(fn (JobApplication $record): string => $record->phone_number)
-                    ->searchable(),
+                Tables\Columns\TextColumn::make('last_salary')
+                    ->label('Gaji Terakhir')
+                    ->money('IDR')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('expected_salary')
+                    ->label('Ekspektasi')
+                    ->money('IDR')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -347,7 +354,7 @@ class JobApplicationResource extends Resource
                     ]),
 
                 Tables\Filters\SelectFilter::make('applied_department_id')
-                    ->label('Departemen')
+                    ->label('Bagian')
                     ->relationship('appliedDepartment', 'name'),
 
                 Tables\Filters\SelectFilter::make('applied_position_id')
@@ -378,16 +385,17 @@ class JobApplicationResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()
-                        ->label('Lihat Profil')
+                        ->label('Lihat')
                         ->icon('heroicon-o-eye')
                         ->color('info'),
                     Tables\Actions\Action::make('print')
-                        ->label('Cetak Profil')
+                        ->label('Cetak')
                         ->icon('heroicon-o-printer')
                         ->color('info')
                         ->url(fn(JobApplication $record): string => route('job-applications.print', $record))
                         ->openUrlInNewTab(),
                     Tables\Actions\EditAction::make()
+                        ->label('Edit')
                         ->visible(
                             fn(?JobApplication $record): bool =>
                             $record && !in_array($record->status, ['accepted', 'rejected'])
@@ -396,7 +404,7 @@ class JobApplicationResource extends Resource
                     Tables\Actions\Action::make('schedule_interview')
                         ->label('Jadwalkan Interview')
                         ->icon('heroicon-o-calendar')
-                        ->color('danger')
+                        ->color('primary')
                         ->visible(
                             fn(?JobApplication $record): bool =>
                             $record && in_array($record->status, ['submitted', 'reviewed'])
@@ -463,7 +471,7 @@ class JobApplicationResource extends Resource
                     Tables\Actions\Action::make('mark_interviewed')
                         ->label('Tandai Sudah Interview')
                         ->icon('heroicon-o-check-circle')
-                        ->color('primary')
+                        ->color('success')
                         ->visible(
                             fn(?JobApplication $record): bool =>
                             $record && $record->status === 'interview_scheduled'
@@ -715,9 +723,14 @@ class JobApplicationResource extends Resource
                                 ->success()
                                 ->send();
                         }),
-                      
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                    Tables\Actions\ForceDeleteAction::make()->label('Hapus Permanen'),
+                    Tables\Actions\RestoreAction::make()->label('Pulihkan'),
                 ])
-                    ->label('Action')
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
                     ->button(),
             ])
             ->bulkActions([
@@ -725,7 +738,7 @@ class JobApplicationResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\ForceDeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->defaultSort('submitted_at', 'desc');
     }

@@ -150,42 +150,58 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('employee.name')
+                    ->label('Nama Pegawai')
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('previous_basic_salary')
-                    ->money('USD')
+                    ->label('Gaji Pokok Sebelumnya')
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('new_basic_salary')
-                    ->money('USD')
+                    ->label('Gaji Pokok Baru')
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('increase_amount')
-                    ->money('USD')
+                    ->label('Jumlah Kenaikan')
+                    ->money('IDR')
                     ->color('success')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('increase_percentage')
+                    ->label('Persentase Kenaikan')
                     ->suffix('%')
                     ->color('success')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('effective_date')
-                    ->date()
+                    ->label('Tanggal Efektif')
+                    ->date('d/m/Y')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('approver.name')
-                    ->label('Approved By')
+                    ->label('Disetujui Oleh')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Dibuat Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->label('Diperbarui Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('employees_id')
+                    ->label('Pegawai')
+                    ->relationship('employee', 'name')
+                    ->searchable()
+                    ->preload(),
                 Tables\Filters\Filter::make('effective_date')
+                    ->label('Tanggal Efektif')
                     ->form([
-                        Forms\Components\DatePicker::make('from'),
-                        Forms\Components\DatePicker::make('until'),
+                        Forms\Components\DatePicker::make('from')
+                            ->label('Dari Tanggal'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('Sampai Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -200,14 +216,19 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])->label('Aksi'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

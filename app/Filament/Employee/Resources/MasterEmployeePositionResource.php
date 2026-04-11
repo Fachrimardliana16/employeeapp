@@ -99,25 +99,28 @@ class MasterEmployeePositionResource extends Resource
                     ->native(false),
             ])
             ->actions([
-                Tables\Actions\EditAction::make()
-                    ->label('Ubah')
-                    ->modalHeading('Ubah Data Jabatan'),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus')
-                    ->modalHeading('Hapus Data Jabatan')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus jabatan ini? Data Pegawai yang menggunakan jabatan ini akan terpengaruh.')
-                    ->modalSubmitActionLabel('Ya, Hapus')
-                    ->modalCancelActionLabel('Batal'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Ubah')
+                        ->modalHeading('Ubah Data Jabatan'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus')
+                        ->modalHeading('Hapus Data Jabatan')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus jabatan ini? Data Pegawai yang menggunakan jabatan ini akan terpengaruh.')
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal'),
+                ])->label('Aksi'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->label('Hapus yang Dipilih')
                         ->modalHeading('Hapus Jabatan yang Dipilih')
                         ->modalDescription('Apakah Anda yakin ingin menghapus semua jabatan yang dipilih?')
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
                         ->modalCancelActionLabel('Batal'),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->emptyStateHeading('Belum Ada Data Jabatan')
             ->emptyStateDescription('Mulai dengan menambahkan data jabatan pertama.')

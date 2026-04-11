@@ -90,9 +90,21 @@ class EmployeeTrainingResource extends Resource
                     ->falseIcon('heroicon-o-document'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

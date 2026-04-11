@@ -20,13 +20,10 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationLabel = 'Users';
-
-    protected static ?string $modelLabel = 'User';
-
-    protected static ?string $pluralModelLabel = 'Users';
-
-    protected static ?string $navigationGroup = 'User Management';
+    protected static ?string $navigationLabel = 'Pengguna';
+    protected static ?string $modelLabel = 'Pengguna';
+    protected static ?string $pluralModelLabel = 'Pengguna';
+    protected static ?string $navigationGroup = 'Manajemen Pengguna';
 
     public static function form(Form $form): Form
     {
@@ -38,9 +35,11 @@ class UserResource extends Resource
                         Forms\Components\Grid::make(2)
                             ->schema([
                                 Forms\Components\TextInput::make('name')
+                                    ->label('Nama')
                                     ->required()
                                     ->maxLength(255),
                                 Forms\Components\TextInput::make('email')
+                                    ->label('Email')
                                     ->email()
                                     ->required()
                                     ->maxLength(255)
@@ -49,6 +48,7 @@ class UserResource extends Resource
                         Forms\Components\Grid::make(2)
                             ->schema([
                                 Forms\Components\TextInput::make('password')
+                                    ->label('Kata Sandi')
                                     ->password()
                                     ->required(fn (string $context): bool => $context === 'create')
                                     ->dehydrated(fn ($state) => filled($state))
@@ -78,26 +78,29 @@ class UserResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Nama')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('email')
+                    ->label('Email')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('roles.name')
-                    ->label('Roles')
+                    ->label('Peran')
                     ->badge()
                     ->searchable(),
                 Tables\Columns\IconColumn::make('is_verified')
-                    ->label('Verified')
+                    ->label('Terverifikasi')
                     ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('email_verified_at')
-                    ->label('Verify At')
-                    ->dateTime()
+                    ->label('Diverifikasi Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Dibuat Pada')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -106,23 +109,30 @@ class UserResource extends Resource
                     ->label('Status Verifikasi'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\Action::make('verify')
-                    ->label('Verify')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->action(fn (User $record) => $record->update(['is_verified' => true]))
-                    ->visible(fn (User $record) => !$record->is_verified),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\Action::make('verify')
+                        ->label('Verifikasi')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->action(fn (User $record) => $record->update(['is_verified' => true]))
+                        ->visible(fn (User $record) => !$record->is_verified),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\BulkAction::make('verify_selected')
-                        ->label('Verify Selected')
+                        ->label('Verifikasi Terpilih')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->action(fn (\Illuminate\Database\Eloquent\Collection $records) => $records->each->update(['is_verified' => true])),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

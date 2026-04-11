@@ -25,33 +25,34 @@ class EmployeeRetirementResource extends Resource
 
     protected static ?string $navigationLabel = 'Pensiun Pegawai';
 
-    protected static ?string $modelLabel = 'Pensiun Pegawai';
+    protected static ?string $modelLabel = 'Pengajuan Pensiun';
 
-    protected static ?string $pluralModelLabel = 'Pensiun Pegawai';
+    protected static ?string $pluralModelLabel = 'Pengajuan Pensiun';
 
     protected static ?int $navigationSort = 304;
 
     public static function getModelLabel(): string
     {
-        return 'Pensiun Pegawai';
+        return 'Pengajuan Pensiun';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Pensiun Pegawai';
+        return 'Pengajuan Pensiun';
     }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Formulir Pensiun Pegawai')
-                    ->description('Lengkapi informasi pensiun Pegawai dengan teliti')
+                Forms\Components\Section::make('Formulir Pengajuan Pensiun')
+                    ->description('Lengkapi informasi pengajuan pensiun dengan teliti')
                     ->icon('heroicon-o-home')
                     ->schema([
                         Forms\Components\Tabs::make('Informasi Pensiun')
                             ->tabs([
                         Forms\Components\Tabs\Tab::make('Informasi Pegawai')
+                            ->label('Informasi Pegawai')
                             ->icon('heroicon-o-user')
                             ->schema([
                                 Forms\Components\Select::make('employee_id')
@@ -64,7 +65,7 @@ class EmployeeRetirementResource extends Resource
                                     ->placeholder('Pilih Pegawai...')
                                     ->afterStateUpdated(function (callable $set, $state) {
                                         if ($state) {
-                                            $employee = Employee::find($state);
+                                            $employee = \App\Models\Employee::with(['position', 'department', 'grade'])->find($state);
                                             if ($employee) {
                                                 $set('employee_number', $employee->nippam);
                                                 $set('current_position', $employee->position->name ?? '');
@@ -209,9 +210,9 @@ class EmployeeRetirementResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('department')
-                    ->label('Departemen')
+                    ->label('Bagian')
                     ->relationship('employee.department', 'name')
-                    ->placeholder('Semua Departemen'),
+                    ->placeholder('Semua Bagian'),
 
                 Tables\Filters\Filter::make('retirement_date')
                     ->label('Tanggal Pensiun')
@@ -246,20 +247,27 @@ class EmployeeRetirementResource extends Resource
                     ->toggle(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat Detail')
-                    ->modalHeading('Detail Pensiun Pegawai')
-                    ->modalWidth('4xl'),
-                Tables\Actions\EditAction::make()
-                    ->label('Ubah Data')
-                    ->modalHeading('Ubah Data Pensiun')
-                    ->modalWidth('4xl'),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus')
-                    ->modalHeading('Hapus Data Pensiun')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus data pensiun ini? Tindakan ini tidak dapat dibatalkan.')
-                    ->modalSubmitActionLabel('Ya, Hapus')
-                    ->modalCancelActionLabel('Batal'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat')
+                        ->modalHeading('Detail Pensiun Pegawai')
+                        ->modalWidth('4xl'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit')
+                        ->modalHeading('Ubah Data Pensiun')
+                        ->modalWidth('4xl'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus')
+                        ->modalHeading('Hapus Data Pensiun')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus data pensiun ini? Tindakan ini tidak dapat dibatalkan.')
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -269,7 +277,7 @@ class EmployeeRetirementResource extends Resource
                         ->modalDescription('Apakah Anda yakin ingin menghapus semua data pensiun yang dipilih? Tindakan ini tidak dapat dibatalkan.')
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
                         ->modalCancelActionLabel('Batal'),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('Belum Ada Data Pensiun')

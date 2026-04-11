@@ -272,26 +272,34 @@ class EmployeeAttendanceRecordResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
 
-                Tables\Actions\Action::make('view_location')
-                    ->label('Lihat Lokasi')
-                    ->icon('heroicon-o-map-pin')
-                    ->color('info')
-                    ->url(
-                        fn(EmployeeAttendanceRecord $record): ?string =>
-                        $record->check_latitude && $record->check_longitude
-                            ? "https://www.google.com/maps?q={$record->check_latitude},{$record->check_longitude}"
-                            : null
-                    )
-                    ->openUrlInNewTab()
-                    ->visible(fn(EmployeeAttendanceRecord $record) => $record->check_latitude && $record->check_longitude),
+                    Tables\Actions\Action::make('view_location')
+                        ->label('Lihat Lokasi')
+                        ->icon('heroicon-o-map-pin')
+                        ->color('info')
+                        ->url(
+                            fn(EmployeeAttendanceRecord $record): ?string =>
+                            $record->check_latitude && $record->check_longitude
+                                ? "https://www.google.com/maps?q={$record->check_latitude},{$record->check_longitude}"
+                                : null
+                        )
+                        ->openUrlInNewTab()
+                        ->visible(fn(EmployeeAttendanceRecord $record) => $record->check_latitude && $record->check_longitude),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->defaultSort('attendance_time', 'desc');
     }

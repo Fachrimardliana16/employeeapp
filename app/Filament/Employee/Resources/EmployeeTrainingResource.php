@@ -168,18 +168,25 @@ class EmployeeTrainingResource extends Resource
                     ->toggle(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat Detail')
-                    ->modalHeading('Detail Pelatihan Pegawai'),
-                Tables\Actions\EditAction::make()
-                    ->label('Ubah Data')
-                    ->modalHeading('Ubah Data Pelatihan'),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus')
-                    ->modalHeading('Hapus Data Pelatihan')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus data pelatihan ini?')
-                    ->modalSubmitActionLabel('Ya, Hapus')
-                    ->modalCancelActionLabel('Batal'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat')
+                        ->modalHeading('Detail Pelatihan Pegawai'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit')
+                        ->modalHeading('Ubah Data Pelatihan'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus')
+                        ->modalHeading('Hapus Data Pelatihan')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus data pelatihan ini?')
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -189,7 +196,7 @@ class EmployeeTrainingResource extends Resource
                         ->modalDescription('Apakah Anda yakin ingin menghapus semua data pelatihan yang dipilih?')
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
                         ->modalCancelActionLabel('Batal'),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->emptyStateHeading('Belum Ada Data Pelatihan')
             ->emptyStateDescription('Mulai dengan menambahkan data pelatihan Pegawai pertama.')

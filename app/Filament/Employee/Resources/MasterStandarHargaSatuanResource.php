@@ -60,28 +60,38 @@ class MasterStandarHargaSatuanResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Nama')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('category')
+                    ->label('Kategori')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('location')
+                    ->label('Lokasi')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('grade_level')
+                    ->label('Tingkat/Golongan')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('amount')
+                    ->label('Jumlah')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('unit')
+                    ->label('Satuan')
                     ->searchable(),
                 Tables\Columns\IconColumn::make('is_active')
+                    ->label('Aktif')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('users_id')
+                    ->label('Dibuat Oleh')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat Pada')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Diperbarui Pada')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -90,12 +100,19 @@ class MasterStandarHargaSatuanResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])->label('Aksi'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

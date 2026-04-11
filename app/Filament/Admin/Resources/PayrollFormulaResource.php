@@ -18,6 +18,8 @@ class PayrollFormulaResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-calculator';
     protected static ?string $navigationGroup = 'Pengaturan Payroll';
     protected static ?string $navigationLabel = 'Formula Payroll';
+    protected static ?string $modelLabel = 'Formula Payroll';
+    protected static ?string $pluralModelLabel = 'Formula Payroll';
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -186,14 +188,21 @@ class PayrollFormulaResource extends Resource
                     ->label('Status Aktif'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

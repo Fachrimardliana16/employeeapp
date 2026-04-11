@@ -181,7 +181,7 @@ class MasterOfficeLocationResource extends Resource
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
-                    ->dateTime('d/m/Y')
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -216,11 +216,13 @@ class MasterOfficeLocationResource extends Resource
                 ->button()
                 ->label('Aksi')
                 ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
                 ->color('gray'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Hapus Sebagian'),
 
                     Tables\Actions\BulkAction::make('activate')
                         ->label('Aktifkan')
@@ -237,7 +239,7 @@ class MasterOfficeLocationResource extends Resource
                         ->requiresConfirmation()
                         ->action(fn($records) => $records->each->update(['is_active' => false]))
                         ->deselectRecordsAfterCompletion(),
-                ]),
+                ])->label('Aksi Masal'),
             ])
             ->defaultSort('created_at', 'desc');
     }

@@ -165,22 +165,26 @@ class EmployeeDocumentResource extends Resource
                         ->whereBetween('expiry_date', [now(), now()->addDays(30)])),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Lihat'),
-                Tables\Actions\EditAction::make()
-                    ->label('Edit'),
-                Tables\Actions\Action::make('download')
-                    ->label('Download')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->url(fn($record) => $record->file_path ? asset('storage/' . $record->file_path) : null)
-                    ->openUrlInNewTab(),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\Action::make('download')
+                        ->label('Download')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->url(fn($record) => $record->file_path ? asset('storage/' . $record->file_path) : null)
+                        ->openUrlInNewTab(),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ])
             ->defaultSort('created_at', 'desc');
     }

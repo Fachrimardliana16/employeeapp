@@ -180,11 +180,20 @@ class MyPermissionResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
-                    ->visible(fn($record) => $record->approval_status === 'pending'),
-                Tables\Actions\DeleteAction::make()
-                    ->visible(fn($record) => $record->approval_status === 'pending'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit')
+                        ->visible(fn($record) => $record->approval_status === 'pending'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus')
+                        ->visible(fn($record) => $record->approval_status === 'pending'),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ]);
     }
 

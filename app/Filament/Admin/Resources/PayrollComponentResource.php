@@ -17,6 +17,8 @@ class PayrollComponentResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-puzzle-piece';
     protected static ?string $navigationGroup = 'Pengaturan Payroll';
     protected static ?string $navigationLabel = 'Komponen Payroll';
+    protected static ?string $modelLabel = 'Komponen Payroll';
+    protected static ?string $pluralModelLabel = 'Komponen Payroll';
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
@@ -199,14 +201,21 @@ class PayrollComponentResource extends Resource
                     ->label('Kena Pajak'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size('sm')
+                ->color('gray')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

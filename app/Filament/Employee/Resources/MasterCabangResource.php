@@ -66,18 +66,26 @@ class MasterCabangResource extends Resource
                     ->label('Keterangan')
                     ->limit(50),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Status')
+                    ->label('Status Aktif')
                     ->boolean(),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])->label('Aksi'),
             ])
             ->bulkActions([
-                //
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

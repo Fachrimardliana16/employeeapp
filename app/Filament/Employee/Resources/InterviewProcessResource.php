@@ -21,6 +21,7 @@ class InterviewProcessResource extends Resource
     protected static ?string $navigationLabel = 'Proses Interview';
     protected static ?int $navigationSort = 102;
     protected static ?string $modelLabel = 'Proses Interview';
+    protected static ?string $pluralModelLabel = 'Proses Interview';
 
     public static function form(Form $form): Form
     {
@@ -213,14 +214,20 @@ class InterviewProcessResource extends Resource
                                 ->success()
                                 ->send();
                         }),
-                    Tables\Actions\EditAction::make(),
-                    Tables\Actions\ViewAction::make(),
-                ])->button()->label('Aksi'),
+                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 

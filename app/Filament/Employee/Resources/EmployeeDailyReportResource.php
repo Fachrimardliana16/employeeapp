@@ -58,39 +58,67 @@ class EmployeeDailyReportResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('employee.name')
-                    ->numeric()
+                    ->label('Nama Pegawai')
+                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('daily_report_date')
+                    ->label('Tanggal Laporan')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('work_status'),
-                Tables\Columns\ImageColumn::make('image'),
-                Tables\Columns\TextColumn::make('users_id')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('work_status')
+                    ->label('Status Kerja')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'Selesai' => 'success',
+                        'Proses' => 'warning',
+                        'Tertunda' => 'danger',
+                        default => 'gray',
+                    }),
+                Tables\Columns\ImageColumn::make('image')
+                    ->label('Gambar'),
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Dibuat Oleh')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat Pada')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('deleted_at')
+                    ->label('Diperbarui Pada')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('employee_id')
+                    ->label('Pegawai')
+                    ->relationship('employee', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('work_status')
+                    ->label('Status Kerja')
+                    ->options([
+                        'Selesai' => 'Selesai',
+                        'Proses' => 'Proses',
+                        'Tertunda' => 'Tertunda',
+                    ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
+                ])->label('Aksi'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ])->label('Hapus yang Dipilih'),
             ]);
     }
 
