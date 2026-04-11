@@ -20,7 +20,7 @@
                 <img src="https://cdn-icons-png.flaticon.com/512/912/912318.png" alt="Logo" class="w-16 h-16 drop-shadow-lg opacity-90">
             </div>
             <h1 class="text-5xl font-black text-white leading-tight tracking-tighter mb-4 drop-shadow-md uppercase">
-                HRIS <span class="text-blue-100">PLATINUM</span>
+                HRIS <span class="text-blue-100">TIRTA PERWIRA</span>
             </h1>
             <p class="text-xl font-bold text-blue-100 uppercase tracking-[0.2em] mb-6 opacity-90 leading-none">
                 Employee Management System
@@ -38,7 +38,7 @@
             <!-- Mobile Logo Header -->
             <div class="lg:hidden text-center mb-6">
                 <img src="https://cdn-icons-png.flaticon.com/512/912/912318.png" alt="Logo" class="w-12 h-12 mx-auto mb-3">
-                <h2 class="text-2xl font-black text-slate-800 tracking-tighter uppercase">HRIS<span class="text-blue-600"> PLATINUM</span></h2>
+                <h2 class="text-2xl font-black text-slate-800 tracking-tighter uppercase">SIP<span class="text-blue-600"> TIRTA PERWIRA</span></h2>
                 <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">Employee Portal</p>
             </div>
 
@@ -120,7 +120,7 @@
                 <p class="text-[8px] font-black text-slate-300 uppercase tracking-[0.25em] mb-4">Powered By</p>
                 <div class="flex flex-col gap-1">
                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <span class="text-blue-600">Platinum</span> HRIS
+                        <span class="text-blue-600">Tirta Perwira</span> SIP
                     </p>
                     <p class="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">
                         HR Technology & IT Solutions © 2026

@@ -448,7 +448,7 @@
             <div class="mt-12 pt-8 border-t border-gray-100 flex justify-between items-center text-[9px] font-bold uppercase tracking-widest text-gray-400 avoid-break">
                 <span class="flex items-center gap-2">
                     <span class="w-1 h-1 bg-gray-400 rounded-full"></span>
-                    Dokumen Internal - HRIS PEGADAIAN
+                    Dokumen Internal - HRIS Tirta Perwira
                 </span>
                 <span>Dicetak: {{ now()->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</span>
             </div>
