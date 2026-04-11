@@ -43,7 +43,7 @@
             </div>
 
             <div class="mb-6 lg:mb-10 text-center lg:text-left">
-                <h3 class="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight mb-1 lg:mb-2 leading-tight">Selamat Datang di Panel Pegawai</h3>
+                <h3 class="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight mb-1 lg:mb-2 leading-tight">Selamat Datang</h3>
                 <p class="text-slate-500 text-sm lg:text-base font-medium">Silakan login untuk mengakses dashboard manajemen</p>
             </div>
 
@@ -123,7 +123,7 @@
                         <span class="text-blue-600">Tirta Perwira</span> SIP
                     </p>
                     <p class="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">
-                        HR Technology & IT Solutions © 2026
+                        Sub Bagian Kepegawaian & IT Department © 2026
                     </p>
                 </div>
             </div>
