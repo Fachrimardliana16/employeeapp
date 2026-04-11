@@ -1,0 +1,644 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "employeeapp",
+        "version": "0.0.1"
+    },
+    "servers": [
+        {
+            "url": "http://127.0.0.1:8000/api"
+        }
+    ],
+    "paths": {
+        "/attendance/upload-photo": {
+            "post": {
+                "operationId": "attendance.upload-photo",
+                "summary": "Upload attendance photo from camera",
+                "tags": [
+                    "Attendance"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "photo": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "contentMediaType": "application/octet-stream",
+                                        "maxLength": 5120
+                                    },
+                                    "field": {
+                                        "type": "string",
+                                        "description": "Max 5MB",
+                                        "enum": [
+                                            "photo_checkin",
+                                            "photo_checkout"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "photo",
+                                    "field"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "500": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "path": {
+                                            "type": "string"
+                                        },
+                                        "url": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "path",
+                                        "url"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/attendance/validate-location": {
+            "post": {
+                "operationId": "attendance.validate-location",
+                "summary": "Validate user location against office locations",
+                "tags": [
+                    "Attendance"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "latitude": {
+                                        "type": "number",
+                                        "minimum": -90,
+                                        "maximum": 90
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "minimum": -180,
+                                        "maximum": 180
+                                    }
+                                },
+                                "required": [
+                                    "latitude",
+                                    "longitude"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "valid": {
+                                                    "type": "boolean"
+                                                },
+                                                "office_id": {
+                                                    "type": "string"
+                                                },
+                                                "office_name": {
+                                                    "type": "string"
+                                                },
+                                                "department_name": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "Semua Departemen"
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "distance": {
+                                                    "type": "integer"
+                                                },
+                                                "allowed_radius": {
+                                                    "type": "string"
+                                                },
+                                                "within_radius": {
+                                                    "type": "string"
+                                                },
+                                                "latitude": {},
+                                                "longitude": {}
+                                            },
+                                            "required": [
+                                                "valid",
+                                                "office_id",
+                                                "office_name",
+                                                "department_name",
+                                                "distance",
+                                                "allowed_radius",
+                                                "within_radius",
+                                                "latitude",
+                                                "longitude"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "valid": {
+                                                    "type": "boolean"
+                                                },
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "valid",
+                                                "message"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "valid": {
+                                                    "type": "boolean"
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "Tidak ada lokasi kantor aktif untuk departemen Anda.",
+                                                        "Tidak ada lokasi kantor aktif yang ditemukan."
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "valid",
+                                                "message"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "operationId": "auth.login",
+                "summary": "Authenticate user and create token",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "device_name": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "email",
+                                    "password"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "token",
+                                        "user"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "operationId": "auth.logout",
+                "summary": "Revoke the current user's token",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Berhasil keluar."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "operationId": "auth.me",
+                "summary": "Get the authenticated user's profile",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`UserResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "UserResource": {
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "email": {
+                                "type": "string"
+                            },
+                            "is_verified": {
+                                "type": "boolean"
+                            },
+                            "roles": {
+                                "type": "array",
+                                "items": {}
+                            },
+                            "profile": {
+                                "type": "object",
+                                "properties": {
+                                    "personal_data": {
+                                        "type": "object",
+                                        "properties": {
+                                            "nippam": {
+                                                "type": "string"
+                                            },
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "email": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "office_email": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "phone_number": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "address": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "gender": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "place_birth": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "date_birth": {
+                                                "type": "string"
+                                            },
+                                            "religion": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "blood_type": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "marital_status": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "image_url": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "nippam",
+                                            "name",
+                                            "email",
+                                            "office_email",
+                                            "phone_number",
+                                            "address",
+                                            "gender",
+                                            "place_birth",
+                                            "date_birth",
+                                            "religion",
+                                            "blood_type",
+                                            "marital_status",
+                                            "image_url"
+                                        ]
+                                    },
+                                    "employment_data": {
+                                        "type": "object",
+                                        "properties": {
+                                            "employment_status": {
+                                                "type": "string"
+                                            },
+                                            "position": {
+                                                "type": "string"
+                                            },
+                                            "department": {
+                                                "type": "string"
+                                            },
+                                            "sub_department": {
+                                                "type": "string"
+                                            },
+                                            "bagian": {
+                                                "type": "string"
+                                            },
+                                            "cabang": {
+                                                "type": "string"
+                                            },
+                                            "unit": {
+                                                "type": "string"
+                                            },
+                                            "grade": {
+                                                "type": "string"
+                                            },
+                                            "mkg_years": {
+                                                "type": "string"
+                                            },
+                                            "entry_date": {
+                                                "type": "string"
+                                            },
+                                            "probation_appointment_date": {
+                                                "type": "string"
+                                            },
+                                            "length_service": {
+                                                "type": "string"
+                                            },
+                                            "retirement_date": {
+                                                "type": "string"
+                                            },
+                                            "leave_balance": {
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "required": [
+                                            "employment_status",
+                                            "position",
+                                            "department",
+                                            "sub_department",
+                                            "bagian",
+                                            "cabang",
+                                            "unit",
+                                            "grade",
+                                            "mkg_years",
+                                            "entry_date",
+                                            "probation_appointment_date",
+                                            "length_service",
+                                            "retirement_date",
+                                            "leave_balance"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "personal_data",
+                                    "employment_data"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name",
+                            "email",
+                            "is_verified",
+                            "roles",
+                            "profile"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "email": {
+                                "type": "string"
+                            },
+                            "is_verified": {
+                                "type": "boolean"
+                            },
+                            "profile": {
+                                "type": "null"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name",
+                            "email",
+                            "is_verified",
+                            "profile"
+                        ]
+                    }
+                ],
+                "title": "UserResource"
+            }
+        },
+        "responses": {
+            "ValidationException": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Errors overview."
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "A detailed description of each field that failed validation.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
+            },
+            "AuthenticationException": {
+                "description": "Unauthenticated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
