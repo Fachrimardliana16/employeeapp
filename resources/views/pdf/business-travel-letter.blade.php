@@ -156,27 +156,33 @@
 </head>
 
 <body>
-    <!-- Header dengan Logo dan Kop Surat -->
-    <div class="header">
-        <table>
-            <tr>
-                <td class="logo">
-                    <div
-                        style="border: 1px solid #000; width: 60px; height: 60px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 10px;">
-                        LOGO
-                    </div>
-                </td>
-                <td class="kop-surat">
-                    <h2>PERUMDA Air Minum Tirta Pewira</h2>
-                    <h3>Kabupaten Purbalingga</h3>
-                    <p>Jl. Jenderal Sudirman No. 123, Purbalingga, Jawa Tengah</p>
-                    <p>Telp: (0281) 123456, Email: info@tirtapewira.co.id</p>
-                </td>
-            </tr>
-        </table>
-    </div>
+    <!-- Header Resmi PERUMDA menggunakan Table (PDF Compatible) -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px;">
+        <tr>
+            <td style="width: 100px; vertical-align: middle; text-align: left;">
+                @php
+                    $logoPath = public_path('assets/images/logo-pdam.png');
+                    $logoData = "";
+                    if (file_exists($logoPath)) {
+                        $logoData = base64_encode(file_get_contents($logoPath));
+                    }
+                @endphp
+                @if($logoData)
+                    <img src="data:image/png;base64,{{ $logoData }}" style="height: 90px; width: auto;">
+                @endif
+            </td>
+            <td style="text-align: center; vertical-align: middle; padding-right: 50px;">
+                <h1 style="margin: 0; font-size: 14pt; font-family: 'Times New Roman', serif; font-weight: bold; text-transform: uppercase; line-height: 1.1;">PERUSAHAAN UMUM DAERAH AIR MINUM</h1>
+                <h1 style="margin: 0; font-size: 20pt; font-family: 'Times New Roman', serif; font-weight: bold; text-transform: uppercase; line-height: 1.1;">TIRTA PERWIRA</h1>
+                <h2 style="margin: 0; font-size: 14pt; font-family: 'Times New Roman', serif; font-weight: bold; text-transform: uppercase; line-height: 1.1;">KABUPATEN PURBALINGGA</h2>
+                <p style="margin: 5pt 0 0 0; font-size: 9pt; font-style: italic; font-family: 'Times New Roman', serif; line-height: 1.2;">Jl. Let. Jend. S.Parman No. 62 Kedung Menjangan. Purbalingga (53316).</p>
+            </td>
+        </tr>
+    </table>
 
-    <div class="divider"></div>
+    <!-- Garis Kop Tebal & Tipis -->
+    <div style="border-bottom: 3pt solid #000; margin-top: 2pt;"></div>
+    <div style="border-bottom: 1pt solid #000; margin-top: 2pt; margin-bottom: 15pt;"></div>
 
     <!-- Judul Surat -->
     <div class="title">
@@ -325,31 +331,20 @@
 
     <!-- Tanda Tangan -->
     <div class="signature">
-        <table>
+        <table style="width: 100%;">
             <tr>
-                <td style="text-align: center; width: 50%; vertical-align: top;">
-                    <div>
-                        <p>&nbsp;</p> <!-- Baris kosong untuk menyejajarkan dengan baris ke-2 sebelah kanan -->
-                        <p>&nbsp;</p>
-                        <p>&nbsp;</p>
-                        <p>Tanda tangan pemegang</p>
-
-                        <div class="signature-box">
-                            <div class="signature-name">{{ $mainEmployee->name ?? '________________' }}</div>
-                        </div>
+                <td style="width: 50%;"></td>
+                <td style="width: 50%; text-align: center;">
+                    <p style="margin-bottom: 5pt;">Purbalingga, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</p>
+                    <p style="font-weight: bold; text-transform: uppercase; margin: 0;">Mengetahui/Menyetujui,</p>
+                    <p style="font-weight: bold; text-transform: uppercase; font-style: italic; margin: 0;">Pejabat Berwenang</p>
+                    
+                    <div style="height: 60pt;"></div> <!-- Signature Space -->
+                    
+                    <div style="border-bottom: 1pt solid #000; width: 180pt; margin: 0 auto;">
+                        <p style="font-weight: bold; text-decoration: none; margin: 0; padding-bottom: 2pt;">{{ $signatory_name ?? 'Direktur Utama' }}</p>
                     </div>
-                </td>
-                <td style="text-align: center; width: 50%; vertical-align: top;">
-                    <div>
-                        <p>Purbalingga, {{ \Carbon\Carbon::now()->format('d F Y') }}</p>
-                        <p><strong>PERUMDA Air Minum Tirta Pewira</strong></p>
-                        <p><strong>Kabupaten Purbalingga</strong></p>
-                        <p><strong>{{ $signatory_position ?? 'Direktur Utama' }}</strong></p>
-
-                        <div class="signature-box">
-                            <div class="signature-name">{{ $signatory_name ?? 'Direktur Utama' }}</div>
-                        </div>
-                    </div>
+                    <p style="font-size: 8pt; color: #666; text-transform: uppercase; margin-top: 2pt;">{{ $signatory_position ?? 'Direktur Utama' }}</p>
                 </td>
             </tr>
         </table>

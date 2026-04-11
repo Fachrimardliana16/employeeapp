@@ -7,14 +7,20 @@ use App\Models\Employee;
 use App\Filament\Forms\Components\CameraCapture;
 use App\Models\MasterOfficeLocation;
 use App\Models\AttendanceSchedule;
+use App\Models\EmployeeDailyReport;
+use Filament\Actions\Action;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 
-class RecordAttendance extends Page
+class RecordAttendance extends Page implements HasActions
 {
+    use InteractsWithActions;
+
     protected static ?string $navigationIcon = 'heroicon-o-clock';
 
     protected static string $view = 'filament.user.pages.record-attendance';
@@ -70,13 +76,65 @@ class RecordAttendance extends Page
             ->statePath('data');
     }
 
-    public function recordAttendance(): void
+    public function recordAttendanceAction(): Action
     {
-        $data = $this->form->getState();
+        return Action::make('recordAttendanceAction')
+            ->label('Simpan Kehadiran')
+            ->modalHeading('Laporan Kerja Harian')
+            ->modalDescription('Silakan isi laporan pekerjaan Anda sebelum menyimpan kehadiran.')
+            ->modalSubmitActionLabel('Simpan & Absen')
+            ->modalIcon('heroicon-o-document-text')
+            ->form([
+                Forms\Components\Grid::make(2)
+                    ->schema([
+                        Forms\Components\DatePicker::make('daily_report_date')
+                            ->label('Tanggal Laporan')
+                            ->default(now())
+                            ->required()
+                            ->native(false)
+                            ->readonly(),
+                        Forms\Components\Select::make('work_status')
+                            ->label('Status Pekerjaan')
+                            ->options([
+                                'completed' => 'Selesai',
+                                'in_progress' => 'Proses',
+                                'pending' => 'Tertunda',
+                            ])
+                            ->required()
+                            ->default('completed'),
+                    ]),
+                Forms\Components\Textarea::make('work_description')
+                    ->label('Isi Laporan Kerja')
+                    ->placeholder('Apa yang Anda kerjakan atau capai hari ini?')
+                    ->required()
+                    ->rows(5),
+                Forms\Components\Textarea::make('desc')
+                    ->label('Catatan/Keterangan (Opsional)')
+                    ->placeholder('Tambahan detail jika diperlukan...')
+                    ->rows(3),
+            ])
+            ->action(function (array $data) {
+                $this->saveAttendanceWithReport($data);
+            });
+    }
+
+    public function submitAttendance(): void
+    {
+        $attendanceData = $this->form->getState();
+
+        if (($attendanceData['state'] ?? '') === 'out') {
+            $this->mountAction('recordAttendanceAction');
+        } else {
+            $this->saveAttendanceWithReport();
+        }
+    }
+
+    protected function saveAttendanceWithReport(?array $reportData = null): void
+    {
+        // 1. Validate Attendance Form State
+        $attendanceData = $this->form->getState();
 
         $user = Auth::user();
-        
-        // Try to find employee by users_id first, then by email or office_email
         $employee = Employee::where('users_id', $user->id)
             ->orWhere('email', $user->email)
             ->orWhere('office_email', $user->email)
@@ -85,92 +143,69 @@ class RecordAttendance extends Page
         if (!$employee) {
             Notification::make()
                 ->title('Gagal')
-                ->body('Data pegawai tidak ditemukan untuk akun: ' . $user->email)
+                ->body('Data pegawai tidak ditemukan.')
                 ->danger()
                 ->send();
             return;
         }
 
-        // 1. Get Today's Schedule
+        // 2. Schedule Validation & Status Calculation
         $dayName = now()->format('l');
         $schedule = AttendanceSchedule::where('day', $dayName)->where('is_active', true)->first();
         
-        if (!$schedule) {
-            Notification::make()
-                ->title('Jadwal Tidak Ditemukan')
-                ->body('Tidak ada jadwal aktif untuk hari ini (' . $dayName . ').')
-                ->warning()
-                ->send();
-            return;
-        }
-
-        // 2. Validate Time Window
+        $attendanceStatus = 'on_time';
         $currentTime = now()->format('H:i:s');
-        if ($data['state'] === 'in' && ($currentTime < $schedule->check_in_start || $currentTime > $schedule->check_in_end)) {
-             Notification::make()
-                ->title('Di Luar Jam Check-In')
-                ->body('Waktu Check-In hari ini adalah ' . $schedule->check_in_start . ' - ' . $schedule->check_in_end)
-                ->warning()
-                ->send();
-            return;
+
+        if (!$schedule) {
+            // Default to on_time if no schedule found
+        } else {
+            if ($attendanceData['state'] === 'in') {
+                if ($currentTime < $schedule->check_in_start || $currentTime > $schedule->check_in_end) {
+                    Notification::make()->title('Di Luar Jam Check-In')->warning()->send();
+                    return;
+                }
+                if ($currentTime > $schedule->late_threshold) {
+                    $attendanceStatus = 'late';
+                }
+            }
+            if ($attendanceData['state'] === 'out') {
+                if ($currentTime > $schedule->check_out_end) {
+                     Notification::make()->title('Di Luar Jam Check-Out')->warning()->send();
+                    return;
+                }
+                if ($currentTime < $schedule->check_out_start) {
+                    $attendanceStatus = 'early';
+                }
+            }
         }
 
-        if ($data['state'] === 'out' && ($currentTime < $schedule->check_out_start || $currentTime > $schedule->check_out_end)) {
-             Notification::make()
-                ->title('Di Luar Jam Check-Out')
-                ->body('Waktu Check-Out hari ini adalah ' . $schedule->check_out_start . ' - ' . $schedule->check_out_end)
-                ->warning()
-                ->send();
-            return;
-        }
-
-        // 3. Find Office Locations - Specific Department OR Global (NULL)
+        // 3. Office & Location Validation
         $officeLocations = MasterOfficeLocation::where(function($query) use ($employee) {
-                $query->where('departments_id', $employee->departments_id)
-                      ->orWhereNull('departments_id');
-            })
-            ->where('is_active', true)
-            ->get();
+                $query->where('departments_id', $employee->departments_id)->orWhereNull('departments_id');
+            })->where('is_active', true)->get();
 
-        if ($officeLocations->isEmpty()) {
-            Notification::make()
-                ->title('Konfigurasi Lokasi Error')
-                ->body('Lokasi kantor untuk departemen Anda belum diatur. Hubungi Admin.')
-                ->danger()
-                ->send();
-            return;
-        }
-
-        // 4. Validate Location - Check if employee is in ANY allowed office radius
-        if (empty($data['latitude']) || empty($data['longitude'])) {
-            Notification::make()
-                ->title('Lokasi Diperlukan')
-                ->body('Mohon aktifkan GPS dan izinkan akses lokasi.')
-                ->warning()
-                ->send();
+        if ($officeLocations->isEmpty() || empty($attendanceData['latitude'])) {
+            Notification::make()->title('Lokasi Error')->danger()->send();
             return;
         }
 
         $isInRange = false;
-        $closestLocation = null;
         $minDistance = null;
+        $closestLocation = null;
 
         foreach ($officeLocations as $location) {
             $distance = EmployeeAttendanceRecord::calculateDistance(
-                $data['latitude'],
-                $data['longitude'],
+                $attendanceData['latitude'],
+                $attendanceData['longitude'],
                 $location->latitude,
                 $location->longitude
             );
-
             if ($minDistance === null || $distance < $minDistance) {
                 $minDistance = $distance;
                 $closestLocation = $location;
             }
-
             if ($distance <= $location->radius) {
                 $isInRange = true;
-                $officeLocation = $location; // Save the specific office they are at
                 break;
             }
         }
@@ -178,38 +213,67 @@ class RecordAttendance extends Page
         if (!$isInRange) {
             Notification::make()
                 ->title('Lokasi Terlalu Jauh')
-                ->body(sprintf('Anda berada %.2f meter dari %s. Maksimal jarak %d meter.', $minDistance, $closestLocation->name, $closestLocation->radius))
+                ->body(sprintf('Jarak %.2fm. Maks %dm.', $minDistance, $closestLocation->radius))
                 ->warning()
                 ->send();
             return;
         }
 
-        // Use the distance from the specific matched location for the record
-        $distance = $minDistance;
-
-        // Process picture if it's base64 from CameraCapture
+        // 4. Process Image
         $picturePath = null;
-        if (!empty($data['picture']) && str_starts_with($data['picture'], 'data:image')) {
-            $picturePath = $this->processAndStoreImage($data['picture']);
+        if (!empty($attendanceData['picture']) && str_starts_with($attendanceData['picture'], 'data:image')) {
+            $picturePath = $this->processAndStoreImage($attendanceData['picture']);
         }
 
-        // Create attendance record
-        EmployeeAttendanceRecord::create([
-            'pin' => $employee->pin ?? $employee->id,
-            'employee_name' => $employee->name,
-            'attendance_time' => now(),
-            'state' => $data['state'],
-            'latitude' => $data['latitude'],
-            'longitude' => $data['longitude'],
-            'distance_meters' => $distance,
-            'picture' => $picturePath,
-            'device' => 'web',
-            'users_id' => $user->id,
-        ]);
+        // 5. START SAVING - Use Database Transaction to ensure both or none
+        \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $attendanceData, $reportData, $minDistance, $picturePath, $user, $closestLocation, $isInRange, $attendanceStatus) {
+            // Save Daily Report ONLY if data is provided (for 'out' state)
+            if ($reportData) {
+                EmployeeDailyReport::create([
+                    'employee_id' => $employee->id,
+                    'daily_report_date' => $reportData['daily_report_date'],
+                    'work_description' => $reportData['work_description'],
+                    'work_status' => $reportData['work_status'],
+                    'desc' => $reportData['desc'],
+                    'users_id' => $user->id,
+                ]);
+            }
+
+            // Save Attendance Record
+            EmployeeAttendanceRecord::create([
+                'pin' => $employee->pin ?? $employee->id,
+                'employee_name' => $employee->name,
+                'attendance_time' => now(),
+                'state' => $attendanceData['state'],
+                
+                // Fields untuk kompatibilitas (Lama)
+                'latitude' => $attendanceData['latitude'],
+                'longitude' => $attendanceData['longitude'],
+                'distance_meters' => $minDistance,
+                'picture' => $picturePath,
+
+                // Fields Baru (Sesuai Migrasi & Resource)
+                'office_location_id' => $closestLocation?->id,
+                'check_latitude' => $attendanceData['latitude'],
+                'check_longitude' => $attendanceData['longitude'],
+                'distance_from_office' => (int) round($minDistance),
+                'is_within_radius' => $isInRange,
+                'photo_checkin' => in_array($attendanceData['state'], ['in', 'ot_in']) ? $picturePath : null,
+                'photo_checkout' => in_array($attendanceData['state'], ['out', 'ot_out']) ? $picturePath : null,
+                'attendance_status' => $attendanceStatus,
+                'users_id' => $user->id,
+                'device' => 'web',
+            ]);
+        });
+
+        $statusLabel = match($attendanceStatus) {
+            'late' => ' (Terlambat)',
+            'early' => ' (Terlalu Cepat)',
+            default => ' (Tepat Waktu)',
+        };
 
         Notification::make()
-            ->title('Berhasil')
-            ->body('Kehadiran berhasil direkam.')
+            ->title('Berhasil Simpan Kehadiran' . $statusLabel)
             ->success()
             ->send();
 

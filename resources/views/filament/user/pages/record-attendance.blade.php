@@ -60,12 +60,13 @@
 
                 <!-- Main Form -->
                 <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 p-6">
-                    <form wire:submit="recordAttendance" class="space-y-6">
+                    <div class="space-y-6">
                         {{ $this->form }}
 
                         <div class="pt-2">
                             <button
-                                type="submit"
+                                type="button"
+                                wire:click="submitAttendance"
                                 class="w-full relative group flex items-center justify-center gap-3 px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-bold text-md transition-all active:scale-[0.98]"
                             >
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,7 +75,7 @@
                                 <span>Simpan Kehadiran</span>
                             </button>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
 
@@ -198,4 +199,6 @@
             box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05);
         }
     </style>
+    
+    <x-filament-actions::modals />
 </x-filament-panels::page>

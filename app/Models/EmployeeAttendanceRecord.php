@@ -31,6 +31,8 @@ class EmployeeAttendanceRecord extends Model
         'is_within_radius',
         'photo_checkin',
         'photo_checkout',
+        'attendance_status',
+        'users_id',
     ];
 
     protected $casts = [

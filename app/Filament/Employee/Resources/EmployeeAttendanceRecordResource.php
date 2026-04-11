@@ -12,6 +12,9 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Notifications\Notification;
+use Filament\Infolists\Infolist;
+use Filament\Infolists\Components;
+use Filament\Support\Enums\FontWeight;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\HtmlString;
@@ -87,7 +90,9 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
                             ->disk('public')
-                            ->capture('user')
+                            ->extraInputAttributes([
+                                'capture' => 'user',
+                            ])
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_in'),
 
@@ -106,7 +111,9 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
                             ->disk('public')
-                            ->capture('user')
+                            ->extraInputAttributes([
+                                'capture' => 'user',
+                            ])
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_out'),
                     ]),
@@ -163,77 +170,76 @@ class EmployeeAttendanceRecordResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('pin')
-                    ->label('PIN')
-                    ->searchable()
-                    ->sortable(),
+                Tables\Columns\ImageColumn::make('visual_proof')
+                    ->label('Foto')
+                    ->getStateUsing(fn (EmployeeAttendanceRecord $record): ?string => 
+                        $record->photo_checkin ?? $record->photo_checkout ?? $record->picture
+                    )
+                    ->circular()
+                    ->size(40),
 
                 Tables\Columns\TextColumn::make('employee_name')
-                    ->label('Nama Pegawai')
+                    ->label('Pegawai & PIN')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight(FontWeight::Bold)
+                    ->description(fn (EmployeeAttendanceRecord $record): string => "PIN: {$record->pin}"),
 
                 Tables\Columns\TextColumn::make('attendance_time')
-                    ->label('Waktu')
+                    ->label('Waktu & Status')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->description(fn (EmployeeAttendanceRecord $record): string => match ($record->state) {
+                        'check_in' => 'Masuk',
+                        'check_out' => 'Keluar',
+                        default => $record->state,
+                    }),
 
-                Tables\Columns\TextColumn::make('state')
-                    ->label('Status')
+                Tables\Columns\TextColumn::make('attendance_status')
+                    ->label('Ketepatan')
                     ->badge()
+                    ->getStateUsing(fn ($record) => $record->attendance_status ?? 'on_time')
                     ->color(fn(string $state): string => match ($state) {
-                        'check_in' => 'success',
-                        'check_out' => 'warning',
+                        'late' => 'danger',
+                        'early' => 'warning',
+                        'on_time' => 'success',
                         default => 'gray',
                     })
                     ->formatStateUsing(fn(string $state): string => match ($state) {
-                        'check_in' => 'Check In',
-                        'check_out' => 'Check Out',
+                        'late' => 'Terlambat',
+                        'early' => 'Terlalu Cepat',
+                        'on_time' => 'Tepat Waktu',
                         default => $state,
-                    }),
+                    })
+                    ->sortable(),
+
+                Tables\Columns\ViewColumn::make('mini_map')
+                    ->label('Peta')
+                    ->view('filament.tables.columns.leaflet-map'),
 
                 Tables\Columns\TextColumn::make('officeLocation.name')
-                    ->label('Lokasi Kantor')
+                    ->label('Lokasi & Jarak')
                     ->searchable()
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('distance_from_office')
-                    ->label('Jarak')
-                    ->suffix(' m')
-                    ->badge()
-                    ->color(fn($state) => $state <= 50 ? 'success' : ($state <= 100 ? 'warning' : 'danger'))
                     ->sortable()
-                    ->toggleable(),
+                    ->description(fn (EmployeeAttendanceRecord $record): string => $record->distance_from_office ? "Jarak: {$record->distance_from_office}m" : 'Lokasi tidak terdeteksi'),
 
                 Tables\Columns\IconColumn::make('is_within_radius')
-                    ->label('Dalam Radius')
+                    ->label('Radius')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('success')
-                    ->falseColor('danger')
-                    ->toggleable(),
-
-                Tables\Columns\ImageColumn::make('photo_checkin')
-                    ->label('Foto Check In')
-                    ->circular()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\ImageColumn::make('photo_checkout')
-                    ->label('Foto Check Out')
-                    ->circular()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->falseColor('danger'),
 
                 Tables\Columns\TextColumn::make('device')
-                    ->label('Perangkat')
+                    ->label('Device')
                     ->searchable()
-                    ->limit(30)
+                    ->limit(20)
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d/m/Y H:i')
+                    ->label('Tgl Rekam')
+                    ->dateTime('d M Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -287,8 +293,6 @@ class EmployeeAttendanceRecordResource extends Resource
                         )
                         ->openUrlInNewTab()
                         ->visible(fn(EmployeeAttendanceRecord $record) => $record->check_latitude && $record->check_longitude),
-                    Tables\Actions\EditAction::make()->label('Edit'),
-                    Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])
                     ->label('Aksi')
                     ->icon('heroicon-m-ellipsis-vertical')
@@ -298,10 +302,127 @@ class EmployeeAttendanceRecordResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ])->label('Hapus yang Dipilih'),
+                    // Bulk delete removed
+                ])->label('Aksi Masal'),
             ])
             ->defaultSort('attendance_time', 'desc');
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                // Baris 1: Informasi Pegawai
+                Components\Section::make('Informasi Pegawai')
+                    ->icon('heroicon-m-user')
+                    ->schema([
+                        Components\Grid::make(3)
+                            ->schema([
+                                Components\TextEntry::make('employee_name')
+                                    ->label('Nama Pegawai')
+                                    ->weight(FontWeight::Bold),
+                                Components\TextEntry::make('pin')
+                                    ->label('PIN'),
+                                Components\TextEntry::make('attendance_status')
+                                    ->label('Ketepatan Waktu')
+                                    ->badge()
+                                    ->getStateUsing(fn ($record) => $record->attendance_status ?? 'on_time')
+                                    ->color(fn(string $state): string => match ($state) {
+                                        'late' => 'danger',
+                                        'early' => 'warning',
+                                        'on_time' => 'success',
+                                        default => 'gray',
+                                    })
+                                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                                        'late' => 'Terlambat',
+                                        'early' => 'Terlalu Cepat',
+                                        'on_time' => 'Tepat Waktu',
+                                        default => $state,
+                                    }),
+                            ]),
+                    ]),
+
+                // Baris 2: Detail (Waktu & Lokasi) | Foto
+                Components\Grid::make(3)
+                    ->schema([
+                        // Kolom Kiri: Data (Span 2)
+                        Components\Group::make([
+                            Components\Section::make('Waktu & Perangkat')
+                                ->icon('heroicon-m-clock')
+                                ->schema([
+                                    Components\Grid::make(2)
+                                        ->schema([
+                                            Components\TextEntry::make('attendance_time')
+                                                ->label('Waktu Kejadian')
+                                                ->dateTime('l, d F Y | H:i')
+                                                ->weight(FontWeight::Bold),
+                                            Components\TextEntry::make('device')
+                                                ->label('Perangkat')
+                                                ->limit(50),
+                                        ]),
+                                ]),
+
+                            Components\Section::make('Lokasi & GPS')
+                                ->icon('heroicon-m-map-pin')
+                                ->schema([
+                                    Components\Grid::make(2)
+                                        ->schema([
+                                            Components\TextEntry::make('officeLocation.name')
+                                                ->label('Lokasi Kantor')
+                                                ->weight(FontWeight::Bold)
+                                                ->color('primary'),
+                                            Components\TextEntry::make('distance_from_office')
+                                                ->label('Jarak')
+                                                ->suffix(' meter')
+                                                ->color(fn($state) => $state <= 100 ? 'success' : 'danger'),
+                                            
+                                            Components\TextEntry::make('check_latitude')
+                                                ->label('Latitude')
+                                                ->size('sm'),
+                                            Components\TextEntry::make('check_longitude')
+                                                ->label('Longitude')
+                                                ->size('sm'),
+
+                                            Components\IconEntry::make('is_within_radius')
+                                                ->label('Radius')
+                                                ->boolean(),
+                                        ]),
+                                ]),
+                        ])->columnSpan(2),
+
+                        // Kolom Kanan: Foto (Span 1)
+                        Components\Section::make('Foto Bukti')
+                            ->icon('heroicon-m-camera')
+                            ->schema([
+                                Components\ImageEntry::make('photo_checkin')
+                                    ->hiddenLabel()
+                                    ->height(350)
+                                    ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
+                                    ->visible(fn($record) => $record->photo_checkin),
+                                    
+                                Components\ImageEntry::make('photo_checkout')
+                                    ->hiddenLabel()
+                                    ->height(350)
+                                    ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
+                                    ->visible(fn($record) => $record->photo_checkout),
+                                    
+                                Components\TextEntry::make('no_photo')
+                                    ->hiddenLabel()
+                                    ->default('Tidak ada foto')
+                                    ->visible(fn($record) => !$record->photo_checkin && !$record->photo_checkout),
+                            ])->columnSpan(1),
+                    ]),
+
+                // Baris 3: Visualisasi Lokasi (Peta)
+                Components\Section::make('Visualisasi Lokasi GPS')
+                    ->icon('heroicon-m-globe-asia-australia')
+                    ->schema([
+                        Components\ViewEntry::make('location_map')
+                            ->hiddenLabel()
+                            ->view('filament.infolists.leaflet-map'),
+                    ]),
+
+            ]);
     }
 
     public static function getRelations(): array
@@ -315,8 +436,7 @@ class EmployeeAttendanceRecordResource extends Resource
     {
         return [
             'index' => Pages\ListEmployeeAttendanceRecords::route('/'),
-            'create' => Pages\CreateEmployeeAttendanceRecord::route('/create'),
-            'edit' => Pages\EditEmployeeAttendanceRecord::route('/{record}/edit'),
+            'view' => Pages\ViewEmployeeAttendanceRecord::route('/{record}'),
         ];
     }
 }

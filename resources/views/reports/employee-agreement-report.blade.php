@@ -253,15 +253,22 @@
 <body>
     <!-- Header dengan Kop Surat -->
     <div class="header">
-        <div class="company-info">
-            <div class="company-name">Perusahaan Umum Daerah Air Minum</div>
-            <div class="company-subtitle">Tirta Perwira</div>
-            <div class="company-subtitle">Kab. Purbalingga</div>
-            <div class="company-address">
-                Jl. Letnan Jenderal S Parman No.62, Kedung Menjangan, Bancar,<br>
-                Kec. Purbalingga, Kabupaten Purbalingga, Jawa Tengah 53316
-            </div>
-        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+            <tr>
+                <td style="width: 80px; text-align: left;">
+                    <img src="{{ public_path('assets/images/logo-pdam.png') }}" style="height: 60px; width: auto;">
+                </td>
+                <td style="text-align: center;">
+                    <div style="font-size: 14px; font-weight: bold; text-transform: uppercase;">PERUSAHAAN UMUM DAERAH AIR MINUM</div>
+                    <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; color: #000;">TIRTA PERWIRA</div>
+                    <div style="font-size: 14px; font-weight: bold; text-transform: uppercase;">KABUPATEN PURBALINGGA</div>
+                    <div style="font-size: 9px; font-style: italic; margin-top: 2px;">Jl. Let. Jend. S.Parman No. 62 Kedung Menjangan. Purbalingga (53316).</div>
+                </td>
+                <td style="width: 80px;"></td>
+            </tr>
+        </table>
+        <div style="border-bottom: 2px solid #000; margin-top: 5px;"></div>
+        <div style="border-bottom: 0.5px solid #000; margin-top: 1px; margin-bottom: 15px;"></div>
 
         <div class="report-title">Report Penandatanganan Kontrak Pegawai</div>
         <div class="report-subtitle">Perumda Air Minum Tirta Perwira</div>
