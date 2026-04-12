@@ -2,6 +2,15 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Mobile\MobileAuthController;
+use App\Http\Controllers\Mobile\MobileDashboardController;
+use App\Http\Controllers\Mobile\MobileAttendanceController;
+use App\Http\Controllers\Mobile\MobilePermissionController;
+use App\Http\Controllers\Mobile\MobileDailyReportController;
+use App\Http\Controllers\Mobile\MobileProfileController;
+use App\Http\Controllers\Mobile\MobileDocumentController;
+use App\Http\Controllers\Mobile\MobileTrainingController;
+use App\Http\Controllers\Mobile\MobileFamilyController;
 
 // Redirect root to user panel
 Route::redirect('/', '/user');
@@ -10,6 +19,38 @@ Route::get('/login', \App\Filament\Pages\Auth\Login::class)->name('login');
 Route::redirect('/admin/login', '/login');
 Route::redirect('/employee/login', '/login');
 Route::redirect('/user/login', '/login');
+
+// ─── Mobile PWA Portal ─────────────────────────────────────────
+Route::prefix('mobile')->name('mobile.')->group(function () {
+
+    // Auth (guest only)
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [MobileAuthController::class, 'showLogin'])->name('login');
+        Route::post('/login', [MobileAuthController::class, 'login'])->name('login.post');
+    });
+
+    // Logout
+    Route::post('/logout', [MobileAuthController::class, 'logout'])->name('logout')->middleware('auth');
+
+    // Protected routes
+    Route::middleware(['auth'])->group(function () {
+        Route::get('/', [MobileDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/attendance', [MobileAttendanceController::class, 'index'])->name('attendance');
+        Route::post('/attendance', [MobileAttendanceController::class, 'store'])->name('attendance.store');
+        Route::get('/permissions', [MobilePermissionController::class, 'index'])->name('permissions');
+        Route::get('/permissions/create', [MobilePermissionController::class, 'create'])->name('permissions.create');
+        Route::post('/permissions', [MobilePermissionController::class, 'store'])->name('permissions.store');
+        Route::get('/permissions/{id}', [MobilePermissionController::class, 'show'])->name('permissions.show');
+        Route::get('/daily-reports', [MobileDailyReportController::class, 'index'])->name('daily-reports');
+        Route::post('/daily-reports', [MobileDailyReportController::class, 'store'])->name('daily-reports.store');
+        Route::get('/profile', [MobileProfileController::class, 'index'])->name('profile');
+        Route::get('/documents', [MobileDocumentController::class, 'index'])->name('documents');
+        Route::get('/training', [MobileTrainingController::class, 'index'])->name('training');
+        Route::get('/family', [MobileFamilyController::class, 'index'])->name('family');
+    });
+});
+
+
 
 // API routes for attendance
 Route::prefix('api/attendance')->group(function () {
