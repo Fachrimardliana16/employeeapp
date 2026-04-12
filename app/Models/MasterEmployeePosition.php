@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\LogsActivityTrait;
+
 class MasterEmployeePosition extends Model
 {
+    use LogsActivityTrait;
     use HasUserTracking;
     protected $fillable = [
         'name',

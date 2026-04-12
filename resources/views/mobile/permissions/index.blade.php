@@ -75,19 +75,19 @@
   @if($permissions->hasPages())
     <div style="display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 2rem;">
       @if($permissions->onFirstPage())
-        <span class="btn btn-ghost btn-sm" style="opacity: 0.2; background: rgba(255,255,255,0.02);">PREV_LOG</span>
+        <span class="btn btn-ghost btn-sm" style="opacity: 0.2; background: rgba(255,255,255,0.02);">SEBELUMNYA</span>
       @else
-        <a href="{{ $permissions->previousPageUrl() }}" class="btn btn-ghost btn-sm" style="background: rgba(255,255,255,0.05);">PREV_LOG</a>
+        <a href="{{ $permissions->previousPageUrl() }}" class="btn btn-ghost btn-sm" style="background: rgba(255,255,255,0.05);">SEBELUMNYA</a>
       @endif
       
       <div style="padding: 0.5rem 1rem; background: rgba(14, 165, 233, 0.1); border-radius: 12px; font-size: 0.75rem; color: var(--primary); font-weight: 800; display: flex; align-items: center; border: 1px solid rgba(14, 165, 233, 0.2);">
-        PAGE_{{ $permissions->currentPage() }}
+        HALAMAN {{ $permissions->currentPage() }}
       </div>
 
       @if($permissions->hasMorePages())
-        <a href="{{ $permissions->nextPageUrl() }}" class="btn btn-ghost btn-sm" style="background: rgba(255,255,255,0.05);">NEXT_LOG</a>
+        <a href="{{ $permissions->nextPageUrl() }}" class="btn btn-ghost btn-sm" style="background: rgba(255,255,255,0.05);">SELANJUTNYA</a>
       @else
-        <span class="btn btn-ghost btn-sm" style="opacity: 0.2; background: rgba(255,255,255,0.02);">NEXT_LOG</span>
+        <span class="btn btn-ghost btn-sm" style="opacity: 0.2; background: rgba(255,255,255,0.02);">SELANJUTNYA</span>
       @endif
     </div>
   @endif

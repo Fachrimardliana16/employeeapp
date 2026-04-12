@@ -8,10 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use App\Traits\LogsActivityTrait;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JobApplication extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivityTrait, HasFactory;
 
     protected $fillable = [
         'application_number',

@@ -59,23 +59,23 @@
     @endif
     @if($permission->scan_doc)
     <div class="info-row">
-      <div class="info-key">ATTACHED_EVIDENCE</div>
+      <div class="info-key">Dokumen Pendukung</div>
       <div class="info-value">
         <a href="{{ asset('storage/' . $permission->scan_doc) }}" target="_blank" class="btn btn-primary btn-sm" style="font-size: 0.65rem; border-radius: 8px;">
-          VIEW_ATTACHMENT
+          Lihat Lampiran
         </a>
       </div>
     </div>
     @endif
     <div class="info-row">
-      <div class="info-key">INITIALIZED</div>
+      <div class="info-key">Dibuat Pada</div>
       <div class="info-value">{{ $permission->created_at->format('d/m/Y, H:i') }}</div>
     </div>
   </div>
 </div>
 
 <a href="{{ route('mobile.permissions') }}" class="btn btn-ghost btn-full" style="margin-bottom: 3rem; font-size: 0.75rem; font-weight: 800; opacity: 0.6;">
-  ← RETURN_TO_LIST
+  ← KEMBALI KE DAFTAR
 </a>
 
 @endsection

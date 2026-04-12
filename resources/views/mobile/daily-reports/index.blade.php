@@ -9,7 +9,7 @@
 @if($todayReport)
   <div style="padding: 1.5rem; background: rgba(16, 185, 129, 0.05); border-radius: 20px; margin-bottom: 2rem; border: 1px solid rgba(16, 185, 129, 0.2); position: relative; overflow: hidden;">
     <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent);"></div>
-    <div style="font-size: 0.65rem; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.5rem;">STATUS // LAPORAN HARI INI</div>
+    <div style="font-size: 0.65rem; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.5rem;">STATUS LAPORAN HARI INI</div>
     <div style="font-size: 0.85rem; color: var(--gray-400); line-height: 1.5; font-style: italic;">
       "{{ Str::limit($todayReport->work_description, 100) }}"
     </div>
@@ -61,22 +61,22 @@
 {{-- Report List --}}
 @if($reports->isNotEmpty())
   <div class="section-header">
-    <span class="section-title">LOG_ARCHIVE // SYSTEM</span>
+    <span class="section-title">RIWAYAT LAPORAN</span>
   </div>
   <div class="card" style="margin-bottom: 3rem;">
     @foreach($reports as $report)
       @php
         $statusColors = ['completed' => 'success', 'in_progress' => 'primary', 'pending' => 'warning'];
-        $statusLabels = ['completed' => 'DONE', 'in_progress' => 'PROC', 'pending' => 'WAIT'];
+        $statusLabels = ['completed' => 'SELESAI', 'in_progress' => 'PROSES', 'pending' => 'TUNDA'];
         $statusIcons = ['completed' => '✅', 'in_progress' => '🔄', 'pending' => '⏳'];
       @endphp
       <div style="padding: 1.25rem; border-bottom: 1px solid var(--glass-border);">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem;">
           <div>
-            <div style="font-size: 0.8rem; font-weight: 800; color: var(--white); letter-spacing: 0.5px;">
+            <div style="font-size: 0.8rem; font-weight: 800; color: var(--gray-800); letter-spacing: 0.5px;">
               {{ \Carbon\Carbon::parse($report->daily_report_date)->format('d/m/Y') }}
             </div>
-            <div style="font-size: 0.65rem; color: var(--gray-500); font-weight: 800; margin-top: 0.125rem;">{{ strtoupper($report->created_at->format('H:i')) }} // STAMP</div>
+            <div style="font-size: 0.65rem; color: var(--gray-500); font-weight: 800; margin-top: 0.125rem;">{{ strtoupper($report->created_at->format('H:i')) }} // WIB</div>
           </div>
           <span class="badge badge-{{ $statusColors[$report->work_status] ?? 'gray' }}" style="font-size: 0.6rem; flex-shrink: 0; letter-spacing: 1px; font-weight: 900; padding: 2px 8px;">
              {{ $statusLabels[$report->work_status] ?? $report->work_status }}
@@ -90,14 +90,14 @@
   </div>
 @else
   <div class="section-header">
-    <span class="section-title">LOG_ARCHIVE // SYSTEM</span>
+    <span class="section-title">ARSIP LAPORAN</span>
   </div>
   <div class="card" style="margin-bottom: 3rem;">
     <div class="card-body">
       <div class="empty-state">
         <div class="empty-state-icon">📄</div>
-        <div class="empty-state-title">DATA_EMPTY // ARCHIVE</div>
-        <div class="empty-state-desc">No historical logs found for this user account.</div>
+        <div class="empty-state-title">BELUM ADA LAPORAN</div>
+        <div class="empty-state-desc">Belum ada riwayat laporan harian yang ditemukan untuk akun Anda.</div>
       </div>
     </div>
   </div>

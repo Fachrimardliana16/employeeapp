@@ -20,14 +20,14 @@
                 <img src="https://cdn-icons-png.flaticon.com/512/912/912318.png" alt="Logo" class="w-16 h-16 drop-shadow-lg opacity-90">
             </div>
             <h1 class="text-5xl font-black text-white leading-tight tracking-tighter mb-4 drop-shadow-md uppercase">
-                HRIS <span class="text-blue-100">TIRTA PERWIRA</span>
+                SIP <span class="text-blue-100">TIRTA PERWIRA</span>
             </h1>
             <p class="text-xl font-bold text-blue-100 uppercase tracking-[0.2em] mb-6 opacity-90 leading-none">
-                Employee Management System
+                Sistem Informasi Pegawai
             </p>
             <div class="h-1 w-24 bg-white/50 mx-auto rounded-full mb-8"></div>
             <p class="text-blue-100/80 text-lg font-medium italic">
-                "Platform Terintegrasi untuk Manajemen Data Pegawai dan Administrasi Perusahaan."
+                "Platform Terintegrasi untuk Manajemen Data Pegawai."
             </p>
         </div>
     </div>
@@ -70,7 +70,7 @@
             <form wire:submit.prevent="authenticate" class="space-y-6">
                 @csrf
                 <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Username / Email</label>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Email</label>
                     <div class="relative group">
                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-slate-300 group-focus-within:text-blue-500 transition-colors @error('data.email') text-red-500 @enderror" fill="none" stroke="currentColor" viewBox="0 0 24 24">

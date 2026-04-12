@@ -11,6 +11,7 @@ use App\Http\Controllers\Mobile\MobileProfileController;
 use App\Http\Controllers\Mobile\MobileDocumentController;
 use App\Http\Controllers\Mobile\MobileTrainingController;
 use App\Http\Controllers\Mobile\MobileFamilyController;
+use App\Http\Controllers\Mobile\MobileRetirementController;
 
 // Redirect root to user panel
 Route::redirect('/', '/user');
@@ -45,8 +46,13 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::post('/daily-reports', [MobileDailyReportController::class, 'store'])->name('daily-reports.store');
         Route::get('/profile', [MobileProfileController::class, 'index'])->name('profile');
         Route::get('/documents', [MobileDocumentController::class, 'index'])->name('documents');
+        Route::post('/documents', [MobileDocumentController::class, 'store'])->name('documents.store');
         Route::get('/training', [MobileTrainingController::class, 'index'])->name('training');
+        Route::post('/training', [MobileTrainingController::class, 'store'])->name('training.store');
         Route::get('/family', [MobileFamilyController::class, 'index'])->name('family');
+        Route::post('/family', [MobileFamilyController::class, 'store'])->name('family.store');
+        Route::get('/retirement', [MobileRetirementController::class, 'index'])->name('retirement');
+        Route::post('/retirement', [MobileRetirementController::class, 'store'])->name('retirement.store');
     });
 });
 

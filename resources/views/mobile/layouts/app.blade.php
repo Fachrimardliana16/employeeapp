@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/mobile-app.css?v=2.0">
+  <link rel="stylesheet" href="/css/mobile-app.css?v=2.4">
   @stack('styles')
 </head>
 <body>
@@ -35,17 +35,24 @@
 
 {{-- Header --}}
 <header class="mobile-header">
-  <img src="/images/icons/icon-128x128.png" alt="Logo" class="header-logo">
+  @if(!request()->routeIs('mobile.dashboard'))
+    <a href="{{ route('mobile.dashboard') }}" class="header-btn" style="background: transparent; border: none; box-shadow: none;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+  @else
+    <img src="/images/icons/icon-128x128.png" alt="Logo" class="header-logo">
+  @endif
+
   <div class="header-title">
-    <h1>@yield('header-title', 'Portal Pegawai')</h1>
-    <p>{{ auth()->user()?->name ?? 'Pegawai' }}</p>
+    <h1 style="font-size: 1.1rem; letter-spacing: -0.02em;">@yield('header-title', 'Portal Pegawai')</h1>
+    <p style="color: rgba(255,255,255,0.85); font-weight: 600;">{{ auth()->user()?->name ?? 'Pegawai' }}</p>
   </div>
   <div class="header-actions">
     @yield('header-actions')
     <form action="{{ route('mobile.logout') }}" method="POST" style="display:inline">
       @csrf
       <button type="submit" class="header-btn" title="Keluar" onclick="return confirm('Yakin ingin keluar?')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </form>
   </div>

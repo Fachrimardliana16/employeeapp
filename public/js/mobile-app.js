@@ -148,13 +148,22 @@ const Camera = {
     this.canvasEl.width = w;
     this.canvasEl.height = h;
     const ctx = this.canvasEl.getContext('2d');
+    
+    // Mirroring if using front camera
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    
     ctx.drawImage(this.videoEl, 0, 0, w, h);
     const data = this.canvasEl.toDataURL('image/jpeg', 0.8);
+    
     if (this.previewEl) {
       this.previewEl.src = data;
-      this.previewEl.classList.remove('hidden');
     }
-    if (this.videoEl.parentElement) this.videoEl.parentElement.classList.add('hidden');
+
+    // Hide video section, show preview container
+    document.getElementById('cameraSection')?.classList.add('hidden');
+    document.getElementById('previewContainer')?.classList.remove('hidden');
+    
     if (this.photoDataEl) this.photoDataEl.value = data;
     this.stopStream();
     return data;
@@ -162,11 +171,14 @@ const Camera = {
 
   retake() {
     if (this.previewEl) {
-      this.previewEl.classList.add('hidden');
       this.previewEl.src = '';
     }
     if (this.photoDataEl) this.photoDataEl.value = '';
-    if (this.videoEl?.parentElement) this.videoEl.parentElement.classList.remove('hidden');
+    
+    // Hide preview, show camera
+    document.getElementById('previewContainer')?.classList.add('hidden');
+    document.getElementById('cameraSection')?.classList.remove('hidden');
+    
     this.startStream();
   },
 
@@ -179,25 +191,35 @@ const Camera = {
 // ─── Geolocation ──────────────────────────────────────────
 const GeoLocation = {
   current: null,
+  isDetecting: false,
 
   get(onSuccess, onError) {
+    if (this.isDetecting) return;
+    this.isDetecting = true;
+
     const pill = document.getElementById('locationPill');
     if (pill) {
       pill.className = 'location-pill';
       pill.innerHTML = '<div class="location-dot pulsing"></div> Mendeteksi lokasi...';
     }
+
     if (!navigator.geolocation) {
+      this.isDetecting = false;
       onError?.('Browser tidak mendukung geolocation');
       return;
     }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        this.isDetecting = false;
         this.current = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+        
         // Update hidden fields
         const latEl = document.getElementById('latitudeField');
         const lngEl = document.getElementById('longitudeField');
         if (latEl) latEl.value = this.current.lat;
         if (lngEl) lngEl.value = this.current.lng;
+        
         // Update pill
         if (pill) {
           pill.className = 'location-pill success';
@@ -206,13 +228,15 @@ const GeoLocation = {
         onSuccess?.(this.current);
       },
       (err) => {
+        this.isDetecting = false;
+        console.error('GPS Error:', err);
         if (pill) {
           pill.className = 'location-pill error';
           pill.innerHTML = '<div class="location-dot"></div> Gagal mendapatkan lokasi';
         }
         onError?.(err.message);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   },
 };

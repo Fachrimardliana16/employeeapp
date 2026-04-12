@@ -36,9 +36,9 @@
             <div class="timeline-title">{{ $stateLabels[$rec->state] ?? $rec->state }}</div>
             @if($rec->attendance_status)
               <div class="timeline-desc">
-                @if($rec->attendance_status === 'late') ⚠️ Terlambat
-                @elseif($rec->attendance_status === 'early') ⏩ Terlalu awal
-                @else ✅ Tepat waktu
+                @if($rec->attendance_status === 'late') Terlambat
+                @elseif($rec->attendance_status === 'early') Terlalu awal
+                @else Tepat waktu
                 @endif
               </div>
             @endif
@@ -67,47 +67,41 @@
   </div>
   @endif
 
-  {{-- State Select --}}
+  {{-- State & Location Selection --}}
   <div class="card" style="margin-bottom: 1rem;">
-    <div class="card-header">
-      <div class="card-header-icon">📌</div>
-      Status Kehadiran
-    </div>
-    <div class="card-body">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-        @foreach(['in' => ['Check In', '▶️', 'accent'], 'out' => ['Check Out', '⏹️', 'primary'], 'ot_in' => ['OT In', '⏩', 'info'], 'ot_out' => ['OT Out', '⏏️', 'warning']] as $value => $info)
-          <label style="cursor: pointer;">
-            <input type="radio" name="state" value="{{ $value }}" style="display:none;" class="state-radio">
-            <div class="state-option" data-value="{{ $value }}" style="padding: 0.875rem; border: 1.5px solid var(--gray-200); border-radius: var(--radius); text-align: center; transition: all 0.2s;">
-              <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">{{ $info[1] }}</div>
-              <div style="font-size: 0.8rem; font-weight: 600; color: var(--gray-700);">{{ $info[0] }}</div>
-            </div>
-          </label>
-        @endforeach
+    <div class="card-body" style="padding: 1.25rem;">
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label">STATUS KEHADIRAN</label>
+        <select name="state" id="stateSelect" class="form-control" required onchange="checkFormReady()">
+          <option value="">-- PILIH STATUS --</option>
+          <option value="in" {{ old('state') === 'in' ? 'selected' : '' }}>Masuk/Check In</option>
+          <option value="out" {{ old('state') === 'out' ? 'selected' : '' }}>Pulang/Check Out</option>
+          <option value="ot_in" {{ old('state') === 'ot_in' ? 'selected' : '' }}>Lembur Masuk</option>
+          <option value="ot_out" {{ old('state') === 'ot_out' ? 'selected' : '' }}>Lembur Selesai</option>
+        </select>
+        @error('state')<div class="form-error">⚠️ {{ $message }}</div>@enderror
       </div>
-      @error('state')<div class="form-error mt-2">⚠️ {{ $message }}</div>@enderror
-    </div>
-  </div>
 
-  {{-- Location --}}
-  <div class="card" style="margin-bottom: 1rem;">
-    <div class="card-header">
-      <div class="card-header-icon">📍</div>
-      Lokasi GPS
-    </div>
-    <div class="card-body">
-      <div id="locationPill" class="location-pill">
-        <div class="location-dot pulsing"></div>
-        Mendeteksi lokasi...
+      <div class="form-group" style="margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <label class="form-label" style="margin-bottom: 0;">LOKASI SEKARANG</label>
+          <button type="button" onclick="GeoLocation.get()" style="font-size: 0.7rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            REFRESH
+          </button>
+        </div>
+        <div id="locationPill" class="location-pill">
+          <div class="location-dot pulsing"></div>
+          Mendeteksi lokasi...
+        </div>
+        @error('latitude')<div class="form-error">⚠️ {{ $message }}</div>@enderror
       </div>
-      @error('latitude')<div class="form-error mt-2">⚠️ {{ $message }}</div>@enderror
     </div>
   </div>
 
   {{-- Camera --}}
   <div class="card" style="margin-bottom: 1rem;">
-    <div class="card-header">
-      <div class="card-header-icon">📸</div>
+    <div class="card-header" style="color: var(--gray-800); font-weight: 800; border-bottom: 1px solid var(--gray-100);">
       Foto Selfie
     </div>
     <div class="card-body">
@@ -121,31 +115,35 @@
       {{-- Camera Video --}}
       <div id="cameraSection">
         <div class="camera-container">
-          <video id="cameraVideo" autoplay playsinline muted></video>
+          <video id="cameraVideo" autoplay playsinline muted style="width: 100%; border-radius: 12px; transform: scaleX(-1);"></video>
           <div class="camera-face-guide"></div>
           <div class="camera-overlay">
             <div style="text-align: center; margin-bottom: 0.75rem;">
               <div style="font-size: 0.7rem; color: rgba(255,255,255,0.8);">Posisikan wajah Anda di dalam bingkai</div>
             </div>
-            <button type="button" class="camera-shutter" onclick="capturePhoto()">
-              📷
+            <button type="button" class="camera-shutter" onclick="capturePhoto()" style="width: 64px; height: 64px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 4px solid rgba(14, 165, 233, 0.3); font-size: 1.5rem; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+              📸
             </button>
           </div>
         </div>
       </div>
 
       {{-- Preview --}}
-      <img id="photoPreview" class="photo-preview hidden" alt="Foto Selfie">
-      <button type="button" id="retakeBtn" class="btn btn-ghost btn-full mt-3 hidden" onclick="retakePhoto()">
-        🔄 Ambil Ulang
-      </button>
+      <div id="previewContainer" class="hidden" style="text-align: center;">
+        <img id="photoPreview" style="width: 100%; border-radius: 12px; margin-bottom: 1rem; border: 1px solid var(--gray-200); box-shadow: var(--shadow);">
+        <button type="button" id="retakeBtn" class="btn btn-ghost btn-full" onclick="retakePhoto()" style="background: var(--gray-100); border: 1px solid var(--gray-200); font-weight: 700;">
+          Ambil Ulang Foto
+        </button>
+      </div>
+
+      <canvas id="cameraCanvas" class="hidden"></canvas>
       @error('picture')<div class="form-error mt-2">⚠️ {{ $message }}</div>@enderror
     </div>
   </div>
 
   {{-- Submit --}}
   <button type="submit" id="submitBtn" class="btn btn-success btn-full btn-lg" style="margin-bottom: 1rem;" disabled>
-    ✅ Simpan Kehadiran
+    Simpan Kehadiran
   </button>
 </form>
 
@@ -189,50 +187,33 @@
 
 @push('scripts')
 <script>
-// Init camera and geolocation
 document.addEventListener('DOMContentLoaded', function() {
   Camera.init();
   GeoLocation.get(
     (pos) => { checkFormReady(); },
     (err) => { console.warn('Geo error:', err); }
   );
-  setupStateOptions();
 });
-
-function setupStateOptions() {
-  document.querySelectorAll('.state-radio').forEach(radio => {
-    radio.addEventListener('change', function() {
-      document.querySelectorAll('.state-option').forEach(opt => {
-        opt.style.borderColor = 'var(--gray-200)';
-        opt.style.background = 'white';
-      });
-      const opt = document.querySelector(`.state-option[data-value="${this.value}"]`);
-      if (opt) {
-        opt.style.borderColor = 'var(--primary)';
-        opt.style.background = 'var(--primary-50)';
-      }
-      checkFormReady();
-    });
-  });
-}
 
 function capturePhoto() {
   Camera.capture();
-  document.getElementById('retakeBtn').classList.remove('hidden');
   checkFormReady();
 }
 
 function retakePhoto() {
   Camera.retake();
-  document.getElementById('retakeBtn').classList.add('hidden');
   checkFormReady();
 }
 
 function checkFormReady() {
-  const hasState = document.querySelector('.state-radio:checked');
+  const stateVal = document.getElementById('stateSelect').value;
   const hasLocation = document.getElementById('latitudeField').value;
   const hasPhoto = document.getElementById('photoData').value;
-  document.getElementById('submitBtn').disabled = !(hasState && hasLocation && hasPhoto);
+  
+  const submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = !(stateVal && hasLocation && hasPhoto);
+  }
 }
 
 document.getElementById('attendanceForm')?.addEventListener('submit', function() {

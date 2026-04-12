@@ -23,6 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register Auth Event Subscriber for Activity Logging
+        \Illuminate\Support\Facades\Event::subscribe(\App\Listeners\LogAuthActivity::class);
+
         // Implicitly grant "Super Admin" role all permissions
         // This works in the local environment and when using spatie/laravel-permission
         \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {

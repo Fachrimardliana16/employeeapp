@@ -13,7 +13,7 @@
     </div>
     <div class="auth-brand">
       <h1>PORTAL PEGAWAI</h1>
-      <p class="subtitle">Tirta Perwira Purbalingga</p>
+      <p class="subtitle" style="color: #0369a1;">Tirta Perwira Purbalingga</p>
     </div>
   </div>
 
@@ -33,7 +33,7 @@
       @csrf
 
       <div class="input-group-simple">
-        <label>Email / NIPPAM</label>
+        <label>Email</label>
         <div class="input-wrapper">
           <input type="email" name="email" value="{{ old('email') }}" placeholder="Contoh: user@pdam.com" required>
         </div>
@@ -66,7 +66,7 @@
     </form>
 
     <div class="auth-footer">
-      <p>Versi 3.0 // Portal Pegawai</p>
+      <p>SIP Tirta Perwira 1.0</p>
     </div>
   </div>
 </div>
@@ -107,7 +107,7 @@
 .auth-header-simple h3 { color: #64748b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; margin-bottom: 1.5rem; text-align: center; }
 
 .input-group-simple { margin-bottom: 1.25rem; }
-.input-group-simple label { display: block; color: #475569; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+.input-group-simple label { display: block; color: #1e293b; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; }
 .input-wrapper { position: relative; }
 .input-wrapper input { width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.875rem 1rem; color: #1e293b; font-size: 0.95rem; }
 .input-wrapper input:focus { border-color: #0ea5e9; outline: none; background: white; box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1); }
@@ -121,7 +121,7 @@
 .btn-primary-blue:active { transform: scale(0.98); }
 
 .auth-footer { margin-top: 2rem; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 1rem; }
-.auth-footer p { font-size: 0.65rem; color: #94a3b8; font-weight: 600; }
+.auth-footer p { font-size: 0.7rem; color: #64748b; font-weight: 700; }
 
 .error-box { background: #fee2e2; border: 1px solid #ef4444; border-radius: 12px; padding: 0.75rem 1rem; color: #b91c1c; font-size: 0.8rem; font-weight: 600; margin-bottom: 1.5rem; }
 </style>
@@ -142,7 +142,7 @@ function togglePwd() {
 document.getElementById('loginForm')?.addEventListener('submit', function() {
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
-  btn.querySelector('.btn-text').innerHTML = 'INITIALIZING...';
+  btn.querySelector('.btn-text').innerHTML = 'MASUK...';
 });
 </script>
 @endsection

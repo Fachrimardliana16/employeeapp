@@ -1767,8 +1767,12 @@ class EmployeeDataSeeder extends Seeder
                 
                 // If using Spatie Permission
                 if (method_exists($user, "assignRole")) {
+                    // Make sure 'user' role exists
+                    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
                     $user->assignRole("user");
                 }
+
+                $this->command->info("User created/updated for {$name} with email: {$email}");
 
                 // Use withoutEvents to prevent automatic NIPPAM generation
                 Employee::withoutEvents(function () use ($nippam, $name, $address, $npwp, $email, $username, $gradeId, $serviceGradeId, $statusId, $user, $gender, $entryDate) {

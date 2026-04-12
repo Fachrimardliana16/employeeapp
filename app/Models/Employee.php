@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+use App\Traits\LogsActivityTrait;
+
 class Employee extends Model
 {
-    use HasUserTracking;
+    use HasUserTracking, LogsActivityTrait;
     protected $fillable = [
         'nippam',
         'name',
@@ -72,6 +74,12 @@ class Employee extends Model
         'grade_date_end' => 'date',
         'periodic_salary_date_start' => 'date',
         'periodic_salary_date_end' => 'date',
+        'id_number' => 'encrypted',
+        'familycard_number' => 'encrypted',
+        'npwp_number' => 'encrypted',
+        'bank_account_number' => 'encrypted',
+        'bpjs_tk_number' => 'encrypted',
+        'bpjs_kes_number' => 'encrypted',
         'password' => 'hashed',
     ];
 
