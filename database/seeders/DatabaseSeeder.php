@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
             MasterOfficeLocationSeeder::class,
             AttendanceScheduleSeeder::class,
             PnsSalarySeeder::class,
-            SignatoryEmployeeSeeder::class,
+            EmployeeDataSeeder::class,
         ]);
     }
 }

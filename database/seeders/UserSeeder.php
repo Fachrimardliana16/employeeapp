@@ -75,42 +75,48 @@ class UserSeeder extends Seeder
             'access_user_panel',
         ]);
 
-        // 1. Create superadmin user
-        $adminUser = User::updateOrCreate(
-            ['email' => 'admin@mail.com'],
-            [
-                'name' => 'Super Admin',
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'is_verified' => true,
-            ]
-        );
-        $adminUser->assignRole($superAdminRole);
+        // 1. Create superadmin users
+        $superAdmins = [
+            'fachri@pdampurbalingga.co.id' => 'Fachri',
+            'aulia@pdampurbalingga.co.id' => 'Aulia',
+            'anggoro@pdampurbalingga.co.id' => 'Anggoro',
+            'kholiq@pdampurbalingga.co.id' => 'Kholiq',
+        ];
 
-        // 2. Create Bagian Kepegawaian (admin role)
-        $kepegawaianUser = User::updateOrCreate(
-            ['email' => 'kepegawaian@mail.com'],
-            [
-                'name' => 'Bagian Kepegawaian',
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'is_verified' => true,
-            ]
-        );
-        $kepegawaianUser->assignRole($adminRole);
+        foreach ($superAdmins as $email => $name) {
+            $user = User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $name,
+                    'password' => Hash::make('pdam891706'),
+                    'email_verified_at' => now(),
+                    'is_verified' => true,
+                ]
+            );
+            $user->assignRole($superAdminRole);
+        }
 
-        // 3. Create Pegawai (user role)
-        $pegawaiUser = User::updateOrCreate(
-            ['email' => 'pegawai@mail.com'],
-            [
-                'name' => 'Pegawai',
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'is_verified' => true,
-            ]
-        );
-        $pegawaiUser->assignRole($userRole);
+        // 2. Create admin users
+        $admins = [
+            'yuninur@pdampurbalingga.co.id' => 'Yuni Nur',
+            'arina@pdampurbalingga.co.id' => 'Arina',
+            'dian@pdampurbalingga.co.id' => 'Dian',
+            'yuniset@pdampurbalingga.co.id' => 'Yuni Set',
+        ];
 
-        $this->command->info('Default users created successfully!');
+        foreach ($admins as $email => $name) {
+            $user = User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $name,
+                    'password' => Hash::make('pdam891706'),
+                    'email_verified_at' => now(),
+                    'is_verified' => true,
+                ]
+            );
+            $user->assignRole($adminRole);
+        }
+
+        $this->command->info('Designated users created successfully!');
     }
 }
