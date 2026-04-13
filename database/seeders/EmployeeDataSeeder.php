@@ -1698,7 +1698,7 @@ class EmployeeDataSeeder extends Seeder
         // Get default employment status (Pegawai Tetap)
         $statusId = MasterEmployeeStatusEmployment::where("name", "LIKE", "%Tetap%")->first()?->id ?? 1;
         // Default Service Grade (MKG 0 thn)
-        $serviceGradeId = MasterEmployeeServiceGrade::where("month_service", 0)->first()?->id ?? 1;
+        $serviceGradeId = MasterEmployeeServiceGrade::where("service_grade", 0)->first()?->id ?? 1;
 
         $usedEmails = [];
 
