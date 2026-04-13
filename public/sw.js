@@ -6,7 +6,7 @@
  *   - API calls: Network Only
  */
 
-const CACHE_NAME = 'portal-pegawai-v2';
+const CACHE_NAME = 'portal-pegawai-v5';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [

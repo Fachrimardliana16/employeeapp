@@ -567,7 +567,7 @@ ul { list-style: none; }
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   font-size: 0.95rem;
-  color: var(--gray-800);
+  color: #1e293b; /* Hardcoded to fix visibility */
   background: var(--white);
   transition: all 0.2s;
   -webkit-appearance: none;
@@ -1170,3 +1170,86 @@ body.offline .offline-banner { display: block; }
 .shadow { box-shadow: var(--shadow); }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hidden { display: none !important; }
+
+/* ─── Modal ──────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  display: none;
+  transition: opacity 0.3s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  display: flex;
+}
+
+.modal-container {
+  width: 100%;
+  max-width: 500px;
+  background: var(--white);
+  border-radius: 2rem 2rem 0 0;
+  padding: 0;
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  max-height: 90svh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-overlay.active .modal-container {
+  transform: translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--gray-800);
+  letter-spacing: -0.02em;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-500);
+  font-size: 1.25rem;
+}
+
+.modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem calc(1.5rem + var(--safe-bottom));
+  border-top: 1px solid var(--gray-100);
+  flex-shrink: 0;
+}
+

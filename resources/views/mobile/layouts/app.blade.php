@@ -22,7 +22,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/mobile-app.css?v=2.4">
+  <link rel="stylesheet" href="/css/mobile-app.css?v=2.7">
+  <style>
+    /* Bypassing internal PWA cache and forcing light scheme for OS native pickers */
+    :root {
+      color-scheme: light;
+    }
+    .form-control, select.form-control, textarea.form-control { 
+      color: #1e293b !important; 
+      color-scheme: light;
+    }
+    select.form-control option {
+      background-color: #ffffff !important;
+      color: #1e293b !important;
+    }
+  </style>
   @stack('styles')
 </head>
 <body>

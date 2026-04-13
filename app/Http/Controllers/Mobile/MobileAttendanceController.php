@@ -122,6 +122,19 @@ class MobileAttendanceController extends Controller
 
         // Save
         DB::transaction(function () use ($employee, $request, $state, $picturePath, $closestLocation, $isInRange, $minDistance, $user, $attendanceStatus) {
+            // 1. Save Daily Report if provided (usually on check-out)
+            if ($request->filled('work_description')) {
+                EmployeeDailyReport::create([
+                    'employee_id'       => $employee->id,
+                    'daily_report_date' => $request->daily_report_date ?? now()->toDateString(),
+                    'work_description'  => $request->work_description,
+                    'work_status'       => $request->work_status ?? 'completed',
+                    'desc'              => $request->desc,
+                    'users_id'          => $user->id,
+                ]);
+            }
+
+            // 2. Save Attendance Record
             EmployeeAttendanceRecord::create([
                 'pin'                => $employee->pin ?? $employee->id,
                 'employee_name'      => $employee->name,

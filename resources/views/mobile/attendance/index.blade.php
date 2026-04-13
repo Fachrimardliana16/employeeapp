@@ -142,10 +142,51 @@
   </div>
 
   {{-- Submit --}}
-  <button type="submit" id="submitBtn" class="btn btn-success btn-full btn-lg" style="margin-bottom: 1rem;" disabled>
+  <button type="button" id="submitBtn" class="btn btn-success btn-full btn-lg" style="margin-bottom: 1rem;" disabled onclick="handleAttendanceSubmit()">
     Simpan Kehadiran
   </button>
 </form>
+
+{{-- Daily Report Modal --}}
+<div id="reportModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title">Laporan Kerja Harian</div>
+      <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: 1.25rem;">Silakan isi laporan pekerjaan Anda sebelum menyimpan kehadiran.</p>
+      
+      <div class="form-group">
+        <label class="form-label">TANGGAL LAPORAN</label>
+        <input type="text" class="form-control" value="{{ now()->format('d M Y') }}" readonly style="background: var(--gray-50);">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">STATUS PEKERJAAN</label>
+        <select id="work_status" class="form-control">
+          <option value="completed">Selesai</option>
+          <option value="in_progress">Proses</option>
+          <option value="pending">Tertunda</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">ISI LAPORAN KERJA <span class="required">*</span></label>
+        <textarea id="work_description" class="form-control" rows="4" placeholder="Apa yang Anda kerjakan hari ini?"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">CATATAN (OPSIONAL)</label>
+        <textarea id="desc" class="form-control" rows="2" placeholder="Catatan tambahan..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost flex-1" onclick="closeModal()">Batal</button>
+      <button type="button" class="btn btn-primary flex-1" onclick="finalSubmit()">Simpan & Absen</button>
+    </div>
+  </div>
+</div>
 
 @endif
 
@@ -216,10 +257,92 @@ function checkFormReady() {
   }
 }
 
+function handleAttendanceSubmit() {
+  const stateSelect = document.getElementById('stateSelect');
+  if (!stateSelect) return;
+  
+  const stateVal = stateSelect.value;
+  console.log('Att submit state:', stateVal);
+  
+  // Minimal: out (Check Out) or ot_out (Overtime Out) triggers report modal
+  if (stateVal === 'out' || stateVal === 'ot_out') {
+    openModal();
+  } else {
+    const form = document.getElementById('attendanceForm');
+    if (form) form.submit();
+  }
+}
+
+function openModal() {
+  const modal = document.getElementById('reportModal');
+  if (modal) {
+    // Pindahkan modal ke luar dari container main content agar z-index maksimal bekerja
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+    // Trigger reflow
+    modal.offsetHeight;
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeModal() {
+  const modal = document.getElementById('reportModal');
+  if (modal) {
+    modal.classList.remove('active');
+    setTimeout(() => {
+      modal.style.display = 'none';
+      // Kembalikan ke form (opsional, tapi membiarkannya di body juga aman selama id tetap sama)
+    }, 300);
+    document.body.style.overflow = '';
+  }
+}
+
+function finalSubmit() {
+  const workDesc = document.getElementById('work_description').value;
+  const workStatus = document.getElementById('work_status').value;
+  const desc = document.getElementById('desc').value;
+
+  if (!workDesc.trim()) {
+    alert('Isi laporan kerja wajib diisi!');
+    return;
+  }
+
+  // Show loading on the modal button
+  const finalBtn = event.target;
+  if (finalBtn) {
+    finalBtn.disabled = true;
+    finalBtn.innerHTML = '<div class="spinner"></div> Menyimpan...';
+  }
+
+  // Create hidden inputs for the modal data
+  const form = document.getElementById('attendanceForm');
+  
+  const inputs = {
+    'work_description': workDesc,
+    'work_status': workStatus,
+    'desc': desc,
+    'daily_report_date': '{{ date("Y-m-d") }}'
+  };
+
+  for (const [name, value] of Object.entries(inputs)) {
+    let input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  }
+
+  form.submit();
+}
+
 document.getElementById('attendanceForm')?.addEventListener('submit', function() {
   const btn = document.getElementById('submitBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Menyimpan...';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Menyimpan...';
+  }
+  closeModal();
 });
 </script>
 @endpush
