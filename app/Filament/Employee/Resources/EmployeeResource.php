@@ -518,7 +518,13 @@ class EmployeeResource extends Resource
                     ->description(function (Employee $record) {
                         return $record->active_organizational_unit->type ?? '';
                     })
-                    ->searchable(['department.name', 'bagian.name', 'cabang.name', 'unit.name'])
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query
+                            ->orWhereHas('department', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('bagian', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('cabang', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('unit', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                    })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('grade.name')
                     ->label('Golongan')
@@ -547,7 +553,11 @@ class EmployeeResource extends Resource
                             '<div class="inline-block px-2 py-1 mt-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">' . $lines[1] . '</div>' .
                             '</div>';
                     })
-                    ->searchable(['position.name', 'employmentStatus.name']),
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query
+                            ->orWhereHas('position', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('employmentStatus', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                    }),
                 Tables\Columns\TextColumn::make('contact_info')
                     ->label('Email / No. Telp')
                     ->getStateUsing(function (Employee $record) {

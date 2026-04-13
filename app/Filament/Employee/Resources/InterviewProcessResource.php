@@ -23,6 +23,18 @@ class InterviewProcessResource extends Resource
     protected static ?string $modelLabel = 'Proses Interview';
     protected static ?string $pluralModelLabel = 'Proses Interview';
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::where('result', 'pending')->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::getModel()::where('result', 'pending')->count() > 0 ? 'warning' : 'gray';
+    }
+
     public static function form(Form $form): Form
     {
         return $form

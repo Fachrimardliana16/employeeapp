@@ -38,4 +38,21 @@ class CreateEmployeePromotion extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
+    protected function afterCreate(): void
+    {
+        $record = $this->getRecord();
+        
+        if ($record->is_applied && $record->employee) {
+            $record->employee->update([
+                'basic_salary_id' => $record->new_basic_salary_id,
+            ]);
+
+            Notification::make()
+                ->title('Kenaikan Golongan Diterapkan')
+                ->body('Data Profil Pegawai ' . $record->employee->name . ' telah diperbarui.')
+                ->success()
+                ->send();
+        }
+    }
 }

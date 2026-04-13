@@ -54,6 +54,12 @@ class EmployeePromotionResource extends Resource
                             ->label('Tanggal Berlaku')
                             ->required()
                             ->default(now()),
+
+                        Forms\Components\Toggle::make('is_applied')
+                            ->label('Terapkan langsung ke Data Pegawai')
+                            ->default(true)
+                            ->helperText('Jika dicentang, golongan gaji di profil pegawai akan langsung diperbarui saat disimpan.')
+                            ->columnSpanFull(),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Data Pegawai')

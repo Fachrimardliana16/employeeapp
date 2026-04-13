@@ -60,6 +60,7 @@ class Employee extends Model
         'cabang_id',
         'unit_id',
         'employee_service_grade_id',
+        'non_permanent_salary_id',
         'users_id',
     ];
 
@@ -181,6 +182,11 @@ class Employee extends Model
     public function serviceGrade(): BelongsTo
     {
         return $this->belongsTo(MasterEmployeeServiceGrade::class, 'employee_service_grade_id');
+    }
+
+    public function nonPermanentSalary(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeNonPermanentSalary::class, 'non_permanent_salary_id');
     }
 
     public function position(): BelongsTo
@@ -454,20 +460,15 @@ class Employee extends Model
     {
         return static::with('position')
             ->whereHas('position', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'LIKE', '%Direktur%')
-                        ->orWhere('name', 'LIKE', '%direktur%')
-                        ->orWhere('name', 'LIKE', '%Kepala Bagian%')
-                        ->orWhere('name', 'LIKE', '%kepala bagian%')
-                        ->orWhere('name', 'LIKE', '%Kepala Divisi%')
-                        ->orWhere('name', 'LIKE', '%kepala divisi%')
-                        ->orWhere('name', 'LIKE', '%Manager%')
-                        ->orWhere('name', 'LIKE', '%manager%')
-                        ->orWhere('name', 'LIKE', '%Kepala Seksi%')
-                        ->orWhere('name', 'LIKE', '%kepala seksi%')
-                        ->orWhere('name', 'LIKE', '%Ketua%')
-                        ->orWhere('name', 'LIKE', '%ketua%');
-                });
+                $query->whereNotIn('name', [
+                    'Kepala Sub Bagian',
+                    'Kordinator Lapangan',
+                    'Staff',
+                    'Staf',
+                    'Kepala SubBagian'
+                ])
+                ->where('name', 'NOT LIKE', '%Staff%')
+                ->where('name', 'NOT LIKE', '%Staf%');
             })
             ->orderBy('name')
             ->get()
@@ -501,12 +502,12 @@ class Employee extends Model
      */
     public function getBasicSalaryAmountAttribute()
     {
-        if (!$this->basic_salary_id || !$this->employee_service_grade_id) {
-            return 0;
+        if ($this->basic_salary_id && $this->employee_service_grade_id) {
+            return \App\Models\MasterEmployeeBasicSalary::where('employee_grade_id', $this->basic_salary_id)
+                ->where('employee_service_grade_id', $this->employee_service_grade_id)
+                ->value('amount') ?? 0;
         }
 
-        return \App\Models\MasterEmployeeBasicSalary::where('employee_grade_id', $this->basic_salary_id)
-            ->where('employee_service_grade_id', $this->employee_service_grade_id)
-            ->value('amount') ?? 0;
+        return $this->nonPermanentSalary?->amount ?? 0;
     }
 }

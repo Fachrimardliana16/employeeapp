@@ -40,13 +40,22 @@ class CreateEmployeeAppointment extends CreateRecord
         $employeeId  = $appointment->employee_id;
         $newStatusId = $appointment->new_employment_status_id;
 
-        // 1. Update status kepegawaian di data pegawai
+        // 1. Update status kepegawaian & golongan di data pegawai
         $employee = Employee::find($employeeId);
         if ($employee) {
-            $employee->update(['employment_status_id' => $newStatusId]);
-            Log::info('EmployeeAppointment: Status pegawai diperbarui.', [
+            $updateData = ['employment_status_id' => $newStatusId];
+            
+            // Update Golongan jika diinputkan
+            if (!empty($appointment->employee_grade_id)) {
+                $updateData['basic_salary_id'] = $appointment->employee_grade_id;
+            }
+
+            $employee->update($updateData);
+            
+            Log::info('EmployeeAppointment: Status/Golongan pegawai diperbarui.', [
                 'employee_id'    => $employeeId,
                 'new_status_id'  => $newStatusId,
+                'new_grade_id'   => $appointment->employee_grade_id,
                 'appointment_id' => $appointment->id,
             ]);
         }

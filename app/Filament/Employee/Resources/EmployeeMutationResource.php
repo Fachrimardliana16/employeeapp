@@ -129,6 +129,11 @@ class EmployeeMutationResource extends Resource
                                                     ->required()
                                                     ->default(now())
                                                     ->helperText('Tanggal efektif berlakunya mutasi'),
+                                                Forms\Components\Toggle::make('is_applied')
+                                                    ->label('Terapkan langsung ke Data Pegawai')
+                                                    ->default(true)
+                                                    ->helperText('Jika dicentang, data jabatan/bagian di profil pegawai akan langsung diperbarui saat disimpan.')
+                                                    ->columnSpanFull(),
                                             ]),
                                     ]),
 

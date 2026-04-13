@@ -33,6 +33,7 @@ class EmployeeAgreement extends Model
         'agreement_date_end',
         'departments_id',
         'sub_department_id',
+        'non_permanent_salary_id',
         'docs',
         'is_active',
         'users_id',
@@ -102,6 +103,14 @@ class EmployeeAgreement extends Model
     }
 
     /**
+     * Get the non-permanent salary link.
+     */
+    public function nonPermanentSalary(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeNonPermanentSalary::class, 'non_permanent_salary_id');
+    }
+
+    /**
      * Get the user who created this record.
      */
     public function user(): BelongsTo
@@ -130,7 +139,11 @@ class EmployeeAgreement extends Model
      */
     public function getBasicSalaryAttribute(): float
     {
-        return $this->basicSalaryGrade?->basic_salary ?? 0;
+        if ($this->basic_salary_id) {
+            return $this->basicSalaryGrade?->basic_salary ?? 0;
+        }
+
+        return $this->nonPermanentSalary?->amount ?? 0;
     }
 
     /**
@@ -207,6 +220,7 @@ class EmployeeAgreement extends Model
             'employee_position_id' => $jobApp->applied_position_id,
             'employment_status_id' => $archive->proposed_employment_status_id,
             'basic_salary_id' => $archive->proposed_grade_id,
+            'non_permanent_salary_id' => $archive->proposed_non_permanent_salary_id,
             'employee_education_id' => $jobApp->education_level_id,
             'agreement_date_start' => $archive->proposed_start_date,
             'departments_id' => $jobApp->applied_department_id,

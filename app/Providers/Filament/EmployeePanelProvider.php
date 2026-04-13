@@ -30,8 +30,6 @@ class EmployeePanelProvider extends PanelProvider
                 'primary' => Color::Blue,
             ])
             ->brandName('Manajemen Pegawai')
-            ->brandLogo(asset('images/logo.png'))
-            ->brandLogoHeight('2rem')
             ->favicon(asset('images/favicon.ico'))
             ->discoverResources(in: app_path('Filament/Employee/Resources'), for: 'App\\Filament\\Employee\\Resources')
             ->discoverPages(in: app_path('Filament/Employee/Pages'), for: 'App\\Filament\\Employee\\Pages')

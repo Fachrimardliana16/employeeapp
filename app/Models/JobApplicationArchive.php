@@ -22,6 +22,7 @@ class JobApplicationArchive extends Model
         'proposed_agreement_type_id',
         'proposed_employment_status_id',
         'proposed_grade_id',
+        'proposed_non_permanent_salary_id',
         'proposed_salary',
         'proposed_start_date',
     ];
@@ -59,6 +60,11 @@ class JobApplicationArchive extends Model
         return $this->belongsTo(MasterEmployeeGrade::class, 'proposed_grade_id');
     }
 
+    public function proposedNonPermanentSalary(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeNonPermanentSalary::class, 'proposed_non_permanent_salary_id');
+    }
+
     public function decidedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by');
@@ -90,6 +96,7 @@ class JobApplicationArchive extends Model
             'proposed_agreement_type_id' => $decisionData['proposed_agreement_type_id'] ?? null,
             'proposed_employment_status_id' => $decisionData['proposed_employment_status_id'] ?? null,
             'proposed_grade_id' => $decisionData['proposed_grade_id'] ?? null,
+            'proposed_non_permanent_salary_id' => $decisionData['proposed_non_permanent_salary_id'] ?? null,
             'proposed_salary' => $decisionData['proposed_salary'] ?? null,
             'proposed_start_date' => $decisionData['proposed_start_date'] ?? null,
         ]);

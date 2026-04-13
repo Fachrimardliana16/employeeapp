@@ -35,31 +35,74 @@ class EmployeeAssignmentLetterResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Informasi Dasar Surat Tugas')
+                Forms\Components\Section::make('Informasi Utama Surat Tugas')
                     ->schema([
                         Forms\Components\TextInput::make('registration_number')
                             ->label('Nomor Surat Tugas')
                             ->required()
                             ->maxLength(255)
-                            ->placeholder('Contoh: ST/001/2024'),
+                            ->placeholder('Contoh: ST/001/2024')
+                            ->columnSpanFull(),
+
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Tanggal Mulai')
+                            ->required(),
+
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Tanggal Selesai')
+                            ->required(),
 
                         Forms\Components\Select::make('assigning_employee_id')
-                            ->label('Pegawai Utama')
+                            ->label('Pegawai Di Tugaskan')
                             ->relationship('assigningEmployee', 'name')
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->helperText('Pegawai utama yang diberi tugas'),
+                            ->live()
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                if (blank($state)) {
+                                    $set('employee_position_id', null);
+                                    return;
+                                }
+
+                                $employee = \App\Models\Employee::find($state);
+                                if ($employee) {
+                                    $set('employee_position_id', $employee->employee_position_id);
+                                }
+                            })
+                            ->helperText('Pegawai yang diberi tugas'),
 
                         Forms\Components\Select::make('employee_position_id')
-                            ->label('Posisi/Jabatan Pegawai Utama')
+                            ->label('Posisi/Jabatan')
                             ->relationship('employeePosition', 'name')
                             ->required()
                             ->searchable()
-                            ->preload(),
+                            ->preload()
+                            ->disabled()
+                            ->dehydrated()
+                            ->helperText('Otomatis terkunci sesuai jabatan pegawai'),
+                    ])
+                    ->columns(2),
 
+                Forms\Components\Section::make('Detail Penugasan')
+                    ->schema([
+                        Forms\Components\Textarea::make('task')
+                            ->label('Deskripsi Tugas')
+                            ->required()
+                            ->rows(4)
+                            ->columnSpanFull(),
+
+                        Forms\Components\Textarea::make('description')
+                            ->label('Keterangan Tambahan')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ]),
+
+                Forms\Components\Section::make('Pegawai Tambahan')
+                    ->description('Tambahkan pegawai lain yang ikut dalam penugasan jika ada.')
+                    ->schema([
                         Forms\Components\Repeater::make('additional_employees_detail')
-                            ->label('Pegawai Tambahan')
+                            ->label('Daftar Pegawai Tambahan')
                             ->schema([
                                 Forms\Components\Select::make('employee_id')
                                     ->label('Nama Pegawai')
@@ -86,85 +129,91 @@ class EmployeeAssignmentLetterResource extends Resource
                             ->columns(2)
                             ->columnSpanFull()
                             ->addActionLabel('Tambah Pegawai Tambahan')
-                            ->defaultItems(0)
-                            ->helperText('Tambahkan pegawai lain yang ikut dalam penugasan'),
+                            ->defaultItems(0),
                     ])
-                    ->columns(2),
-
-                Forms\Components\Section::make('Detail Penugasan')
-                    ->schema([
-                        Forms\Components\Textarea::make('task')
-                            ->label('Deskripsi Tugas')
-                            ->required()
-                            ->rows(4)
-                            ->columnSpanFull(),
-
-                        Forms\Components\Textarea::make('description')
-                            ->label('Keterangan Tambahan')
-                            ->rows(3)
-                            ->columnSpanFull(),
-                    ]),
-
-                Forms\Components\Section::make('Periode Penugasan')
-                    ->schema([
-                        Forms\Components\DatePicker::make('start_date')
-                            ->label('Tanggal Mulai')
-                            ->required(),
-
-                        Forms\Components\DatePicker::make('end_date')
-                            ->label('Tanggal Selesai')
-                            ->required(),
-                    ])
-                    ->columns(2),
+                    ->collapsible()
+                    ->collapsed(),
 
                 Forms\Components\Section::make('Penandatangan')
                     ->schema([
-                        Forms\Components\Select::make('signatory_employee_id')
-                            ->label('Pilih Penandatangan')
-                            ->options(function () {
-                                return \App\Models\Employee::getSignatoryEmployees();
-                            })
-                            ->searchable()
-                            ->preload()
-                            ->placeholder('Pilih dari pegawai yang berjabatan Direktur/Kepala Bagian')
+                        Forms\Components\Toggle::make('is_manual_signatory')
+                            ->label('Input Manual Penandatangan')
+                            ->helperText('Aktifkan jika ingin menginput nama penandatangan secara manual (bukan dari database)')
                             ->live()
-                            ->afterStateUpdated(function ($state, callable $set) {
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (Forms\Components\Toggle $component, $state, ?\App\Models\EmployeeAssignmentLetter $record) {
+                                // Jika sedang edit dan ada data manual tapi tidak ada relasi pegawai, maka otomatis aktifkan toggle manual
+                                if ($record && blank($record->signatory_employee_id) && !blank($record->signatory_name)) {
+                                    $component->state(true);
+                                }
+                            })
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
                                 if ($state) {
-                                    $employee = \App\Models\Employee::getSignatoryById($state);
-                                    if ($employee) {
-                                        $set('signatory_name', $employee->name);
-                                        $set('signatory_position', $employee->position->name ?? '');
-                                    }
+                                    // Pindah ke manual, hapus pilihan dari DB
+                                    $set('signatory_employee_id', null);
                                 } else {
-                                    // Jika dropdown dikosongkan, bersihkan field
-                                    $set('signatory_name', '');
-                                    $set('signatory_position', '');
+                                    // Pindah ke database, hapus isian manual
+                                    $set('signatory_name', null);
+                                    $set('signatory_position', null);
                                 }
                             }),
 
-                        Forms\Components\TextInput::make('signatory_name')
-                            ->label('Nama Penandatangan')
-                            ->placeholder('Akan terisi otomatis setelah memilih pegawai, atau isi manual jika tidak memilih dari dropdown')
-                            ->maxLength(255)
-                            ->required()
-                            ->disabled(fn(callable $get) => !empty($get('signatory_employee_id')))
-                            ->dehydrated(true)
-                            ->helperText(fn(callable $get) => !empty($get('signatory_employee_id'))
-                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.'
-                                : 'Isi manual jika tidak memilih dari dropdown di atas.'),
+                        Forms\Components\Group::make([
+                            Forms\Components\Select::make('signatory_employee_id')
+                                ->label('Pilih Penandatangan')
+                                ->options(function () {
+                                    return \App\Models\Employee::getSignatoryEmployees();
+                                })
+                                ->searchable()
+                                ->preload()
+                                ->placeholder('Cari nama pegawai...')
+                                ->live()
+                                ->required(fn(Forms\Get $get) => !$get('is_manual_signatory'))
+                                ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                    if ($state) {
+                                        $employee = \App\Models\Employee::getSignatoryById($state);
+                                        if ($employee) {
+                                            $set('signatory_name', $employee->name);
+                                            $set('signatory_position', $employee->position->name ?? '');
+                                        }
+                                    }
+                                }),
 
-                        Forms\Components\TextInput::make('signatory_position')
-                            ->label('Jabatan Penandatangan')
-                            ->placeholder('Akan terisi otomatis setelah memilih pegawai, atau isi manual jika tidak memilih dari dropdown')
-                            ->maxLength(255)
-                            ->required()
-                            ->disabled(fn(callable $get) => !empty($get('signatory_employee_id')))
-                            ->dehydrated(true)
-                            ->helperText(fn(callable $get) => !empty($get('signatory_employee_id'))
-                                ? 'Field ini terkunci karena Anda sudah memilih penandatangan dari dropdown. Kosongkan dropdown untuk mengedit manual.'
-                                : 'Isi manual jika tidak memilih dari dropdown di atas.'),
+                            Forms\Components\Placeholder::make('signatory_summary')
+                                ->label('Detail Penandatangan')
+                                ->content(function (Forms\Get $get) {
+                                    $name = $get('signatory_name');
+                                    $position = $get('signatory_position');
+                                    if (blank($name)) return 'Belum ada pegawai dipilih.';
+                                    return new \Illuminate\Support\HtmlString("
+                                        <div class='flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'>
+                                            <div class='flex-1'>
+                                                <div class='text-sm font-medium text-gray-900 dark:text-gray-100'>$name</div>
+                                                <div class='text-xs text-gray-500 dark:text-gray-400'>$position</div>
+                                            </div>
+                                        </div>
+                                    ");
+                                })
+                                ->visible(fn(Forms\Get $get) => !$get('is_manual_signatory') && !blank($get('signatory_employee_id'))),
+                        ])
+                        ->visible(fn(Forms\Get $get) => !$get('is_manual_signatory')),
+
+                        Forms\Components\Group::make([
+                            Forms\Components\TextInput::make('signatory_name')
+                                ->label('Nama Penandatangan (Manual)')
+                                ->placeholder('Contoh: Budi Santoso, S.T.')
+                                ->maxLength(255)
+                                ->required(fn(Forms\Get $get) => $get('is_manual_signatory')),
+
+                            Forms\Components\TextInput::make('signatory_position')
+                                ->label('Jabatan Penandatangan (Manual)')
+                                ->placeholder('Contoh: Plh. Direktur Utama')
+                                ->maxLength(255)
+                                ->required(fn(Forms\Get $get) => $get('is_manual_signatory')),
+                        ])
+                        ->columns(2)
+                        ->visible(fn(Forms\Get $get) => $get('is_manual_signatory')),
                     ])
-                    ->columns(1)
                     ->collapsible()
                     ->collapsed(false),
             ]);

@@ -38,4 +38,23 @@ class CreateEmployeeMutation extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
+    protected function afterCreate(): void
+    {
+        $record = $this->getRecord();
+        
+        if ($record->is_applied && $record->employee) {
+            $record->employee->update([
+                'departments_id' => $record->new_department_id,
+                'sub_department_id' => $record->new_sub_department_id,
+                'employee_position_id' => $record->new_position_id,
+            ]);
+
+            Notification::make()
+                ->title('Mutasi Langsung Diterapkan')
+                ->body('Data Profil Pegawai ' . $record->employee->name . ' telah diperbarui.')
+                ->success()
+                ->send();
+        }
+    }
 }

@@ -24,12 +24,14 @@ class EmployeeMutation extends Model
         'new_sub_department_id',
         'old_position_id',
         'new_position_id',
+        'is_applied',
         'docs',
         'users_id',
     ];
 
     protected $casts = [
         'mutation_date' => 'date',
+        'is_applied' => 'boolean',
     ];
 
     public function employee(): BelongsTo

@@ -13,7 +13,9 @@ use App\Models\MasterSubDepartment;
 use App\Models\MasterEmployeeAgreement;
 use App\Models\MasterEmployeeStatusEmployment;
 use App\Models\MasterEmployeeGrade;
+use App\Models\MasterEmployeeNonPermanentSalary;
 use App\Models\InterviewProcess;
+use Illuminate\Support\Str;
 use App\Models\Employee;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -552,22 +554,41 @@ class JobApplicationResource extends Resource
                                     Forms\Components\Select::make('proposed_agreement_type_id')
                                         ->label('Jenis Kontrak')
                                         ->options(MasterEmployeeAgreement::pluck('name', 'id'))
-                                        ->required(),
+                                        ->required()
+                                        ->live()
+                                        ->afterStateUpdated(fn(Forms\Set $set) => $set('proposed_employment_status_id', null)),
 
                                     Forms\Components\Select::make('proposed_employment_status_id')
                                         ->label('Status Kepegawaian')
-                                        ->options(MasterEmployeeStatusEmployment::where('id', '!=', 6)->pluck('name', 'id'))
+                                        ->options(function (Forms\Get $get) {
+                                            $agreementId = $get('proposed_agreement_type_id');
+                                            if ($agreementId == 1) { // PKWT
+                                                 return MasterEmployeeStatusEmployment::whereIn('id', [1, 2, 3])->pluck('name', 'id');
+                                            } elseif ($agreementId == 2) { // PKWTT
+                                                 return MasterEmployeeStatusEmployment::whereIn('id', [4, 5])->pluck('name', 'id');
+                                            }
+                                            return MasterEmployeeStatusEmployment::where('id', '!=', 6)->pluck('name', 'id');
+                                        })
                                         ->required()
                                         ->live()
                                         ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                            if ($state == 1 || $state == 2) { // THL atau Magang
-                                                $set('proposed_salary', 0);
-                                                $set('proposed_grade_id', null);
-                                            } elseif ($state == 3) { // Kontrak
-                                                $set('proposed_salary', 2500000); // Default UMR
-                                                $set('proposed_grade_id', null);
-                                            } else {
-                                                $set('proposed_salary', null);
+                                            $set('proposed_grade_id', null);
+                                            $set('proposed_non_permanent_salary_id', null);
+                                            $set('proposed_salary', null);
+                                        }),
+
+                                    Forms\Components\Select::make('proposed_non_permanent_salary_id')
+                                        ->label('Referensi Gaji Pokok')
+                                        ->options(fn(Forms\Get $get) => MasterEmployeeNonPermanentSalary::where('employment_status_id', $get('proposed_employment_status_id'))->pluck('name', 'id'))
+                                        ->required(fn(Forms\Get $get): bool => in_array($get('proposed_employment_status_id'), [1, 2, 3]))
+                                        ->visible(fn(Forms\Get $get): bool => in_array($get('proposed_employment_status_id'), [1, 2, 3]))
+                                        ->live()
+                                        ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                            if ($state) {
+                                                $salary = MasterEmployeeNonPermanentSalary::find($state);
+                                                if ($salary) {
+                                                    $set('proposed_salary', $salary->amount);
+                                                }
                                             }
                                         }),
 
@@ -580,7 +601,7 @@ class JobApplicationResource extends Resource
                                         ->afterStateUpdated(function ($state, Forms\Set $set) {
                                             if ($state) {
                                                 $grade = MasterEmployeeGrade::find($state);
-                                                if ($grade && $grade->basic_salary > 0) {
+                                                if ($grade) {
                                                     $set('proposed_salary', $grade->basic_salary);
                                                 }
                                             }
@@ -591,9 +612,8 @@ class JobApplicationResource extends Resource
                                         ->label('Gaji Pokok')
                                         ->numeric()
                                         ->prefix('Rp')
-                                        ->required(fn(Forms\Get $get): bool => !in_array($get('proposed_employment_status_id'), [1, 2]))
-                                        ->visible(fn(Forms\Get $get): bool => !in_array($get('proposed_employment_status_id'), [1, 2]))
-                                        ->step(100000)
+                                        ->required()
+                                        ->step(1)
                                         ->helperText('Gaji akan terisi otomatis berdasarkan status atau golongan')
                                         ->live()
                                         ->formatStateUsing(fn($state) => $state ? number_format($state, 0, ',', '.') : '')
@@ -664,6 +684,7 @@ class JobApplicationResource extends Resource
                                         'employment_status_id' => $data['proposed_employment_status_id'],
                                         'master_employee_agreement_id' => $data['proposed_agreement_type_id'],
                                         'basic_salary_id' => $data['proposed_grade_id'] ?? null,
+                                        'non_permanent_salary_id' => $data['proposed_non_permanent_salary_id'] ?? null,
                                     ]
                                 );
 

@@ -34,9 +34,9 @@
         <label class="form-label">STATUS PEKERJAAN</label>
         <select name="work_status" id="work_status" class="form-control" required>
           <option value="">-- PILIH STATUS --</option>
-          <option value="completed" {{ old('work_status') === 'completed' ? 'selected' : '' }}>✅ SELESAI</option>
-          <option value="in_progress" {{ old('work_status') === 'in_progress' ? 'selected' : '' }}>🔄 DALAM PROSES</option>
-          <option value="pending" {{ old('work_status') === 'pending' ? 'selected' : '' }}>⏳ MENUNGGU</option>
+          <option value="completed" {{ old('work_status') === 'completed' ? 'selected' : '' }}>Selesai</option>
+          <option value="in_progress" {{ old('work_status') === 'in_progress' ? 'selected' : '' }}>Dalam Proses</option>
+          <option value="pending" {{ old('work_status') === 'pending' ? 'selected' : '' }}>Menunggu</option>
         </select>
         @error('work_status')<div class="form-error">⚠️ {{ $message }}</div>@enderror
       </div>
