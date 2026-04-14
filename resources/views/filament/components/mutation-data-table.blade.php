@@ -31,7 +31,7 @@
                                     {{ $mutation->decision_letter_number ?? '-' }}
                                     @if ($mutation->docs)
                                         <div class="mt-1">
-                                            <a href="{{ asset('storage/' . $mutation->docs) }}" target="_blank" class="text-primary-600 hover:text-primary-500 text-xs flex items-center gap-1">
+                                            <a href="{{ Storage::url($mutation->docs) }}" target="_blank" class="text-primary-600 hover:text-primary-500 text-xs flex items-center gap-1">
                                                 <x-heroicon-m-document-check class="w-4 h-4" /> Lihat SK
                                             </a>
                                         </div>

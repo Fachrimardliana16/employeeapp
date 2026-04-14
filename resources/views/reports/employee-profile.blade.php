@@ -119,7 +119,7 @@
             
             <div class="relative z-20 print-photo-container">
                 @if($record->image)
-                    <img src="{{ asset('storage/' . $record->image) }}" alt="Foto Pegawai" class="w-44 h-56 object-cover rounded-xl shadow-2xl border-2 border-white/20">
+                    <img src="{{ Storage::url($record->image) }}" alt="Foto Pegawai" class="w-44 h-56 object-cover rounded-xl shadow-2xl border-2 border-white/20">
                 @else
                     <div class="w-44 h-56 flex items-center justify-center bg-slate-800 text-slate-500 italic text-xs rounded-xl border border-white/10">No Photo</div>
                 @endif

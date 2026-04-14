@@ -106,7 +106,7 @@
                 <div class="relative z-10 print-photo-wrapper">
                     <div class="w-40 h-52 bg-white/10 rounded-xl overflow-hidden p-1 backdrop-blur-sm border border-white/20">
                         @if($record->photo)
-                            <img src="{{ asset('storage/' . $record->photo) }}" alt="Foto Pelamar" class="w-full h-full object-cover rounded-lg">
+                            <img src="{{ Storage::url($record->photo) }}" alt="Foto Pelamar" class="w-full h-full object-cover rounded-lg">
                         @else
                             <div class="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500 italic text-xs">No Photo</div>
                         @endif

@@ -61,7 +61,7 @@
     <div class="info-row">
       <div class="info-key">Dokumen Pendukung</div>
       <div class="info-value">
-        <a href="{{ asset('storage/' . $permission->scan_doc) }}" target="_blank" class="btn btn-primary btn-sm" style="font-size: 0.65rem; border-radius: 8px;">
+        <a href="{{ Storage::url($permission->scan_doc) }}" target="_blank" class="btn btn-primary btn-sm" style="font-size: 0.65rem; border-radius: 8px;">
           Lihat Lampiran
         </a>
       </div>

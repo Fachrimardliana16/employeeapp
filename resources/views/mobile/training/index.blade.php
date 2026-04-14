@@ -76,7 +76,7 @@
         </div>
         @if($training->docs_training)
         <div class="list-meta">
-          <a href="{{ asset('storage/'.$training->docs_training) }}" target="_blank" class="btn-primary" style="padding: 6px 12px; font-size: 0.65rem; border-radius: 8px; font-weight: 800;">DOK</a>
+          <a href="{{ Storage::url($training->docs_training) }}" target="_blank" class="btn-primary" style="padding: 6px 12px; font-size: 0.65rem; border-radius: 8px; font-weight: 800;">DOK</a>
         </div>
         @endif
       </div>

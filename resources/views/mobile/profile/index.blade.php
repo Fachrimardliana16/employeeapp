@@ -24,7 +24,7 @@
   <div class="card-body" style="padding: 2.5rem 1.5rem; text-align: center;">
     <div class="profile-avatar-wrapper" style="width: 100px; height: 100px; margin: 0 auto 1.5rem; position: relative;">
       @if($employee->image)
-        <img src="{{ asset('storage/'.$employee->image) }}" style="width: 100%; height: 100%; border-radius: 30px; object-fit: cover; border: 4px solid rgba(255,255,255,0.2);">
+        <img src="{{ Storage::url($employee->image) }}" style="width: 100%; height: 100%; border-radius: 30px; object-fit: cover; border: 4px solid rgba(255,255,255,0.2);">
       @else
         <div style="width: 100%; height: 100%; border-radius: 30px; background: rgba(255,255,255,0.1); border: 2px dashed rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 2.5rem; font-weight: 800;">{{ substr($employee->name ?? 'P', 0, 1) }}</div>
       @endif

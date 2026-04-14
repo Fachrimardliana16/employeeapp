@@ -58,7 +58,7 @@
                                 </td>
                                 <td class="px-4 py-4 text-sm text-center align-top whitespace-nowrap">
                                     @if ($promotion->doc_promotion)
-                                        <a href="{{ asset('storage/' . $promotion->doc_promotion) }}" target="_blank" class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-500 font-medium">
+                                        <a href="{{ Storage::url($promotion->doc_promotion) }}" target="_blank" class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-500 font-medium">
                                             <x-heroicon-m-document-text class="w-5 h-5" />
                                             <span class="text-xs">Lihat SK</span>
                                         </a>
