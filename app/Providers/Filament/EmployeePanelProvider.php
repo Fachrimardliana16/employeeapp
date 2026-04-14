@@ -43,6 +43,7 @@ class EmployeePanelProvider extends PanelProvider
                 \App\Filament\Employee\Widgets\JobApplicationListWidget::class,
                 \App\Filament\Employee\Widgets\EmployeeBirthdayWidget::class,
                 \App\Filament\Employee\Widgets\EmployeeRetirementWidget::class,
+                \App\Filament\Employee\Widgets\EmployeeRetiredListWidget::class,
                 \App\Filament\Employee\Widgets\EmployeeContractWidget::class,
                 \App\Filament\Employee\Widgets\EmployeeStatusChart::class,
                 \App\Filament\Employee\Widgets\EmployeeEducationChart::class,
