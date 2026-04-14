@@ -22,7 +22,7 @@
       @if($employee)
         <a href="{{ route('mobile.profile') }}" class="hub-avatar-wrapper" style="width: 60px; height: 60px; border-radius: 18px; overflow: hidden; border: 2px solid var(--gray-200);">
           @if($employee->image)
-            <img src="{{ Storage::url($employee->image) }}" style="width: 100%; height: 100%; object-fit: cover;">
+            <img src="{{ url('image-view/'.$employee->image) }}" style="width: 100%; height: 100%; object-fit: cover;">
           @else
             <div style="width: 100%; height: 100%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800;">{{ substr($employee->name ?? 'P', 0, 1) }}</div>
           @endif

@@ -73,7 +73,7 @@
           <div class="list-subtitle">{{ $doc->document_type }} • {{ $doc->created_at->format('d/m/Y') }}</div>
         </div>
         <div class="list-meta">
-          <a href="{{ Storage::url($doc->file_path) }}" target="_blank" class="btn-primary" style="padding: 6px 12px; font-size: 0.7rem; border-radius: 8px; font-weight: 800;">LIHAT</a>
+          <a href="{{ url('image-view/'.$doc->file_path) }}" target="_blank" class="btn-primary" style="padding: 6px 12px; font-size: 0.7rem; border-radius: 8px; font-weight: 800;">LIHAT</a>
         </div>
       </div>
     @endforeach
