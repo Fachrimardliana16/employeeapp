@@ -470,6 +470,18 @@ class EmployeeAgreementResource extends Resource
                         Forms\Components\Textarea::make('renewal_notes')
                             ->label('Catatan Perpanjangan')
                             ->rows(3),
+
+                        Forms\Components\FileUpload::make('docs')
+                            ->label('Dokumen Kontrak Baru (PDF)')
+                            ->disk('public')
+                            ->directory('agreements')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(10240) // 10MB
+                            ->downloadable()
+                            ->openable()
+                            ->visibility('public')
+                            ->required()
+                            ->helperText('Upload file PDF SK Perpanjangan Kontrak, maksimal 10MB'),
                     ])
                     ->action(function (EmployeeAgreement $record, array $data): void {
                         // Validasi PKWT maksimal 2 tahun
@@ -504,10 +516,11 @@ class EmployeeAgreementResource extends Resource
                             'basic_salary_id' => $record->basic_salary_id,
                             'employee_education_id' => $record->employee_education_id,
                             'departments_id' => $record->departments_id,
-                            'sub_departments_id' => $record->sub_departments_id,
+                            'sub_department_id' => $record->sub_department_id,
                             'agreement_date_start' => $startDate,
                             'agreement_date_end' => $endDate,
                             'contract_duration' => $data['new_duration'],
+                            'docs' => $data['docs'],
                             'is_active' => true,
                             'users_id' => auth()->id() ?? 0,
                         ]);
