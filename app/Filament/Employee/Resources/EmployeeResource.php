@@ -307,6 +307,13 @@ class EmployeeResource extends Resource
                                                     ->placeholder('12345678901')
                                                     ->helperText('Hanya boleh angka')
                                                     ->maxLength(15),
+                                                Forms\Components\Select::make('bpjs_tk_status')
+                                                    ->label('Status BPJS Ketenagakerjaan')
+                                                    ->options([
+                                                        'Aktif' => 'Aktif',
+                                                        'Non-Aktif' => 'Non-Aktif',
+                                                    ])
+                                                    ->placeholder('Pilih status'),
                                                 Forms\Components\TextInput::make('bpjs_kes_number')
                                                     ->label('Nomor BPJS Kesehatan')
                                                     ->numeric()
@@ -314,6 +321,21 @@ class EmployeeResource extends Resource
                                                     ->placeholder('0001234567890')
                                                     ->helperText('13 digit nomor BPJS Kesehatan')
                                                     ->maxLength(13),
+                                                Forms\Components\Select::make('bpjs_kes_status')
+                                                    ->label('Status BPJS Kesehatan')
+                                                    ->options([
+                                                        'Aktif' => 'Aktif',
+                                                        'Non-Aktif' => 'Non-Aktif',
+                                                    ])
+                                                    ->placeholder('Pilih status'),
+                                                Forms\Components\Select::make('bpjs_kes_class')
+                                                    ->label('Kelas Layanan BPJS')
+                                                    ->options([
+                                                        'Kelas 1' => 'Kelas 1',
+                                                        'Kelas 2' => 'Kelas 2',
+                                                        'Kelas 3' => 'Kelas 3',
+                                                    ])
+                                                    ->placeholder('Pilih kelas'),
                                                 Forms\Components\TextInput::make('rek_dplk_pribadi')
                                                     ->label('Rekening DPLK Pribadi')
                                                     ->numeric()
@@ -328,6 +350,22 @@ class EmployeeResource extends Resource
                                                     ->placeholder('1234567890')
                                                     ->helperText('Hanya boleh angka')
                                                     ->maxLength(20),
+                                                Forms\Components\TextInput::make('dapenma_number')
+                                                    ->label('Nomor Dapenma')
+                                                    ->placeholder('Masukkan nomor Dapenma')
+                                                    ->maxLength(50),
+                                                Forms\Components\TextInput::make('dapenma_phdp')
+                                                    ->label('PHDP Dapenma')
+                                                    ->numeric()
+                                                    ->prefix('Rp')
+                                                    ->placeholder('0'),
+                                                Forms\Components\Select::make('dapenma_status')
+                                                    ->label('Status Dapenma')
+                                                    ->options([
+                                                        'Aktif' => 'Aktif',
+                                                        'Non-Aktif' => 'Non-Aktif',
+                                                    ])
+                                                    ->placeholder('Pilih status'),
                                                 Forms\Components\TextInput::make('npwp_number')
                                                     ->label('Nomor NPWP')
                                                     ->rules(['regex:/^[0-9]{2}\.[0-9]{3}\.[0-9]{3}\.[0-9]\-[0-9]{3}\.[0-9]{3}$/'])
@@ -1078,6 +1116,47 @@ class EmployeeResource extends Resource
                             ])->columnSpan(1),
                     ]),
 
+                Infolists\Components\Section::make('Asuransi & Pensiun')
+                    ->description('Informasi asuransi kesehatan, ketenagakerjaan, dan dana pensiun')
+                    ->schema([
+                        Infolists\Components\Grid::make(3)
+                            ->schema([
+                                Infolists\Components\Group::make([
+                                    Infolists\Components\TextEntry::make('bpjs_tk_number')
+                                        ->label('No. BPJS Ketenagakerjaan')
+                                        ->copyable(),
+                                    Infolists\Components\TextEntry::make('bpjs_tk_status')
+                                        ->label('Status BPJS TK')
+                                        ->badge()
+                                        ->color(fn(string $state): string => $state === 'Aktif' ? 'success' : 'danger'),
+                                ])->columnSpan(1),
+
+                                Infolists\Components\Group::make([
+                                    Infolists\Components\TextEntry::make('bpjs_kes_number')
+                                        ->label('No. BPJS Kesehatan')
+                                        ->copyable(),
+                                    Infolists\Components\TextEntry::make('bpjs_kes_status')
+                                        ->label('Status BPJS Kes')
+                                        ->badge()
+                                        ->color(fn(string $state): string => $state === 'Aktif' ? 'success' : 'danger'),
+                                    Infolists\Components\TextEntry::make('bpjs_kes_class')
+                                        ->label('Kelas BPJS'),
+                                ])->columnSpan(1),
+
+                                Infolists\Components\Group::make([
+                                    Infolists\Components\TextEntry::make('dapenma_number')
+                                        ->label('No. Dapenma'),
+                                    Infolists\Components\TextEntry::make('dapenma_phdp')
+                                        ->label('PHDP Dapenma')
+                                        ->money('IDR'),
+                                    Infolists\Components\TextEntry::make('dapenma_status')
+                                        ->label('Status Dapenma')
+                                        ->badge()
+                                        ->color(fn(string $state): string => $state === 'Aktif' ? 'success' : 'danger'),
+                                ])->columnSpan(1),
+                            ]),
+                    ]),
+
                 Infolists\Components\ViewEntry::make('recruitment_progress')
                     ->view('filament.components.recruitment-progress-bar')
                     ->columnSpanFull()
@@ -1118,6 +1197,18 @@ class EmployeeResource extends Resource
                     ->columnSpanFull()
                     ->hiddenLabel()
                     ->hidden(fn (Employee $record) => $record->appointments->isEmpty()),
+
+                Infolists\Components\ViewEntry::make('assignment_history')
+                    ->view('filament.components.assignment-history-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->assignmentLetters->isEmpty()),
+
+                Infolists\Components\ViewEntry::make('business_travel_history')
+                    ->view('filament.components.business-travel-history-table')
+                    ->columnSpanFull()
+                    ->hiddenLabel()
+                    ->hidden(fn (Employee $record) => $record->businessTravelLetters->isEmpty()),
             ]);
     }
 
