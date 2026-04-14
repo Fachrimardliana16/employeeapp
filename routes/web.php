@@ -18,24 +18,16 @@ use App\Models\MasterOfficeLocation;
 use App\Models\Employee;
 use App\Models\JobApplication;
 
-// Temporary route to fix storage:link issue on hosting
-Route::get('/linkstorage', function () {
-    $target = storage_path('app/public');
-    $shortcut = public_path('storage');
+// Storage Bridge route to handle file access on restrictive hostings without symlink
+Route::get('/storage/{path}', function ($path) {
+    $fullPath = storage_path("app/public/" . $path);
     
-    // Force delete if exists to recreate
-    if (file_exists($shortcut) || is_link($shortcut)) {
-        @unlink($shortcut);
+    if (!file_exists($fullPath)) {
+        abort(404);
     }
-    
-    try {
-        if (symlink($target, $shortcut)) {
-            return "Storage link created successfully using symlink!";
-        }
-    } catch (\Exception $e) {}
 
-    return "Failed to create symlink. Error: " . error_get_last()['message'];
-});
+    return response()->file($fullPath);
+})->where('path', '.*');
 
 // Redirect root to user panel
 Route::redirect('/', '/user');
