@@ -16,4 +16,11 @@ class ListEmployeeAssignmentLetters extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            EmployeeAssignmentLetterResource\Widgets\AssignmentLetterStats::class,
+        ];
+    }
 }

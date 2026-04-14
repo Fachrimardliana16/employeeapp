@@ -16,4 +16,11 @@ class ListEmployeeBusinessTravelLetters extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            EmployeeBusinessTravelLetterResource\Widgets\BusinessTravelLetterStats::class,
+        ];
+    }
 }

@@ -32,6 +32,16 @@ class EmployeeBusinessTravelLetterResource extends Resource
 
     protected static ?int $navigationSort = 702;
 
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::where('status', 'on progress')->count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::getModel()::where('status', 'on progress')->count() > 0 ? 'warning' : 'gray';
+    }
+
     public static function updateTotals(Get $get, Set $set): void
     {
         try {
@@ -96,9 +106,9 @@ class EmployeeBusinessTravelLetterResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('registration_number')
                             ->label('Nomor Surat (SPD)')
-                            ->required()
-                            ->maxLength(255)
-                            ->placeholder('SPD/001/2024'),
+                            ->default(fn () => \App\Services\LetterNumberService::generateBusinessTravelNumber())
+                            ->disabled()
+                            ->dehydrated(),
 
                         Forms\Components\TextInput::make('pasal')
                             ->label('Pasal/Dasar Hukum')
@@ -303,6 +313,29 @@ class EmployeeBusinessTravelLetterResource extends Resource
                     ])
                     ->collapsible()
                     ->collapsed(true),
+
+                Forms\Components\Section::make('Arsip Digital')
+                    ->description('Upload SPPD yang sudah ditanda tangani dan stempel basah.')
+                    ->schema([
+                        Forms\Components\FileUpload::make('signed_file_path')
+                            ->label('Upload SPPD (TTD & Stempel)')
+                            ->disk('public')
+                            ->directory('business_travel_letters_signed')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(2048)
+                            ->downloadable()
+                            ->openable(),
+                        Forms\Components\Select::make('status')
+                            ->label('Status Surat')
+                            ->options([
+                                'on progress' => 'On Progress',
+                                'selesai' => 'Selesai',
+                            ])
+                            ->default('on progress')
+                            ->required()
+                            ->native(false),
+                    ])
+                    ->columns(2),
             ]);
     }
 
@@ -316,43 +349,54 @@ class EmployeeBusinessTravelLetterResource extends Resource
                     ->sortable()
                     ->copyable(),
 
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'selesai' => 'success',
+                        'on progress' => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => strtoupper($state))
+                    ->sortable(),
+
+                Tables\Columns\IconColumn::make('signed_file_path')
+                    ->label('Arsip Internal')
+                    ->icon(fn($state): string => $state ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
+                    ->color(fn($state): string => $state ? 'success' : 'danger'),
+
+                Tables\Columns\IconColumn::make('archives')
+                    ->label('Arsip (I/K)')
+                    ->getStateUsing(fn($record) => (bool)$record->signed_file_path && (bool)$record->visit_file_path)
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-document-text')
+                    ->trueColor('success')
+                    ->falseColor('warning')
+                    ->tooltip(fn($record) => "Internal: " . ($record->signed_file_path ? '✅' : '❌') . " | Kunjungan: " . ($record->visit_file_path ? '✅' : '❌')),
+
                 Tables\Columns\TextColumn::make('employee.name')
-                    ->label('Pegawai Utama')
+                    ->label('Pegawai')
                     ->searchable()
                     ->sortable()
-                    ->placeholder('Tidak ada')
-                    ->default('—'),
-
-                Tables\Columns\TextColumn::make('total_employees')
-                    ->label('Total Pegawai')
-                    ->getStateUsing(function ($record) {
-                        $total = 0;
-                        if ($record->employee_id) $total += 1;
-                        if (!empty($record->additional_employees_detail)) $total += count($record->additional_employees_detail);
-                        return $total > 0 ? $total . ' orang' : '—';
-                    })
-                    ->badge()
-                    ->color('success'),
-
-                Tables\Columns\TextColumn::make('purpose_of_trip')
-                    ->label('Tujuan Perjalanan')
-                    ->searchable()
-                    ->limit(30),
+                    ->description(fn($record) => ($record->total_employees > 1 ? '+' . ($record->total_employees - 1) . ' pengikut' : 'Sendiri')),
 
                 Tables\Columns\TextColumn::make('destination')
-                    ->label('Destinasi')
+                    ->label('Tujuan')
                     ->searchable()
-                    ->limit(20),
+                    ->description(fn($record) => str($record->purpose_of_trip)->limit(30))
+                    ->tooltip(fn($record) => $record->purpose_of_trip),
 
-                Tables\Columns\TextColumn::make('start_date')
+                Tables\Columns\TextColumn::make('timespan')
                     ->label('Waktu')
-                    ->getStateUsing(fn($record) => $record->start_date->format('d/m/Y') . ' - ' . $record->end_date->format('d/m/Y'))
-                    ->sortable(),
+                    ->getStateUsing(fn($record) => $record->start_date->format('d/m/y') . ' - ' . $record->end_date->format('d/m/y'))
+                    ->description(fn($record) => $record->trip_duration_days . ' hari'),
 
                 Tables\Columns\TextColumn::make('total_cost')
-                    ->label('Total Biaya')
+                    ->label('Biaya')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->alignment('right'),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
@@ -371,6 +415,51 @@ class EmployeeBusinessTravelLetterResource extends Resource
                     ->query(fn(Builder $query, array $data) => $query
                         ->when($data['travel_from'], fn($q, $date) => $q->whereDate('start_date', '>=', $date))
                         ->when($data['travel_until'], fn($q, $date) => $q->whereDate('end_date', '<=', $date))),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('cetak_report')
+                    ->label('Cetak Report')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('date_from')
+                            ->label('Dari Tanggal'),
+                        Forms\Components\DatePicker::make('date_until')
+                            ->label('Sampai Tanggal'),
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Filter Pegawai')
+                            ->options(\App\Models\Employee::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function (array $data) {
+                        $query = EmployeeBusinessTravelLetter::query();
+
+                        if ($data['date_from']) {
+                            $query->whereDate('start_date', '>=', $data['date_from']);
+                        }
+                        if ($data['date_until']) {
+                            $query->whereDate('end_date', '<=', $data['date_until']);
+                        }
+                        if ($data['employee_id']) {
+                            $query->where('employee_id', $data['employee_id']);
+                        }
+
+                        $records = $query->get();
+                        $employeeName = $data['employee_id'] ? \App\Models\Employee::find($data['employee_id'])?->name : null;
+
+                        $pdf = Pdf::loadView('pdf.report-summary', [
+                            'title' => 'Surat Perjalanan Dinas (SPPD)',
+                            'data' => $records,
+                            'startDate' => $data['date_from'],
+                            'endDate' => $data['date_until'],
+                            'employeeName' => $employeeName,
+                        ]);
+
+                        return response()->streamDownload(function () use ($pdf) {
+                            echo $pdf->output();
+                        }, 'Report_SPPD_' . now()->format('YmdHis') . '.pdf');
+                    })
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -418,8 +507,62 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                 echo $pdf->output();
                             }, $filename);
                         }),
+                    Tables\Actions\Action::make('upload_signed')
+                        ->label('Arsip TTD Internal')
+                        ->icon('heroicon-o-arrow-up-tray')
+                        ->color('info')
+                        ->form([
+                            Forms\Components\FileUpload::make('signed_file_path')
+                                ->label('File Scan TTD Internal (PDF)')
+                                ->disk('public')
+                                ->directory('business_travel_letters_internal')
+                                ->acceptedFileTypes(['application/pdf'])
+                                ->required(),
+                        ])
+                        ->action(function (EmployeeBusinessTravelLetter $record, array $data) {
+                            $record->update([
+                                'signed_file_path' => $data['signed_file_path'],
+                            ]);
+                        })
+                        ->visible(fn(EmployeeBusinessTravelLetter $record) => empty($record->signed_file_path)),
+                    Tables\Actions\Action::make('selesaikan')
+                        ->label('Selesaikan')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\FileUpload::make('visit_file_path')
+                                ->label('File Scan Cap Kunjungan (PDF)')
+                                ->disk('public')
+                                ->directory('business_travel_letters_complete')
+                                ->acceptedFileTypes(['application/pdf'])
+                                ->required(),
+                        ])
+                        ->action(function (EmployeeBusinessTravelLetter $record, array $data) {
+                            $record->update([
+                                'visit_file_path' => $data['visit_file_path'],
+                                'status' => 'selesai',
+                            ]);
+                        })
+                        ->visible(fn(EmployeeBusinessTravelLetter $record) => !empty($record->signed_file_path) && $record->status !== 'selesai'),
+                    Tables\Actions\Action::make('view_signed')
+                        ->label('Lihat Arsip')
+                        ->icon('heroicon-o-eye')
+                        ->color('gray')
+                        ->form([
+                            Forms\Components\Group::make([
+                                Forms\Components\Placeholder::make('internal_file')
+                                    ->label('Arsip TTD Internal')
+                                    ->content(fn($record) => $record->signed_file_path ? new \Illuminate\Support\HtmlString("<a href='".asset('storage/'.$record->signed_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Internal</a>") : 'Belum diupload'),
+                                Forms\Components\Placeholder::make('visit_file')
+                                    ->label('Arsip Cap Kunjungan')
+                                    ->content(fn($record) => $record->visit_file_path ? new \Illuminate\Support\HtmlString("<a href='".asset('storage/'.$record->visit_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Kunjungan</a>") : 'Belum diupload'),
+                            ])->columns(2)
+                        ])
+                        ->visible(fn(EmployeeBusinessTravelLetter $record) => !empty($record->signed_file_path)),
                     Tables\Actions\DeleteAction::make(),
-                ]),
+                ])
+                ->label('Aksi')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

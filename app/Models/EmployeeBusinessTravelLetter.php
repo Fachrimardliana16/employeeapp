@@ -37,6 +37,9 @@ class EmployeeBusinessTravelLetter extends Model
         'signatory_name',
         'signatory_position',
         'pdf_file_path',
+        'signed_file_path',
+        'visit_file_path',
+        'status',
         'users_id',
     ];
 
@@ -52,7 +55,28 @@ class EmployeeBusinessTravelLetter extends Model
         'transport_cost' => 'decimal:2',
         'meal_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
+        'status' => 'string',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->registration_number)) {
+                $model->registration_number = \App\Services\LetterNumberService::generateBusinessTravelNumber();
+            }
+            if (empty($model->status)) {
+                $model->status = 'on progress';
+            }
+        });
+
+        static::updating(function ($model) {
+            if (!empty($model->visit_file_path)) {
+                $model->status = 'selesai';
+            }
+        });
+    }
 
     /**
      * Get the employee that owns the business travel letter.

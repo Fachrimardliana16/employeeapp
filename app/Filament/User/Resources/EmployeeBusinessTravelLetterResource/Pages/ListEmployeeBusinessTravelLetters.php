@@ -8,4 +8,11 @@ use Filament\Resources\Pages\ListRecords;
 class ListEmployeeBusinessTravelLetters extends ListRecords
 {
     protected static string $resource = EmployeeBusinessTravelLetterResource::class;
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            EmployeeBusinessTravelLetterResource\Widgets\UserBusinessTravelLetterStats::class,
+        ];
+    }
 }

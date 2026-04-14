@@ -30,6 +30,16 @@ class EmployeeAssignmentLetterResource extends Resource
     protected static ?string $pluralModelLabel = 'Surat Tugas';
 
     protected static ?int $navigationSort = 701;
+    
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::where('status', 'on progress')->count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::getModel()::where('status', 'on progress')->count() > 0 ? 'warning' : 'gray';
+    }
 
     public static function form(Form $form): Form
     {
@@ -39,9 +49,9 @@ class EmployeeAssignmentLetterResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('registration_number')
                             ->label('Nomor Surat Tugas')
-                            ->required()
-                            ->maxLength(255)
-                            ->placeholder('Contoh: ST/001/2024')
+                            ->default(fn () => \App\Services\LetterNumberService::generateAssignmentNumber())
+                            ->disabled()
+                            ->dehydrated()
                             ->columnSpanFull(),
 
                         Forms\Components\DatePicker::make('start_date')
@@ -216,6 +226,30 @@ class EmployeeAssignmentLetterResource extends Resource
                     ])
                     ->collapsible()
                     ->collapsed(false),
+
+                Forms\Components\Section::make('Arsip Digital')
+                    ->description('Upload surat tugas yang sudah ditanda tangani dan stempel basah.')
+                    ->schema([
+                        Forms\Components\FileUpload::make('signed_file_path')
+                            ->label('Upload Surat Tugas (TTD & Stempel)')
+                            ->disk('public')
+                            ->directory('assignment_letters_signed')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(2048)
+                            ->downloadable()
+                            ->openable()
+                            ->helperText('Upload file PDF hasil scan surat tugas yang sudah ditelusuri.'),
+                        Forms\Components\Select::make('status')
+                            ->label('Status Surat')
+                            ->options([
+                                'on progress' => 'On Progress',
+                                'selesai' => 'Selesai',
+                            ])
+                            ->default('on progress')
+                            ->required()
+                            ->native(false),
+                    ])
+                    ->columns(2),
             ]);
     }
 
@@ -229,79 +263,44 @@ class EmployeeAssignmentLetterResource extends Resource
                     ->sortable()
                     ->copyable(),
 
-                Tables\Columns\TextColumn::make('assigningEmployee.name')
-                    ->label('Pegawai Utama')
-                    ->searchable()
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'selesai' => 'success',
+                        'on progress' => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => strtoupper($state))
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('additional_employees_names')
-                    ->label('Pegawai Tambahan')
-                    ->limit(40)
-                    ->placeholder('—')
-                    ->getStateUsing(function ($record) {
-                        if (empty($record->additional_employee_ids)) {
-                            return '—';
-                        }
-                        $employees = $record->additionalEmployees();
-                        $count = $employees->count();
-                        $names = $employees->pluck('name')->join(', ');
+                Tables\Columns\IconColumn::make('archives')
+                    ->label('Arsip (I/K)')
+                    ->getStateUsing(fn($record) => (bool)$record->signed_file_path && (bool)$record->visit_file_path)
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-document-text')
+                    ->trueColor('success')
+                    ->falseColor('warning')
+                    ->tooltip(fn($record) => "Internal: " . ($record->signed_file_path ? '✅' : '❌') . " | Kunjungan: " . ($record->visit_file_path ? '✅' : '❌')),
 
-                        if ($count > 0) {
-                            return "({$count}) {$names}";
-                        }
-                        return '—';
-                    })
-                    ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (empty($state) || $state === '—' || strlen($state) <= 40) {
-                            return null;
-                        }
-                        return $state;
-                    })
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('total_employees')
-                    ->label('Total Pegawai')
-                    ->getStateUsing(function ($record) {
-                        $total = 1; // Pegawai utama (required)
-                        if (!empty($record->additional_employee_ids)) {
-                            $total += count($record->additional_employee_ids); // Pegawai tambahan
-                        }
-                        return $total . ' orang';
-                    })
-                    ->badge()
-                    ->color(fn(string $state): string => match (true) {
-                        str_contains($state, '1 orang') => 'warning',
-                        default => 'success',
-                    })
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('employeePosition.name')
-                    ->label('Posisi/Jabatan')
-                    ->limit(20)
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('assigningEmployee.name')
+                    ->label('Pegawai')
+                    ->searchable()
+                    ->sortable()
+                    ->description(fn($record) => $record->employeePosition?->name, position: 'below'),
 
                 Tables\Columns\TextColumn::make('task')
                     ->label('Tugas')
                     ->searchable()
-                    ->limit(40)
-                    ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (strlen($state) <= 40) {
-                            return null;
-                        }
-                        return $state;
-                    }),
+                    ->limit(30)
+                    ->tooltip(fn($record) => $record->task),
 
-                Tables\Columns\TextColumn::make('start_date')
-                    ->label('Mulai')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('timespan')
+                    ->label('Waktu')
+                    ->getStateUsing(fn($record) => $record->start_date->format('d/m/y') . ' - ' . $record->end_date->format('d/m/y'))
+                    ->description(fn($record) => $record->start_date->diffInDays($record->end_date) + 1 . ' hari'),
 
-                Tables\Columns\TextColumn::make('end_date')
-                    ->label('Selesai')
-                    ->date('d/m/Y')
-                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('pdf_status')
                     ->label('Status PDF')
@@ -309,12 +308,10 @@ class EmployeeAssignmentLetterResource extends Resource
                         if (empty($record->pdf_file_path)) {
                             return 'Belum dibuat';
                         }
-
                         $fullPath = storage_path('app/public/' . $record->pdf_file_path);
                         if (file_exists($fullPath)) {
                             return 'Tersedia';
                         }
-
                         return 'File hilang';
                     })
                     ->badge()
@@ -365,6 +362,51 @@ class EmployeeAssignmentLetterResource extends Resource
                     ->relationship('employeePosition', 'name')
                     ->searchable()
                     ->preload(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('cetak_report')
+                    ->label('Cetak Report')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('date_from')
+                            ->label('Dari Tanggal'),
+                        Forms\Components\DatePicker::make('date_until')
+                            ->label('Sampai Tanggal'),
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Filter Pegawai')
+                            ->options(\App\Models\Employee::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function (array $data) {
+                        $query = EmployeeAssignmentLetter::query();
+
+                        if ($data['date_from']) {
+                            $query->whereDate('start_date', '>=', $data['date_from']);
+                        }
+                        if ($data['date_until']) {
+                            $query->whereDate('end_date', '<=', $data['date_until']);
+                        }
+                        if ($data['employee_id']) {
+                            $query->where('assigning_employee_id', $data['employee_id']);
+                        }
+
+                        $records = $query->get();
+                        $employeeName = $data['employee_id'] ? \App\Models\Employee::find($data['employee_id'])?->name : null;
+
+                        $pdf = Pdf::loadView('pdf.report-summary', [
+                            'title' => 'Surat Tugas',
+                            'data' => $records,
+                            'startDate' => $data['date_from'],
+                            'endDate' => $data['date_until'],
+                            'employeeName' => $employeeName,
+                        ]);
+
+                        return response()->streamDownload(function () use ($pdf) {
+                            echo $pdf->output();
+                        }, 'Report_Surat_Tugas_' . now()->format('YmdHis') . '.pdf');
+                    })
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -426,9 +468,63 @@ class EmployeeAssignmentLetterResource extends Resource
                                 echo $pdf->output();
                             }, $filename);
                         }),
+                    Tables\Actions\Action::make('upload_signed')
+                        ->label('Arsip TTD Internal')
+                        ->icon('heroicon-o-arrow-up-tray')
+                        ->color('info')
+                        ->form([
+                            Forms\Components\FileUpload::make('signed_file_path')
+                                ->label('File Scan TTD Internal (PDF)')
+                                ->disk('public')
+                                ->directory('assignment_letters_internal')
+                                ->acceptedFileTypes(['application/pdf'])
+                                ->required(),
+                        ])
+                        ->action(function (EmployeeAssignmentLetter $record, array $data) {
+                            $record->update([
+                                'signed_file_path' => $data['signed_file_path'],
+                            ]);
+                        })
+                        ->visible(fn(EmployeeAssignmentLetter $record) => empty($record->signed_file_path)),
+                    Tables\Actions\Action::make('selesaikan')
+                        ->label('Selesaikan')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\FileUpload::make('visit_file_path')
+                                ->label('File Scan Cap Kunjungan (PDF)')
+                                ->disk('public')
+                                ->directory('assignment_letters_complete')
+                                ->acceptedFileTypes(['application/pdf'])
+                                ->required(),
+                        ])
+                        ->action(function (EmployeeAssignmentLetter $record, array $data) {
+                            $record->update([
+                                'visit_file_path' => $data['visit_file_path'],
+                                'status' => 'selesai',
+                            ]);
+                        })
+                        ->visible(fn(EmployeeAssignmentLetter $record) => !empty($record->signed_file_path) && $record->status !== 'selesai'),
+                    Tables\Actions\Action::make('view_signed')
+                        ->label('Lihat Arsip')
+                        ->icon('heroicon-o-eye')
+                        ->color('gray')
+                        ->form([
+                            Forms\Components\Group::make([
+                                Forms\Components\Placeholder::make('internal_file')
+                                    ->label('Arsip TTD Internal')
+                                    ->content(fn($record) => $record->signed_file_path ? new \Illuminate\Support\HtmlString("<a href='".asset('storage/'.$record->signed_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Internal</a>") : 'Belum diupload'),
+                                Forms\Components\Placeholder::make('visit_file')
+                                    ->label('Arsip Cap Kunjungan')
+                                    ->content(fn($record) => $record->visit_file_path ? new \Illuminate\Support\HtmlString("<a href='".asset('storage/'.$record->visit_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Kunjungan</a>") : 'Belum diupload'),
+                            ])->columns(2)
+                        ])
+                        ->visible(fn(EmployeeAssignmentLetter $record) => !empty($record->signed_file_path)),
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
-                ])->label('Aksi'),
+                ])
+                ->label('Aksi')
+                ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

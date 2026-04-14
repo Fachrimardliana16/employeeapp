@@ -24,6 +24,9 @@ class EmployeeAssignmentLetter extends Model
         'signatory_name',
         'signatory_position',
         'pdf_file_path',
+        'signed_file_path',
+        'visit_file_path',
+        'status',
         'users_id',
     ];
 
@@ -32,7 +35,28 @@ class EmployeeAssignmentLetter extends Model
         'end_date' => 'date',
         'additional_employee_ids' => 'array',
         'additional_employees_detail' => 'array',
+        'status' => 'string',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->registration_number)) {
+                $model->registration_number = \App\Services\LetterNumberService::generateAssignmentNumber();
+            }
+            if (empty($model->status)) {
+                $model->status = 'on progress';
+            }
+        });
+
+        static::updating(function ($model) {
+            if (!empty($model->visit_file_path)) {
+                $model->status = 'selesai';
+            }
+        });
+    }
 
     /**
      * Get the assigning employee (main employee).

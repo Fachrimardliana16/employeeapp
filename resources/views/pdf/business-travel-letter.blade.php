@@ -351,11 +351,7 @@
                 <td class="label">PERJALANAN DINAS DIBIAYAI</td>
                 <td class="colon">:</td>
                 <td>
-                    @if ($travel->total_cost > 0)
-                        Rp {{ number_format($travel->total_cost, 0, ',', '.') }}
-                    @else
-                        Beban PERUMDA Air Minum Tirta Pewira
-                    @endif
+                    PERUMDAM AIR MINUM TIRTA PERWIRA
                 </td>
             </tr>
             <tr>
