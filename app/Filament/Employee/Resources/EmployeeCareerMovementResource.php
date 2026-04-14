@@ -57,7 +57,12 @@ class EmployeeCareerMovementResource extends Resource
                             ])
                             ->required()
                             ->native(false),
-                    ])->columns(3),
+
+                        Forms\Components\Toggle::make('is_applied')
+                            ->label('Terapkan langsung (Realisasi)')
+                            ->default(true)
+                            ->helperText('Jika dicentang, data jabatan/bagian di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.'),
+                    ])->columns(2),
 
                 Forms\Components\Section::make('Data Pegawai')
                     ->icon('heroicon-m-user')
@@ -154,12 +159,19 @@ class EmployeeCareerMovementResource extends Resource
 
                 Forms\Components\Section::make('Tambahan')
                     ->schema([
-                        Forms\Components\FileUpload::make('doc_path')
-                            ->label('Dokumen SK (PDF)')
-                            ->disk('public')
-                            ->directory('career-movements')
+                        Forms\Components\FileUpload::make('proposal_docs')
+                            ->label('Dokumen Usulan')
+                            ->directory('career-movements/proposals')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120),
+
+                        Forms\Components\FileUpload::make('doc_path')
+                            ->label('Dokumen SK Realisasi (PDF)')
+                            ->disk('public')
+                            ->directory('career-movements/realization')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(5120)
+                            ->required(fn (Forms\Get $get) => $get('is_applied')),
                         
                         Forms\Components\Textarea::make('description')
                             ->label('Keterangan')
@@ -180,6 +192,12 @@ class EmployeeCareerMovementResource extends Resource
                     ->label('No. SK')
                     ->searchable()
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
 
                 Tables\Columns\TextColumn::make('type')
                     ->label('Jenis')
@@ -224,8 +242,52 @@ class EmployeeCareerMovementResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make()->label('Lihat'),
-                    Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\Action::make('terapkan_pergerakan')
+                        ->label('Terapkan Realisasi')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\TextInput::make('decision_letter_number')
+                                ->label('Nomor SK Realisasi')
+                                ->required()
+                                ->default(fn ($record) => $record->decision_letter_number),
+                            Forms\Components\DatePicker::make('movement_date')
+                                ->label('Tanggal Realisasi')
+                                ->required()
+                                ->default(now()),
+                            Forms\Components\FileUpload::make('doc_path')
+                                ->label('Dokumen SK Realisasi')
+                                ->directory('career-movements/realization')
+                                ->required(),
+                        ])
+                        ->action(function ($record, array $data) {
+                            if ($record->employee) {
+                                // Update record
+                                $record->update([
+                                    'decision_letter_number' => $data['decision_letter_number'],
+                                    'movement_date' => $data['movement_date'],
+                                    'doc_path' => $data['doc_path'],
+                                    'is_applied' => true,
+                                    'applied_at' => now(),
+                                    'applied_by' => auth()->id(),
+                                ]);
+
+                                // Update Employee Profile
+                                $record->employee->update([
+                                    'departments_id' => $record->new_department_id,
+                                    'sub_department_id' => $record->new_sub_department_id,
+                                    'employee_position_id' => $record->new_position_id,
+                                ]);
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Karir Berhasil Direalisasikan')
+                                    ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui.')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn ($record) => !$record->is_applied),
+
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])
                 ->label('Aksi')

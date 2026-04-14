@@ -54,6 +54,11 @@ class EmployeeAppointmentResource extends Resource
                             ->required()
                             ->default(now())
                             ->helperText('Tanggal berlakunya SK Pengangkatan'),
+
+                        Forms\Components\Toggle::make('is_applied')
+                            ->label('Terapkan langsung (Realisasi)')
+                            ->default(true)
+                            ->helperText('Jika dicentang, status dan golongan di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Data Pegawai yang Diangkat')
@@ -185,15 +190,22 @@ class EmployeeAppointmentResource extends Resource
                 Forms\Components\Section::make('Dokumen & Keterangan')
                     ->icon('heroicon-m-paper-clip')
                     ->schema([
+                        Forms\Components\FileUpload::make('proposal_docs')
+                            ->label('Dokumen Usulan')
+                            ->directory('employee-appointments/proposals')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(10240),
+
                         Forms\Components\FileUpload::make('docs')
-                            ->label('Dokumen SK Pengangkatan (PDF)')
+                            ->label('Dokumen SK Realisasi (PDF)')
                             ->disk('public')
-                            ->directory('employee-appointments')
+                            ->directory('employee-appointments/realization')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(10240) // 10MB
                             ->downloadable()
                             ->openable()
                             ->visibility('public')
+                            ->required(fn (Forms\Get $get) => $get('is_applied'))
                             ->helperText('Upload file PDF SK Pengangkatan, maksimal 10MB'),
 
                         Forms\Components\Textarea::make('desc')
@@ -217,6 +229,12 @@ class EmployeeAppointmentResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
+
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
 
                 Tables\Columns\TextColumn::make('employee.name')
                     ->label('Nama Pegawai')
@@ -288,14 +306,57 @@ class EmployeeAppointmentResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
-                    Tables\Actions\EditAction::make()->label('Edit'),
-                    Tables\Actions\Action::make('download_doc')
-                        ->label('Unduh SK')
-                        ->icon('heroicon-o-arrow-down-tray')
-                        ->color('info')
-                        ->url(fn ($record) => $record->docs ? asset('storage/' . $record->docs) : null)
-                        ->openUrlInNewTab()
-                        ->visible(fn ($record) => !empty($record->docs)),
+                    Tables\Actions\Action::make('terapkan_pengangkatan')
+                        ->label('Terapkan Pengangkatan')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\TextInput::make('decision_letter_number')
+                                ->label('Nomor SK Realisasi')
+                                ->required()
+                                ->default(fn ($record) => $record->decision_letter_number),
+                            Forms\Components\DatePicker::make('appointment_date')
+                                ->label('Tanggal Realisasi')
+                                ->required()
+                                ->default(now()),
+                            Forms\Components\FileUpload::make('docs')
+                                ->label('Dokumen SK Realisasi')
+                                ->directory('employee-appointments/realization')
+                                ->required(),
+                        ])
+                        ->action(function ($record, array $data) {
+                            if ($record->employee) {
+                                // Update record
+                                $record->update([
+                                    'decision_letter_number' => $data['decision_letter_number'],
+                                    'appointment_date' => $data['appointment_date'],
+                                    'docs' => $data['docs'],
+                                    'is_applied' => true,
+                                    'applied_at' => now(),
+                                    'applied_by' => auth()->id(),
+                                ]);
+
+                                // Update Employee Profile
+                                $record->employee->update([
+                                    'employment_status_id' => $record->new_employment_status_id,
+                                    'basic_salary_id' => $record->employee_grade_id ?? $record->employee->basic_salary_id,
+                                    'grade_date_start' => $data['appointment_date'],
+                                ]);
+
+                                // Deactivate current contracts
+                                EmployeeAgreement::where('employees_id', $record->employee_id)
+                                    ->where('is_active', true)
+                                    ->update(['is_active' => false]);
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Pengangkatan Berhasil Direalisasikan')
+                                    ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui dan kontrak lama dinonaktifkan.')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn ($record) => !$record->is_applied),
+
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])
                     ->label('Aksi')

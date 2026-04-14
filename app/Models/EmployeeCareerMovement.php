@@ -21,6 +21,10 @@ class EmployeeCareerMovement extends Model
         'new_department_id',
         'new_sub_department_id',
         'new_position_id',
+        'is_applied',
+        'proposal_docs',
+        'applied_at',
+        'applied_by',
         'doc_path',
         'description',
         'users_id',
@@ -28,6 +32,8 @@ class EmployeeCareerMovement extends Model
 
     protected $casts = [
         'movement_date' => 'date',
+        'is_applied' => 'boolean',
+        'applied_at' => 'datetime',
     ];
 
     public function employee(): BelongsTo

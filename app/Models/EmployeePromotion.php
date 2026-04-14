@@ -22,7 +22,10 @@ class EmployeePromotion extends Model
         'old_basic_salary_id',
         'new_basic_salary_id',
         'doc_promotion',
+        'proposal_docs',
         'is_applied',
+        'applied_at',
+        'applied_by',
         'desc',
         'users_id',
     ];
@@ -31,6 +34,7 @@ class EmployeePromotion extends Model
         'promotion_date' => 'date',
         'next_promotion_date' => 'date',
         'is_applied' => 'boolean',
+        'applied_at' => 'datetime',
     ];
 
     protected static function boot()

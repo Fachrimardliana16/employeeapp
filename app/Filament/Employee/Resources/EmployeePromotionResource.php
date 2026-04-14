@@ -5,6 +5,9 @@ namespace App\Filament\Employee\Resources;
 use App\Filament\Employee\Resources\EmployeePromotionResource\Pages;
 use App\Filament\Employee\Resources\EmployeePromotionResource\RelationManagers;
 use App\Models\EmployeePromotion;
+use App\Models\MasterSubDepartment;
+use App\Models\MasterEmployeePosition;
+use App\Models\MasterEmployeeServiceGrade;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -56,9 +59,9 @@ class EmployeePromotionResource extends Resource
                             ->default(now()),
 
                         Forms\Components\Toggle::make('is_applied')
-                            ->label('Terapkan langsung ke Data Pegawai')
+                            ->label('Terapkan langsung (Realisasi)')
                             ->default(true)
-                            ->helperText('Jika dicentang, golongan gaji di profil pegawai akan langsung diperbarui saat disimpan.')
+                            ->helperText('Jika dicentang, golongan gaji di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.')
                             ->columnSpanFull(),
                     ])->columns(2),
 
@@ -155,11 +158,18 @@ class EmployeePromotionResource extends Resource
 
                 Forms\Components\Section::make('Dokumen & Keterangan')
                     ->schema([
-                        Forms\Components\FileUpload::make('doc_promotion')
-                            ->label('Dokumen SK')
-                            ->directory('employee-promotions')
+                        Forms\Components\FileUpload::make('proposal_docs')
+                            ->label('Dokumen Usulan')
+                            ->directory('employee-promotions/proposals')
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
-                            ->maxSize(5120), // 5MB
+                            ->maxSize(5120),
+                        
+                        Forms\Components\FileUpload::make('doc_promotion')
+                            ->label('Dokumen SK Realisasi')
+                            ->directory('employee-promotions/realization')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->maxSize(5120)
+                            ->required(fn (Forms\Get $get) => $get('is_applied')),
 
                         Forms\Components\Textarea::make('desc')
                             ->label('Deskripsi/Keterangan')
@@ -185,6 +195,12 @@ class EmployeePromotionResource extends Resource
                     ->label('No. SK')
                     ->searchable()
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
 
                 Tables\Columns\TextColumn::make('employee.name')
                     ->label('Nama Pegawai')
@@ -269,12 +285,55 @@ class EmployeePromotionResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
                     Tables\Actions\EditAction::make()->label('Edit'),
-                    Tables\Actions\Action::make('download_document')
-                        ->label('Unduh Dokumen')
-                        ->icon('heroicon-o-arrow-down-tray')
-                        ->url(fn ($record) => $record->doc_promotion ? asset('storage/' . $record->doc_promotion) : null)
-                        ->openUrlInNewTab()
-                        ->visible(fn ($record) => !empty($record->doc_promotion)),
+                    Tables\Actions\Action::make('terapkan_kenaikan')
+                        ->label('Terapkan Kenaikan')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\TextInput::make('decision_letter_number')
+                                ->label('Nomor SK Realisasi')
+                                ->required()
+                                ->default(fn ($record) => $record->decision_letter_number),
+                            Forms\Components\DatePicker::make('promotion_date')
+                                ->label('Tanggal Realisasi')
+                                ->required()
+                                ->default(now()),
+                            Forms\Components\FileUpload::make('doc_promotion')
+                                ->label('Dokumen SK Realisasi')
+                                ->directory('employee-promotions/realization')
+                                ->required(),
+                        ])
+                        ->action(function ($record, array $data) {
+                            if ($record->employee) {
+                                // Find Service Grade ID for 0 years
+                                $mkg0 = MasterEmployeeServiceGrade::where('service_grade', 0)->first();
+
+                                // Update record with realization data
+                                $record->update([
+                                    'decision_letter_number' => $data['decision_letter_number'],
+                                    'promotion_date' => $data['promotion_date'],
+                                    'doc_promotion' => $data['doc_promotion'],
+                                    'is_applied' => true,
+                                    'applied_at' => now(),
+                                    'applied_by' => auth()->id(),
+                                ]);
+
+                                // Update Employee Profile
+                                $record->employee->update([
+                                    'basic_salary_id' => $record->new_basic_salary_id,
+                                    'employee_service_grade_id' => $mkg0?->id ?? $record->employee->employee_service_grade_id,
+                                    'grade_date_start' => $data['promotion_date'],
+                                ]);
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Kenaikan Golongan Berhasil Direalisasikan')
+                                    ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui dan MKG direset ke 0.')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn ($record) => !$record->is_applied),
+
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])
                 ->label('Aksi')

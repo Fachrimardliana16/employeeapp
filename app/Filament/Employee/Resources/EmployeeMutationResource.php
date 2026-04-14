@@ -130,9 +130,9 @@ class EmployeeMutationResource extends Resource
                                                     ->default(now())
                                                     ->helperText('Tanggal efektif berlakunya mutasi'),
                                                 Forms\Components\Toggle::make('is_applied')
-                                                    ->label('Terapkan langsung ke Data Pegawai')
+                                                    ->label('Terapkan langsung (Realisasi)')
                                                     ->default(true)
-                                                    ->helperText('Jika dicentang, data jabatan/bagian di profil pegawai akan langsung diperbarui saat disimpan.')
+                                                    ->helperText('Jika dicentang, data jabatan/bagian di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.')
                                                     ->columnSpanFull(),
                                             ]),
                                     ]),
@@ -254,16 +254,26 @@ class EmployeeMutationResource extends Resource
                                 Forms\Components\Section::make('Dokumen Pendukung')
                                     ->description('Upload dokumen terkait mutasi')
                                     ->schema([
-                                        Forms\Components\FileUpload::make('docs')
-                                            ->label('Dokumen Mutasi')
+                                        Forms\Components\FileUpload::make('proposal_docs')
+                                            ->label('Dokumen Usulan')
                                             ->disk('public')
-                                            ->directory('mutations')
+                                            ->directory('mutations/proposals')
+                                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                                            ->maxSize(10240)
+                                            ->downloadable()
+                                            ->openable()
+                                            ->helperText('Upload dokumen usulan mutasi (PDF, JPG, PNG) maksimal 10MB'),
+                                        Forms\Components\FileUpload::make('docs')
+                                            ->label('Dokumen SK Realisasi')
+                                            ->disk('public')
+                                            ->directory('mutations/realization')
                                             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                                             ->maxSize(10240) // 10MB
                                             ->downloadable()
                                             ->openable()
                                             ->visibility('public')
-                                            ->helperText('Upload dokumen pendukung mutasi (PDF, JPG, PNG) maksimal 10MB'),
+                                            ->required(fn (Forms\Get $get) => $get('is_applied'))
+                                            ->helperText('Upload dokumen SK realisasi mutasi (PDF, JPG, PNG) maksimal 10MB'),
                                         Forms\Components\Hidden::make('users_id')
                                             ->default(fn() => auth()->id() ?? 0),
                                     ]),
@@ -275,11 +285,13 @@ class EmployeeMutationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('decision_letter_number')
-                    ->label('Nomor SK')
-                    ->searchable()
-                    ->sortable()
-                    ->copyable()
                     ->tooltip('Klik untuk copy'),
+                
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
 
                 Tables\Columns\TextColumn::make('mutation_date')
                     ->label('Tanggal Mutasi')
@@ -429,14 +441,36 @@ class EmployeeMutationResource extends Resource
                         ->label('Edit'),
                     Tables\Actions\Action::make('apply_mutation')
                         ->label('Terapkan Mutasi')
-                        ->icon('heroicon-o-arrow-path')
+                        ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->requiresConfirmation()
-                        ->modalHeading('Terapkan Mutasi Pegawai')
-                        ->modalSubheading('Apakah Anda yakin ingin menerapkan mutasi ini? Data Pegawai akan diperbarui sesuai dengan mutasi.')
-                        ->modalIcon('heroicon-o-arrow-path')
-                        ->action(function (EmployeeMutation $record) {
+                        ->form([
+                            Forms\Components\TextInput::make('decision_letter_number')
+                                ->label('Nomor SK Realisasi')
+                                ->required()
+                                ->default(fn (EmployeeMutation $record) => $record->decision_letter_number),
+                            Forms\Components\DatePicker::make('mutation_date')
+                                ->label('Tanggal Realisasi')
+                                ->required()
+                                ->default(now()),
+                            Forms\Components\FileUpload::make('docs')
+                                ->label('Dokumen SK Realisasi')
+                                ->disk('public')
+                                ->directory('mutations/realization')
+                                ->required(),
+                        ])
+                        ->action(function (EmployeeMutation $record, array $data) {
                             if ($record->employee) {
+                                // Update record with realization data
+                                $record->update([
+                                    'decision_letter_number' => $data['decision_letter_number'],
+                                    'mutation_date' => $data['mutation_date'],
+                                    'docs' => $data['docs'],
+                                    'is_applied' => true,
+                                    'applied_at' => now(),
+                                    'applied_by' => auth()->id(),
+                                ]);
+
+                                // Update Employee Profile
                                 $record->employee->update([
                                     'departments_id' => $record->new_department_id,
                                     'sub_department_id' => $record->new_sub_department_id,
@@ -444,17 +478,13 @@ class EmployeeMutationResource extends Resource
                                 ]);
 
                                 Notification::make()
-                                    ->title('Mutasi Berhasil Diterapkan')
-                                    ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui sesuai mutasi.')
+                                    ->title('Mutasi Berhasil Direalisasikan')
+                                    ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui.')
                                     ->success()
                                     ->send();
                             }
                         })
-                        ->visible(fn(EmployeeMutation $record) => $record->employee !== null && (
-                            $record->employee->departments_id != $record->new_department_id ||
-                            $record->employee->sub_department_id != $record->new_sub_department_id ||
-                            $record->employee->employee_position_id != $record->new_position_id
-                        )),
+                        ->visible(fn(EmployeeMutation $record) => !$record->is_applied),
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
                 ])

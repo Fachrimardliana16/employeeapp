@@ -22,6 +22,11 @@ class EmployeePeriodicSalaryIncrease extends Model
         'increase_reason',
         'approval_date',
         'approved_by',
+        'is_applied',
+        'proposal_docs',
+        'new_employee_service_grade_id',
+        'applied_at',
+        'applied_by',
         'notes',
         'users_id',
     ];
@@ -33,6 +38,8 @@ class EmployeePeriodicSalaryIncrease extends Model
         'increase_percentage' => 'decimal:2',
         'effective_date' => 'date',
         'approval_date' => 'date',
+        'is_applied' => 'boolean',
+        'applied_at' => 'datetime',
     ];
 
     /**
@@ -57,5 +64,13 @@ class EmployeePeriodicSalaryIncrease extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'users_id');
+    }
+
+    /**
+     * Get the new service grade (MKG) after increase.
+     */
+    public function newServiceGrade(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeServiceGrade::class, 'new_employee_service_grade_id');
     }
 }

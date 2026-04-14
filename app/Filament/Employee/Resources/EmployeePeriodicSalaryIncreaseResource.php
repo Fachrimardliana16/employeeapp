@@ -137,6 +137,25 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                             ->relationship('approver', 'name')
                             ->searchable()
                             ->preload(),
+                        
+                        Forms\Components\Toggle::make('is_applied')
+                            ->label('Terapkan langsung (Realisasi)')
+                            ->default(true)
+                            ->helperText('Jika dicentang, gaji pokok dan MKG di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.'),
+                        
+                        Forms\Components\FileUpload::make('proposal_docs')
+                            ->label('Dokumen Usulan')
+                            ->directory('employee-kgb/proposals')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->maxSize(5120),
+
+                        Forms\Components\Select::make('new_employee_service_grade_id')
+                            ->label('MKG Baru (Masa Kerja)')
+                            ->relationship('newServiceGrade', 'service_grade')
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Pilih Masa Kerja Golongan (MKG) baru setelah kenaikan.'),
+
                         Forms\Components\Textarea::make('notes')
                             ->maxLength(500),
                         Forms\Components\Hidden::make('users_id')
@@ -153,6 +172,11 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     ->label('Nama Pegawai')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
                 Tables\Columns\TextColumn::make('previous_basic_salary')
                     ->label('Gaji Pokok Sebelumnya')
                     ->money('IDR')
@@ -219,8 +243,44 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat'),
-                    Tables\Actions\EditAction::make()
-                        ->label('Edit'),
+                    Tables\Actions\Action::make('terapkan_kgb')
+                        ->label('Terapkan KGB')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\DatePicker::make('applied_date')
+                                ->label('Tanggal Realisasi')
+                                ->required()
+                                ->default(now()),
+                            Forms\Components\TextInput::make('notes')
+                                ->label('Keterangan Tambahan'),
+                        ])
+                        ->action(function ($record, array $data) {
+                            if ($record->employee) {
+                                // Update record
+                                $record->update([
+                                    'is_applied' => true,
+                                    'applied_at' => now(),
+                                    'applied_by' => auth()->id(),
+                                    'notes' => ($record->notes ? $record->notes . "\n" : "") . "Direalisasikan pada " . $data['applied_date'],
+                                ]);
+
+                                // Update Employee Profile
+                                $record->employee->update([
+                                    'periodic_salary_date_start' => $data['applied_date'],
+                                    'employee_service_grade_id' => $record->new_employee_service_grade_id ?? $record->employee->employee_service_grade_id,
+                                    'basic_salary' => $record->new_basic_salary, // Update salary field if it exists
+                                ]);
+
+                                Notification::make()
+                                    ->title('KGB Berhasil Direalisasikan')
+                                    ->body('Data Pegawai ' . $record->employee->name . ' telah diperbarui.')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn ($record) => !$record->is_applied),
+
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
                 ])->label('Aksi'),

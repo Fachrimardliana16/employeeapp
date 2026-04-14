@@ -17,6 +17,10 @@ class EmployeeAppointment extends Model
         'old_employment_status_id',
         'new_employment_status_id',
         'employee_grade_id',
+        'is_applied',
+        'proposal_docs',
+        'applied_at',
+        'applied_by',
         'docs',
         'desc',
         'users_id',
@@ -24,6 +28,8 @@ class EmployeeAppointment extends Model
 
     protected $casts = [
         'appointment_date' => 'date',
+        'is_applied' => 'boolean',
+        'applied_at' => 'datetime',
     ];
 
     public function employee(): BelongsTo
