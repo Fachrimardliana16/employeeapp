@@ -13,6 +13,29 @@ use App\Http\Controllers\Mobile\MobileTrainingController;
 use App\Http\Controllers\Mobile\MobileFamilyController;
 use App\Http\Controllers\Mobile\MobileRetirementController;
 
+use App\Models\EmployeeAttendanceRecord;
+use App\Models\MasterOfficeLocation;
+use App\Models\Employee;
+use App\Models\JobApplication;
+
+// Temporary route to fix storage:link issue on hosting
+Route::get('/linkstorage', function () {
+    $target = storage_path('app/public');
+    $shortcut = public_path('storage');
+    
+    // Check if link already exists
+    if (file_exists($shortcut)) {
+        return "The 'public/storage' directory already exists.";
+    }
+    
+    try {
+        symlink($target, $shortcut);
+        return "Storage link created successfully!";
+    } catch (\Exception $e) {
+        return "Error creating storage link: " . $e->getMessage();
+    }
+});
+
 // Redirect root to user panel
 Route::redirect('/', '/user');
 
