@@ -23,17 +23,18 @@ Route::get('/linkstorage', function () {
     $target = storage_path('app/public');
     $shortcut = public_path('storage');
     
-    // Check if link already exists
-    if (file_exists($shortcut)) {
-        return "The 'public/storage' directory already exists.";
+    // Force delete if exists to recreate
+    if (file_exists($shortcut) || is_link($shortcut)) {
+        @unlink($shortcut);
     }
     
     try {
-        symlink($target, $shortcut);
-        return "Storage link created successfully!";
-    } catch (\Exception $e) {
-        return "Error creating storage link: " . $e->getMessage();
-    }
+        if (symlink($target, $shortcut)) {
+            return "Storage link created successfully using symlink!";
+        }
+    } catch (\Exception $e) {}
+
+    return "Failed to create symlink. Error: " . error_get_last()['message'];
 });
 
 // Redirect root to user panel
