@@ -29,7 +29,9 @@ class EmployeePanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Blue,
             ])
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->brandName('Manajemen Pegawai')
+
             ->favicon(asset('images/favicon.ico'))
             ->discoverResources(in: app_path('Filament/Employee/Resources'), for: 'App\\Filament\\Employee\\Resources')
             ->discoverPages(in: app_path('Filament/Employee/Pages'), for: 'App\\Filament\\Employee\\Pages')

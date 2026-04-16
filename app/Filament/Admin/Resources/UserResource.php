@@ -44,6 +44,11 @@ class UserResource extends Resource
                                     ->required()
                                     ->maxLength(255)
                                     ->unique(ignoreRecord: true),
+                                Forms\Components\TextInput::make('username')
+                                    ->label('Username')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->unique(ignoreRecord: true),
                             ]),
                         Forms\Components\Grid::make(2)
                             ->schema([
@@ -69,6 +74,10 @@ class UserResource extends Resource
                             ->label('Terverifikasi')
                             ->helperText('Hanya pengguna terverifikasi yang dapat login ke aplikasi.')
                             ->default(false),
+                        Forms\Components\Toggle::make('is_active')
+                            ->label('Aktif')
+                            ->helperText('Hanya pengguna aktif yang dapat login.')
+                            ->default(true),
                     ]),
             ]);
     }
@@ -85,12 +94,20 @@ class UserResource extends Resource
                     ->label('Email')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('username')
+                    ->label('Username')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Peran')
                     ->badge()
                     ->searchable(),
                 Tables\Columns\IconColumn::make('is_verified')
                     ->label('Terverifikasi')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('is_active')
+                    ->label('Aktif')
                     ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('email_verified_at')
@@ -107,6 +124,8 @@ class UserResource extends Resource
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_verified')
                     ->label('Status Verifikasi'),
+                Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Status Aktif'),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([

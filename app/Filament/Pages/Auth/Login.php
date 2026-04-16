@@ -41,11 +41,26 @@ class Login extends BaseLogin
         return parent::getRedirectUrl();
     }
 
+    protected function getCredentialsFromFormData(array $data): array
+    {
+        $loginField = filter_var($data['email'], FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+        return [
+            $loginField => $data['email'],
+            'password' => $data['password'],
+            'is_active' => true,
+        ];
+    }
+
     protected function getEmailFormComponent(): \Filament\Forms\Components\Component
     {
-        return parent::getEmailFormComponent()
-            ->label('USERNAME')
-            ->placeholder('Masukkan username anda')
+        return \Filament\Forms\Components\TextInput::make('email')
+            ->label('EMAIL / USERNAME')
+            ->placeholder('Masukkan email atau username anda')
+            ->required()
+            ->autocomplete()
+            ->autofocus()
+            ->extraInputAttributes(['tabindex' => 1])
             ->prefixIcon('heroicon-o-user')
             ->prefixIconColor('blue');
     }

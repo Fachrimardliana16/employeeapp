@@ -1720,29 +1720,28 @@ class EmployeeDataSeeder extends Seeder
                 }
             }
 
-            // Generate first-name based email
+            // Generate first-name based email and username
             $nameParts = explode(" ", $name);
             $firstName = Str::slug($nameParts[0] ?? "pegawai" , "");
             if (empty($firstName)) $firstName = "pegawai";
 
+            $username = $firstName;
             $email = $firstName . "@pdampurbalingga.co.id";
             
-            // Handle duplicate first names for unique emails
+            // Handle duplicate first names for unique emails and usernames
             $counter = 1;
-            while (in_array($email, $usedEmails) || User::where("email", $email)->where("name", "!=", $name)->exists()) {
+            while (
+                in_array($email, $usedEmails) || 
+                User::where("email", $email)->where("name", "!=", $name)->exists() ||
+                User::where("username", $username)->where("name", "!=", $name)->exists() ||
+                Employee::where("username", $username)->where("name", "!=", $name)->exists() ||
+                Employee::where("office_email", $email)->where("name", "!=", $name)->exists()
+            ) {
+                $username = $firstName . $counter;
                 $email = $firstName . $counter . "@pdampurbalingga.co.id";
                 $counter++;
             }
             $usedEmails[] = $email;
-
-            // Username still uses slug of full name for internal uniqueness
-            $baseUsername = Str::slug($name, "");
-            $username = $baseUsername;
-            $uCounter = 1;
-            while (Employee::where("username", $username)->where("name", "!=", $name)->exists()) {
-                $username = $baseUsername . $uCounter;
-                $uCounter++;
-            }
 
             // Find Grade ID
             $gradeId = null;
@@ -1759,8 +1758,10 @@ class EmployeeDataSeeder extends Seeder
                     ["email" => $email],
                     [
                         "name" => $name,
+                        "username" => $username,
                         "password" => Hash::make("pdam891706"),
                         "is_verified" => true,
+                        "is_active" => true,
                         "email_verified_at" => now(),
                     ]
                 );

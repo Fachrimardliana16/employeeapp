@@ -698,10 +698,12 @@ class JobApplicationResource extends Resource
                             $agreement = EmployeeAgreement::createFromJobApplication($archive);
 
                             $firstName = Str::slug(Str::before($record->name, ' '), '');
+                            $username = $firstName;
                             $officeEmail = $firstName . '@pdampurbalingga.co.id';
                             
                             $counter = 1;
-                            while (\App\Models\Employee::where('office_email', $officeEmail)->exists() || \App\Models\User::where('email', $officeEmail)->exists()) {
+                            while (\App\Models\User::where('username', $username)->orWhere('email', $officeEmail)->exists() || \App\Models\Employee::where('username', $username)->orWhere('office_email', $officeEmail)->exists()) {
+                                $username = $firstName . $counter;
                                 $officeEmail = $firstName . $counter . '@pdampurbalingga.co.id';
                                 $counter++;
                             }
@@ -709,8 +711,10 @@ class JobApplicationResource extends Resource
                             $user = \App\Models\User::create([
                                 'name' => $record->name,
                                 'email' => $officeEmail,
+                                'username' => $username,
                                 'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
                                 'is_verified' => true,
+                                'is_active' => true,
                             ]);
                             $user->assignRole('user');
 

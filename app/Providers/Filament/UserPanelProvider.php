@@ -27,7 +27,6 @@ class UserPanelProvider extends PanelProvider
             ->id('user')
             ->path('user')
             ->login(\App\Filament\Pages\Auth\Login::class)
-            ->registration()
             ->brandName('Panel Pegawai')
             ->colors([
                 'primary' => Color::Green,

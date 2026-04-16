@@ -6,6 +6,8 @@ use App\Filament\Employee\Resources\EmployeeRetirementResource\Pages;
 use App\Filament\Employee\Resources\EmployeeRetirementResource\RelationManagers;
 use App\Models\EmployeeRetirement;
 use App\Models\Employee;
+use App\Models\MasterEmployeeStatusEmployment;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -45,107 +47,100 @@ class EmployeeRetirementResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Formulir Pengajuan Pensiun')
-                    ->description('Lengkapi informasi pengajuan pensiun dengan teliti')
-                    ->icon('heroicon-o-home')
+                Forms\Components\Section::make('Informasi Pengajuan Pensiun')
+                    ->icon('heroicon-m-document-text')
                     ->schema([
-                        Forms\Components\Tabs::make('Informasi Pensiun')
-                            ->tabs([
-                        Forms\Components\Tabs\Tab::make('Informasi Pegawai')
-                            ->label('Informasi Pegawai')
-                            ->icon('heroicon-o-user')
-                            ->schema([
-                                Forms\Components\Select::make('employee_id')
-                                    ->label('Pegawai')
-                                    ->relationship('employee', 'name')
-                                    ->required()
-                                    ->searchable()
-                                    ->preload()
-                                    ->live()
-                                    ->placeholder('Pilih Pegawai...')
-                                    ->afterStateUpdated(function (callable $set, $state) {
-                                        if ($state) {
-                                            $employee = \App\Models\Employee::with(['position', 'department', 'grade'])->find($state);
-                                            if ($employee) {
-                                                $set('employee_number', $employee->nippam);
-                                                $set('current_position', $employee->position->name ?? '');
-                                                $set('current_department', $employee->department->name ?? '');
-                                                $set('current_grade', $employee->grade->name ?? '');
-                                                $set('hire_date', $employee->entry_date);
-                                            }
-                                        }
-                                    }),
+                        Forms\Components\DatePicker::make('retirement_date')
+                            ->label('Tanggal Efektif')
+                            ->required()
+                            ->default(now())
+                            ->placeholder('Pilih tanggal pensiun...')
+                            ->helperText('Tanggal resmi pegawai berhenti bekerja')
+                            ->native(false),
 
-                                Forms\Components\Grid::make(2)
-                                    ->schema([
-                                        Forms\Components\TextInput::make('employee_number')
-                                            ->label('Nomor Pegawai')
-                                            ->disabled()
-                                            ->dehydrated(false),
+                        Forms\Components\Toggle::make('is_applied')
+                            ->label('Terapkan langsung (Realisasi)')
+                            ->default(false)
+                            ->helperText('Jika dicentang, status di profil pegawai akan langsung diperbarui saat disimpan.')
+                            ->columnSpanFull(),
+                    ])->columns(2),
 
-                                        Forms\Components\TextInput::make('current_position')
-                                            ->label('Posisi Saat Ini')
-                                            ->disabled()
-                                            ->dehydrated(false),
+                Forms\Components\Section::make('Data Pegawai')
+                    ->icon('heroicon-m-user')
+                    ->schema([
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Pegawai')
+                            ->relationship('employee', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->placeholder('Pilih Pegawai...')
+                            ->helperText('Pilih pegawai. Data riwayat akan ditampilkan otomatis.'),
 
-                                        Forms\Components\TextInput::make('current_department')
-                                            ->label('Departemen Saat Ini')
-                                            ->disabled()
-                                            ->dehydrated(false),
+                        Forms\Components\Placeholder::make('employee_info')
+                            ->label('Informasi Saat Ini')
+                            ->content(function (Forms\Get $get) {
+                                $id = $get('employee_id');
+                                if (!$id) return 'Pilih pegawai terlebih dahulu.';
+                                $employee = Employee::with(['department', 'position', 'grade'])->find($id);
+                                if (!$employee) return 'Data tidak ditemukan.';
 
-                                        Forms\Components\TextInput::make('current_grade')
-                                            ->label('Grade Saat Ini')
-                                            ->disabled()
-                                            ->dehydrated(false),
+                                return new \Illuminate\Support\HtmlString('
+                                    <div class="text-sm space-y-1">
+                                        <div><strong>NIPPAM:</strong> ' . ($employee->nippam ?? '-') . '</div>
+                                        <div><strong>Bagian:</strong> ' . ($employee->department?->name ?? '-') . '</div>
+                                        <div><strong>Jabatan:</strong> ' . ($employee->position?->name ?? '-') . '</div>
+                                        <div><strong>Golongan:</strong> ' . ($employee->grade?->name ?? '-') . '</div>
+                                    </div>
+                                ');
+                            })
+                            ->visible(fn (Forms\Get $get) => $get('employee_id')),
+                    ])->columns(2),
 
-                                        Forms\Components\DatePicker::make('hire_date')
-                                            ->label('Tanggal Masuk')
-                                            ->disabled()
-                                            ->dehydrated(false),
-                                    ]),
-                            ]),
+                Forms\Components\Section::make('Detail & Alasan')
+                    ->icon('heroicon-m-information-circle')
+                    ->schema([
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Alasan Pensiun')
+                            ->rows(3)
+                            ->placeholder('Jelaskan alasan pengajuan pensiun secara rinci...')
+                            ->helperText('Berikan penjelasan lengkap mengenai alasan pensiun Pegawai')
+                            ->required()
+                            ->columnSpanFull(),
+                            
+                        Forms\Components\Textarea::make('handover_notes')
+                            ->label('Catatan Serah Terima')
+                            ->placeholder('Daftar pekerjaan atau tanggung jawab yang diserahterimakan...')
+                            ->rows(2),
 
-                        Forms\Components\Tabs\Tab::make('Detail Pensiun')
-                            ->icon('heroicon-o-calendar')
-                            ->schema([
-                                Forms\Components\Grid::make(2)
-                                    ->schema([
-                                        Forms\Components\DatePicker::make('retirement_date')
-                                            ->label('Tanggal Pensiun')
-                                            ->required()
-                                            ->minDate(now())
-                                            ->placeholder('Pilih tanggal pensiun...')
-                                            ->helperText('Tanggal efektif pensiun Pegawai')
-                                            ->native(false),
-                                    ]),
+                        Forms\Components\Textarea::make('company_assets')
+                            ->label('Aset Perusahaan')
+                            ->placeholder('Daftar aset yang harus atau sudah dikembalikan...')
+                            ->rows(2),
+                    ])->columns(2),
 
-                                Forms\Components\Textarea::make('reason')
-                                    ->label('Alasan Pensiun')
-                                    ->rows(3)
-                                    ->columnSpanFull()
-                                    ->placeholder('Jelaskan alasan pensiun secara detail...')
-                                    ->helperText('Berikan penjelasan lengkap mengenai alasan pensiun Pegawai')
-                                    ->maxLength(1000)
-                                    ->required(),
-                            ]),
+                Forms\Components\Section::make('Dokumen Pendukung')
+                    ->icon('heroicon-m-paper-clip')
+                    ->schema([
+                        Forms\Components\FileUpload::make('docs')
+                            ->label('Berkas Usulan (PDF)')
+                            ->directory('retirement-documents/proposals')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(5120)
+                            ->placeholder('Unggah dokumen usulan...'),
 
-                        Forms\Components\Tabs\Tab::make('Dokumen')
-                            ->icon('heroicon-o-document-text')
-                            ->schema([
-                                Forms\Components\FileUpload::make('docs')
-                                    ->label('Dokumen Pensiun')
-                                    ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
-                                    ->maxSize(5120)
-                                    ->directory('retirement-documents')
-                                    ->visibility('private')
-                                    ->columnSpanFull()
-                                    ->helperText('Format yang didukung: PDF, JPEG, PNG. Maksimal 5MB.')
-                                    ->placeholder('Unggah dokumen pensiun...'),
-                            ]),
-                        ])
-                        ->columnSpanFull()
-                        ->persistTabInQueryString(),
-                    ]),
+                        Forms\Components\FileUpload::make('realization_docs')
+                            ->label('Berkas Realisasi / SK (PDF)')
+                            ->directory('retirement-documents/realization')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(5120)
+                            ->required(fn (Forms\Get $get) => $get('is_applied'))
+                            ->placeholder('Unggah dokumen SK realisasi...'),
+                    ])->columns(2),
+
+                Forms\Components\Hidden::make('users_id')
+                    ->default(fn () => auth()->id()),
             ]);
     }
 
@@ -213,20 +208,22 @@ class EmployeeRetirementResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('approval_status')
+                Tables\Columns\TextColumn::make('is_applied')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'approved' => 'success',
-                        'rejected' => 'danger',
-                        'pending' => 'warning',
+                    ->color(fn ($record): string => match (true) {
+                        $record->is_applied => 'success',
+                        $record->approval_status === 'rejected' => 'danger',
+                        $record->approval_status === 'pending' => 'warning',
+                        $record->approval_status === 'approved' => 'info',
                         default => 'gray',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'approved' => 'Realisasi',
-                        'pending' => 'Usulan',
-                        'rejected' => 'Ditolak',
-                        default => $state,
+                    ->formatStateUsing(fn ($record): string => match (true) {
+                        $record->is_applied => 'Realisasi',
+                        $record->approval_status === 'approved' => 'Disetujui',
+                        $record->approval_status === 'pending' => 'Usulan',
+                        $record->approval_status === 'rejected' => 'Ditolak',
+                        default => $record->approval_status,
                     }),
             ])
             ->filters([
@@ -268,6 +265,64 @@ class EmployeeRetirementResource extends Resource
                     ->toggle(),
             ])
             ->actions([
+                Tables\Actions\Action::make('terapkan_realisasi')
+                    ->label('Terapkan Realisasi')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->button()
+                    ->size('sm')
+                    ->requiresConfirmation()
+                    ->modalHeading('Realisasi Pensiun Pegawai')
+                    ->modalDescription('Apakah Anda yakin ingin merealisasikan pensiun untuk pegawai ini? Status pegawai akan diubah menjadi Pensiun, BPJS akan dinonaktifkan, dan akun user akan dinonaktifkan.')
+                    ->form([
+                        Forms\Components\DatePicker::make('retirement_date')
+                            ->label('Tanggal Efektif Pensiun')
+                            ->default(fn ($record) => $record->retirement_date)
+                            ->required(),
+                        Forms\Components\FileUpload::make('realization_docs')
+                            ->label('Dokumen Realisasi (SK Pensiun, dll)')
+                            ->directory('retirement-docs/realization')
+                            ->required(),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $employee = $record->employee;
+                        if (!$employee) return;
+
+                        // 1. Dapatkan ID status Pensiun
+                        $pensiunStatus = MasterEmployeeStatusEmployment::where('name', 'Pensiun')->first();
+                        
+                        // 2. Update Profil Pegawai
+                        $employee->update([
+                            'employment_status_id' => $pensiunStatus?->id ?? $employee->employment_status_id,
+                            'bpjs_kes_status' => 'Non-Aktif',
+                            'bpjs_tk_status' => 'Non-Aktif',
+                            'dapenma_status' => 'Non-Aktif',
+                            'agreement_date_end' => $data['retirement_date'],
+                        ]);
+
+                        // 3. Deaktivasi User Account
+                        if ($employee->users_id) {
+                            User::where('id', $employee->users_id)->update(['is_active' => false]);
+                        }
+
+                        // 4. Update data Pensiun
+                        $record->update([
+                            'is_applied' => true,
+                            'applied_at' => now(),
+                            'applied_by' => auth()->id(),
+                            'retirement_date' => $data['retirement_date'],
+                            'realization_docs' => $data['realization_docs'],
+                            'approval_status' => 'approved',
+                        ]);
+
+                        Notification::make()
+                            ->title('Pensiun Berhasil Direalisasikan')
+                            ->body('Status pegawai ' . $employee->name . ' telah diperbarui dan akun telah dinonaktifkan.')
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn ($record) => !$record->is_applied),
+
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat')
@@ -284,7 +339,7 @@ class EmployeeRetirementResource extends Resource
                         ->modalSubmitActionLabel('Ya, Hapus')
                         ->modalCancelActionLabel('Batal'),
                 ])
-                    ->label('Aksi')
+                    ->label('Lainnya')
                     ->icon('heroicon-m-ellipsis-vertical')
                     ->size('sm')
                     ->color('gray')

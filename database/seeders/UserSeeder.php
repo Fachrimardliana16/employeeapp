@@ -84,13 +84,24 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($superAdmins as $email => $name) {
+            $firstName = strtolower(explode(' ', trim($name))[0]);
+            $username = $firstName;
+            $counter = 1;
+
+            while (User::where('username', $username)->where('email', '!=', $email)->exists()) {
+                $username = $firstName . $counter;
+                $counter++;
+            }
+
             $user = User::updateOrCreate(
                 ['email' => $email],
                 [
                     'name' => $name,
+                    'username' => $username,
                     'password' => Hash::make('pdam891706'),
                     'email_verified_at' => now(),
                     'is_verified' => true,
+                    'is_active' => true,
                 ]
             );
             $user->assignRole($superAdminRole);
@@ -105,13 +116,24 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($admins as $email => $name) {
+            $firstName = strtolower(explode(' ', trim($name))[0]);
+            $username = $firstName;
+            $counter = 1;
+
+            while (User::where('username', $username)->where('email', '!=', $email)->exists()) {
+                $username = $firstName . $counter;
+                $counter++;
+            }
+
             $user = User::updateOrCreate(
                 ['email' => $email],
                 [
                     'name' => $name,
+                    'username' => $username,
                     'password' => Hash::make('pdam891706'),
                     'email_verified_at' => now(),
                     'is_verified' => true,
+                    'is_active' => true,
                 ]
             );
             $user->assignRole($adminRole);

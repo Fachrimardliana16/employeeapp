@@ -28,6 +28,8 @@ class AssetsPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            ->login(\App\Filament\Pages\Auth\Login::class)
+
             ->discoverResources(in: app_path('Filament/Assets/Resources'), for: 'App\\Filament\\Assets\\Resources')
             ->discoverPages(in: app_path('Filament/Assets/Pages'), for: 'App\\Filament\\Assets\\Pages')
             ->pages([

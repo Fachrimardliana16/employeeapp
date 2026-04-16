@@ -31,6 +31,10 @@ class EmployeeRetirement extends Model
         'approved_by',
         'approved_at',
         'approval_notes',
+        'is_applied',
+        'applied_at',
+        'applied_by',
+        'realization_docs',
         'users_id',
     ];
 
@@ -38,8 +42,10 @@ class EmployeeRetirement extends Model
         'retirement_date' => 'date',
         'last_working_day' => 'date',
         'approved_at' => 'datetime',
+        'applied_at' => 'datetime',
         'need_reference_letter' => 'boolean',
         'agree_exit_interview' => 'boolean',
+        'is_applied' => 'boolean',
     ];
 
     public function employee(): BelongsTo
@@ -50,6 +56,11 @@ class EmployeeRetirement extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function appliedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'applied_by');
     }
 
     public function user(): BelongsTo

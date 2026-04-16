@@ -128,15 +128,15 @@ class Employee extends Model
             $this->age = $this->date_birth->age;
         }
 
-        // Auto-generate username from name slug
+        // Auto-generate username from first name
         if ($this->name && !$this->username) {
-            $baseUsername = Str::slug($this->name, '');
-            $username = $baseUsername;
+            $firstName = Str::slug(Str::before($this->name, ' '), '');
+            $username = $firstName;
             $counter = 1;
 
             // Check for duplicates and add number if needed
             while (static::where('username', $username)->where('id', '!=', $this->id ?? 0)->exists()) {
-                $username = $baseUsername . $counter;
+                $username = $firstName . $counter;
                 $counter++;
             }
 
