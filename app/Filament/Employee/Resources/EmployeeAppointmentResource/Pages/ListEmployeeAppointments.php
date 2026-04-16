@@ -18,4 +18,24 @@ class ListEmployeeAppointments extends ListRecords
                 ->icon('heroicon-m-plus'),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            EmployeeAppointmentResource\Widgets\AppointmentStatsWidget::class,
+        ];
+    }
+
+    public function getTabs(): array
+    {
+        return [
+            'all' => \Filament\Resources\Components\Tab::make('Semua'),
+            'usulan' => \Filament\Resources\Components\Tab::make('Usulan')
+                ->modifyQueryUsing(fn ($query) => $query->where('is_applied', false))
+                ->icon('heroicon-m-document-text'),
+            'realisasi' => \Filament\Resources\Components\Tab::make('Realisasi')
+                ->modifyQueryUsing(fn ($query) => $query->where('is_applied', true))
+                ->icon('heroicon-m-check-badge'),
+        ];
+    }
 }

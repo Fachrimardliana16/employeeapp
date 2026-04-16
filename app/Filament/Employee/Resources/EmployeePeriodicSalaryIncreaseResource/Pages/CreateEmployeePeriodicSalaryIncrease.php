@@ -34,6 +34,24 @@ class CreateEmployeePeriodicSalaryIncrease extends CreateRecord
         ]);
     }
 
+    protected function afterCreate(): void
+    {
+        $record = $this->record;
+
+        if ($record->is_applied && $record->employee) {
+            $record->employee->update([
+                'employee_service_grade_id' => $record->new_employee_service_grade_id ?? $record->employee->employee_service_grade_id,
+                'periodic_salary_date_start' => $record->date_periodic_salary_increase,
+            ]);
+
+            Notification::make()
+                ->title('Profil Pegawai Diperbarui')
+                ->body('MKG dan Tanggal KGB telah diperbarui otomatis.')
+                ->success()
+                ->send();
+        }
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

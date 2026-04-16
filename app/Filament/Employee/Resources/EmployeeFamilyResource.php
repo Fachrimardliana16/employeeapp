@@ -70,7 +70,8 @@ class EmployeeFamilyResource extends Resource
                                     ->required()
                                     ->placeholder('Pilih jenis kelamin...'),
                                 Forms\Components\TextInput::make('family_id_number')
-                                    ->label('Nomor KTP (NIP)')
+                                    ->label('Nomor KTP')
+                                    ->unique(ignoreRecord: true)
                                     ->maxLength(20)
                                     ->placeholder('Masukkan nomor KTP...'),
                             ]),
@@ -89,8 +90,10 @@ class EmployeeFamilyResource extends Resource
                                 Forms\Components\DatePicker::make('family_date_birth')
                                     ->label('Tanggal Lahir')
                                     ->native(false)
-                                    ->suffixIcon('heroicon-m-calendar')
-                                    ->placeholder('Pilih tanggal lahir...'),
+                                    ->displayFormat('d/m/Y')
+                                    ->format('Y-m-d')
+                                    ->placeholder('Tgl/Bln/Thn (Contoh: 17/08/1945)')
+                                    ->suffixIcon('heroicon-m-calendar'),
                             ]),
                         Forms\Components\Grid::make(2)
                             ->schema([

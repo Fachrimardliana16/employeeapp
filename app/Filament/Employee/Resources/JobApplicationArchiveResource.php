@@ -104,19 +104,16 @@ class JobApplicationArchiveResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('snapshot_app_number')
-                    ->label('No. Lamaran')
-                    ->searchable()
-                    ->sortable(),
-
                 Tables\Columns\TextColumn::make('snapshot_name')
-                    ->label('Nama Pelamar')
+                    ->label('Pelamar')
+                    ->description(fn (JobApplicationArchive $record): string => $record->snapshot_app_number)
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('snapshot_position')
                     ->label('Posisi')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
 
                 Tables\Columns\BadgeColumn::make('decision')
                     ->label('Keputusan')
@@ -128,24 +125,16 @@ class JobApplicationArchiveResource extends Resource
                         'accepted' => 'Diterima',
                         'rejected' => 'Ditolak',
                         default => $state,
-                    }),
-
-                Tables\Columns\TextColumn::make('decision_date')
-                    ->label('Tanggal Keputusan')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                    })
+                    ->description(fn (JobApplicationArchive $record): string => $record->decision_date->format('d/m/Y')),
 
                 Tables\Columns\TextColumn::make('decidedByUser.name')
                     ->label('Diputuskan Oleh')
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('proposed_salary')
-                    ->label('Gaji Diusulkan')
-                    ->money('IDR')
-                    ->placeholder('N/A'),
+                    ->searchable()
+                    ->sortable(),
 
                 Tables\Columns\IconColumn::make('has_employee_agreement')
-                    ->label('Kontrak Dibuat')
+                    ->label('Kontrak')
                     ->boolean()
                     ->getStateUsing(fn($record) => $record->employeeAgreement()->exists()),
             ])
@@ -214,105 +203,148 @@ class JobApplicationArchiveResource extends Resource
     {
         return $infolist
             ->schema([
-                Infolists\Components\Section::make('Informasi Keputusan')
+                Infolists\Components\Grid::make(3)
                     ->schema([
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('snapshot_app_number')
-                                    ->label('No. Lamaran'),
-                                Infolists\Components\TextEntry::make('decision')
-                                    ->label('Keputusan')
-                                    ->badge()
-                                    ->color(fn(string $state): string => match ($state) {
-                                        'accepted' => 'success',
-                                        'rejected' => 'danger',
-                                        default => 'gray',
-                                    })
-                                    ->formatStateUsing(fn(string $state): string => match ($state) {
-                                        'accepted' => 'Diterima',
-                                        'rejected' => 'Ditolak',
-                                        default => $state,
-                                    }),
-                            ]),
+                        // Sidebar: Profil Singkat
+                        Infolists\Components\Group::make([
+                            Infolists\Components\Section::make('Profil Pelamar')
+                                ->schema([
+                                    Infolists\Components\ImageEntry::make('snapshot_photo')
+                                        ->label('')
+                                        ->circular()
+                                        ->height(200)
+                                        ->alignCenter()
+                                        ->extraAttributes(['class' => 'p-4 bg-gray-50 rounded-xl mb-4'])
+                                        ->placeholder('Tidak ada foto'),
+                                    
+                                    Infolists\Components\TextEntry::make('snapshot_name')
+                                        ->label('')
+                                        ->weight('bold')
+                                        ->size('lg')
+                                        ->alignCenter(),
+                                    
+                                    Infolists\Components\TextEntry::make('snapshot_app_number')
+                                        ->label('')
+                                        ->color('gray')
+                                        ->size('sm')
+                                        ->alignCenter(),
 
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('decision_date')
-                                    ->label('Tanggal Keputusan')
-                                    ->date('d/m/Y'),
-                                Infolists\Components\TextEntry::make('decidedByUser.name')
-                                    ->label('Diputuskan Oleh'),
-                            ]),
+                                    Infolists\Components\TextEntry::make('decision')
+                                        ->label('Keputusan Akhir')
+                                        ->badge()
+                                        ->color(fn(string $state): string => match ($state) {
+                                            'accepted' => 'success',
+                                            'rejected' => 'danger',
+                                            default => 'gray',
+                                        })
+                                        ->formatStateUsing(fn(string $state): string => match ($state) {
+                                            'accepted' => 'DITERIMA',
+                                            'rejected' => 'DITOLAK',
+                                            default => strtoupper($state),
+                                        })
+                                        ->alignCenter()
+                                        ->extraAttributes(['class' => 'mt-4']),
+                                ]),
 
-                        Infolists\Components\TextEntry::make('decision_reason')
-                            ->label('Alasan Keputusan'),
+                            Infolists\Components\Section::make('Status Keputusan')
+                                ->schema([
+                                    Infolists\Components\TextEntry::make('decision_date')
+                                        ->label('Tanggal')
+                                        ->date('d F Y')
+                                        ->icon('heroicon-o-calendar'),
+                                    Infolists\Components\TextEntry::make('decidedByUser.name')
+                                        ->label('Oleh')
+                                        ->icon('heroicon-o-user-circle'),
+                                ]),
+                        ])->columnSpan(1),
+
+                        // Main Content: Tabs
+                        Infolists\Components\Group::make([
+                            Infolists\Components\Tabs::make('Detail Lamaran')
+                                ->tabs([
+                                    Infolists\Components\Tabs\Tab::make('Data Pelamar')
+                                        ->icon('heroicon-o-identification')
+                                        ->schema([
+                                            Infolists\Components\Grid::make(2)
+                                                ->schema([
+                                                    Infolists\Components\TextEntry::make('snapshot_email')
+                                                        ->label('Email')
+                                                        ->copyable()
+                                                        ->icon('heroicon-o-envelope'),
+                                                    Infolists\Components\TextEntry::make('snapshot_position')
+                                                        ->label('Posisi Dilamar')
+                                                        ->weight('bold')
+                                                        ->icon('heroicon-o-briefcase'),
+                                                    Infolists\Components\TextEntry::make('snapshot_department')
+                                                        ->label('Unit / Bagian')
+                                                        ->icon('heroicon-o-building-office'),
+                                                    Infolists\Components\TextEntry::make('snapshot_expected_salary')
+                                                        ->label('Ekspektasi Gaji')
+                                                        ->money('IDR')
+                                                        ->icon('heroicon-o-banknotes'),
+                                                ]),
+                                        ]),
+
+                                    Infolists\Components\Tabs\Tab::make('Keputusan & Kontrak')
+                                        ->icon('heroicon-o-document-check')
+                                        ->schema([
+                                            Infolists\Components\TextEntry::make('decision_reason')
+                                                ->label('Alasan / Catatan Keputusan')
+                                                ->prose()
+                                                ->placeholder('Tidak ada catatan khusus'),
+
+                                            Infolists\Components\Grid::make(2)
+                                                ->schema([
+                                                    Infolists\Components\TextEntry::make('proposedAgreementType.name')
+                                                        ->label('Jenis Kontrak Usulan')
+                                                        ->placeholder('N/A'),
+                                                    Infolists\Components\TextEntry::make('proposed_salary')
+                                                        ->label('Besaran Gaji Usulan')
+                                                        ->money('IDR')
+                                                        ->placeholder('N/A'),
+                                                    Infolists\Components\TextEntry::make('proposed_start_date')
+                                                        ->label('Rencana Mulai Kerja')
+                                                        ->date('d F Y')
+                                                        ->placeholder('N/A'),
+                                                ])
+                                                ->visible(fn($record) => $record->decision === 'accepted'),
+                                            
+                                            Infolists\Components\Section::make('Internal HR Tracking')
+                                                ->schema([
+                                                    Infolists\Components\TextEntry::make('employeeAgreement.agreement_number')
+                                                        ->label('No. Kontrak Terbit')
+                                                        ->weight('bold')
+                                                        ->placeholder('Belum ada kontrak yang diterbitkan'),
+                                                ])
+                                                ->visible(fn($record) => $record->decision === 'accepted' && $record->employeeAgreement()->exists())
+                                                ->compact(),
+                                        ]),
+
+                                    Infolists\Components\Tabs\Tab::make('Dokumen Lampiran')
+                                        ->icon('heroicon-o-paper-clip')
+                                        ->schema([
+                                            Infolists\Components\RepeatableEntry::make('snapshot_documents')
+                                                ->label('')
+                                                ->schema([
+                                                    Infolists\Components\TextEntry::make('')
+                                                        ->formatStateUsing(fn($state) => 'Berkas: ' . basename($state))
+                                                        ->weight('medium')
+                                                        ->suffixAction(
+                                                            Infolists\Components\Actions\Action::make('download')
+                                                                ->label('Unduh Berkas')
+                                                                ->icon('heroicon-o-arrow-down-tray')
+                                                                ->color('primary')
+                                                                ->url(fn($state) => \Illuminate\Support\Facades\Storage::url($state))
+                                                                ->openUrlInNewTab()
+                                                        ),
+                                                ])
+                                                ->grid(2)
+                                                ->placeholder('Tidak ada dokumen yang dilampirkan pelamar'),
+                                        ]),
+                                ])
+                                ->persistTabInQueryString(),
+                        ])->columnSpan(2),
                     ]),
-
-                Infolists\Components\Section::make('Data Pelamar')
-                    ->schema([
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('snapshot_name')
-                                    ->label('Nama'),
-                                Infolists\Components\TextEntry::make('snapshot_email')
-                                    ->label('Email'),
-                            ]),
-
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('snapshot_position')
-                                    ->label('Posisi'),
-                                Infolists\Components\TextEntry::make('snapshot_department')
-                                    ->label('Departemen'),
-                            ]),
-
-                        Infolists\Components\TextEntry::make('snapshot_expected_salary')
-                            ->label('Ekspektasi Gaji')
-                            ->money('IDR'),
-                    ]),
-
-                Infolists\Components\Section::make('Data Kontrak yang Diusulkan')
-                    ->schema([
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('proposedAgreementType.name')
-                                    ->label('Jenis Kontrak')
-                                    ->placeholder('Tidak disebutkan'),
-                                Infolists\Components\TextEntry::make('proposedEmploymentStatus.name')
-                                    ->label('Status Kepegawaian')
-                                    ->placeholder('Tidak disebutkan'),
-                            ]),
-
-                        Infolists\Components\Grid::make(2)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('proposedGrade.name')
-                                    ->label('Golongan')
-                                    ->placeholder('Tidak disebutkan'),
-                                Infolists\Components\TextEntry::make('proposed_salary')
-                                    ->label('Gaji Pokok')
-                                    ->money('IDR')
-                                    ->placeholder('Tidak disebutkan'),
-                            ]),
-
-                        Infolists\Components\TextEntry::make('proposed_start_date')
-                            ->label('Tanggal Mulai Kerja')
-                            ->date('d/m/Y')
-                            ->placeholder('Tidak disebutkan'),
-                    ])
-                    ->visible(fn($record) => $record->decision === 'accepted'),
-
-                Infolists\Components\Section::make('Status Kontrak')
-                    ->schema([
-                        Infolists\Components\TextEntry::make('employeeAgreement.agreement_number')
-                            ->label('No. Kontrak')
-                            ->placeholder('Kontrak belum dibuat'),
-
-                        Infolists\Components\TextEntry::make('employeeAgreement.agreement_date_start')
-                            ->label('Tanggal Mulai Kontrak')
-                            ->date('d/m/Y')
-                            ->placeholder('Kontrak belum dibuat'),
-                    ])
-                    ->visible(fn($record) => $record->decision === 'accepted'),
             ]);
     }
 

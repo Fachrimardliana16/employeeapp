@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\Failed;
 use Spatie\Activitylog\Models\Activity;
 
 class LogAuthActivity
@@ -17,6 +18,10 @@ class LogAuthActivity
         activity('auth')
             ->performedOn($user)
             ->causedBy($user)
+            ->withProperties([
+                'ip' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ])
             ->log('User logged in');
     }
 
@@ -29,8 +34,32 @@ class LogAuthActivity
             activity('auth')
                 ->performedOn($event->user)
                 ->causedBy($event->user)
+                ->withProperties([
+                    'ip' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ])
                 ->log('User logged out');
         }
+    }
+
+    /**
+     * Handle failed login events.
+     */
+    public function handleFailed(Failed $event)
+    {
+        $activity = activity('auth');
+        
+        if ($event->user) {
+            $activity->performedOn($event->user);
+        }
+
+        $activity->withProperties([
+                'credentials' => collect($event->credentials)->except('password')->toArray(),
+                'ip' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+                'guard' => $event->guard,
+            ])
+            ->log('Login attempt failed');
     }
 
     /**
@@ -49,6 +78,11 @@ class LogAuthActivity
         $events->listen(
             Logout::class,
             [LogAuthActivity::class, 'handleLogout']
+        );
+
+        $events->listen(
+            Failed::class,
+            [LogAuthActivity::class, 'handleFailed']
         );
     }
 }

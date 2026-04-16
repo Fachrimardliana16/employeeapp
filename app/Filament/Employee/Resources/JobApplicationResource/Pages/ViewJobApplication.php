@@ -13,12 +13,6 @@ class ViewJobApplication extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('print')
-                ->label('Cetak Profil')
-                ->icon('heroicon-o-printer')
-                ->color('gray')
-                ->url(fn ($record) => route('job-applications.print', $record))
-                ->openUrlInNewTab(),
             Actions\EditAction::make(),
         ];
     }

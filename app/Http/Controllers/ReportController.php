@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\EmployeePromotion;
+use App\Models\EmployeeMutation;
+use App\Models\EmployeeRetirement;
+use App\Models\EmployeeAppointment;
+use App\Models\EmployeePeriodicSalaryIncrease;
+use App\Models\Employee;
+use Illuminate\Support\Carbon;
+
+class ReportController extends Controller
+{
+    public function careerMovement(Request $request)
+    {
+        $type = $request->query('type');
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+        $employeeId = $request->query('employee_id');
+
+        $query = $this->getQueryForType($type);
+        if (!$query) {
+            abort(404, 'Report type not found');
+        }
+
+        // Apply Common Filters
+        $dateColumn = $this->getDateColumnForType($type);
+        
+        $query->when($startDate, fn($q) => $q->whereDate($dateColumn, '>=', $startDate))
+              ->when($endDate, fn($q) => $q->whereDate($dateColumn, '<=', $endDate))
+              ->when($employeeId, fn($q) => $q->where('employee_id', $employeeId));
+
+        $data = $query->with('employee')->orderBy($dateColumn, 'desc')->get();
+        
+        $title = $this->getTitleForType($type);
+        $employeeName = $employeeId ? Employee::find($employeeId)?->name : 'Semua Pegawai';
+
+        $pdf = Pdf::loadView('reports.career-movement', [
+            'type' => $type,
+            'title' => $title,
+            'data' => $data,
+            'startDate' => $startDate ? Carbon::parse($startDate)->format('d/m/Y') : '-',
+            'endDate' => $endDate ? Carbon::parse($endDate)->format('d/m/Y') : '-',
+            'employeeName' => $employeeName,
+            'dateColumn' => $dateColumn
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream($type . '_report_' . now()->format('Ymd') . '.pdf');
+    }
+
+    protected function getQueryForType($type)
+    {
+        return match ($type) {
+            'promotion' => EmployeePromotion::query(),
+            'mutation' => EmployeeMutation::query(),
+            'retirement' => EmployeeRetirement::query(),
+            'appointment' => EmployeeAppointment::query(),
+            'psi' => EmployeePeriodicSalaryIncrease::query(),
+            'career_movement' => \App\Models\EmployeeCareerMovement::query(),
+            default => null,
+        };
+    }
+
+    protected function getDateColumnForType($type)
+    {
+        return match ($type) {
+            'promotion' => 'promotion_date',
+            'mutation' => 'mutation_date',
+            'retirement' => 'retirement_date',
+            'appointment' => 'appointment_date',
+            'psi' => 'date_periodic_salary_increase',
+            'career_movement' => 'movement_date',
+            default => 'created_at',
+        };
+    }
+
+    protected function getTitleForType($type)
+    {
+        return match ($type) {
+            'promotion' => 'Laporan Kenaikan Golongan',
+            'mutation' => 'Laporan Mutasi Pegawai',
+            'retirement' => 'Laporan Pensiun Pegawai',
+            'appointment' => 'Laporan Pengangkatan Pegawai',
+            'psi' => 'Laporan Kenaikan Gaji Berkala (KGB)',
+            'career_movement' => 'Laporan Promosi & Demosi Pegawai',
+            default => 'Laporan Operasional Pegawai',
+        };
+    }
+}

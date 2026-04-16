@@ -29,7 +29,7 @@ class EmployeeRetirementResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pengajuan Pensiun';
 
-    protected static ?int $navigationSort = 304;
+    protected static ?int $navigationSort = 307;
 
     public static function getModelLabel(): string
     {
@@ -159,10 +159,15 @@ class EmployeeRetirementResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('employee.name')
-                    ->label('Nama Lengkap')
+                    ->label('Nama Pegawai')
                     ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tgl Usulan')
+                    ->date('d/m/Y')
                     ->sortable()
-                    ->wrap(),
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('employee.department.name')
                     ->label('Departemen')
@@ -207,6 +212,22 @@ class EmployeeRetirementResource extends Resource
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('approval_status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'approved' => 'success',
+                        'rejected' => 'danger',
+                        'pending' => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'approved' => 'Realisasi',
+                        'pending' => 'Usulan',
+                        'rejected' => 'Ditolak',
+                        default => $state,
+                    }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('department')
@@ -278,6 +299,33 @@ class EmployeeRetirementResource extends Resource
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
                         ->modalCancelActionLabel('Batal'),
                 ])->label('Hapus yang Dipilih'),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('cetak_laporan')
+                    ->label('Cetak Laporan')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Tanggal Mulai')
+                            ->default(now()->startOfMonth()),
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Tanggal Selesai')
+                            ->default(now()),
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Pegawai (Opsional)')
+                            ->relationship('employee', 'name')
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function (array $data) {
+                        return redirect()->route('report.career-movement', [
+                            'type' => 'retirement',
+                            'start_date' => $data['start_date'],
+                            'end_date' => $data['end_date'],
+                            'employee_id' => $data['employee_id'],
+                        ]);
+                    }),
             ])
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('Belum Ada Data Pensiun')

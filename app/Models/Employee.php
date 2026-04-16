@@ -47,6 +47,7 @@ class Employee extends Model
         'leave_balance',
         'entry_date',
         'probation_appointment_date',
+        'permanent_appointment_date',
         'length_service',
         'retirement',
         'employment_status_id',
@@ -74,7 +75,8 @@ class Employee extends Model
         'date_birth' => 'date',
         'entry_date' => 'date',
         'probation_appointment_date' => 'date',
-        'retirement' => 'date',
+        'permanent_appointment_date' => 'date',
+        'grade_date_start' => 'date',
         'agreement_date_start' => 'date',
         'agreement_date_end' => 'date',
         'grade_date_start' => 'date',
@@ -87,7 +89,7 @@ class Employee extends Model
         'bank_account_number' => 'encrypted',
         'bpjs_tk_number' => 'encrypted',
         'bpjs_kes_number' => 'encrypted',
-        'dapenma_phdp' => 'decimal:2',
+        'dapenma_phdp' => 'float',
         'password' => 'hashed',
     ];
 
@@ -146,19 +148,20 @@ class Employee extends Model
      */
     public static function generateNippam(): string
     {
-        $prefix = 'NIP-' . date('Ym');
+        $prefix = date('ym');
         $lastEmployee = static::where('nippam', 'LIKE', $prefix . '%')
+            ->whereRaw('length(nippam) = 9')
             ->orderBy('nippam', 'desc')
             ->first();
 
         if (!$lastEmployee) {
-            return $prefix . '-0001';
+            return $prefix . '00001';
         }
 
-        $lastNumber = intval(substr($lastEmployee->nippam, -4));
-        $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        $lastNumber = intval(substr($lastEmployee->nippam, 4));
+        $newNumber = str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
 
-        return $prefix . '-' . $newNumber;
+        return $prefix . $newNumber;
     }
 
     // Relationships
@@ -347,11 +350,11 @@ class Employee extends Model
      */
     public function getLengthServiceAttribute(): ?int
     {
-        if (!$this->probation_appointment_date) {
+        if (!$this->permanent_appointment_date) {
             return null;
         }
 
-        return $this->probation_appointment_date->diffInMonths(now());
+        return $this->permanent_appointment_date->diffInMonths(now());
     }
 
     /**
@@ -361,8 +364,12 @@ class Employee extends Model
     {
         $months = $this->length_service;
 
-        if (!$months) {
+        if (is_null($months)) {
             return 'Belum ada data';
+        }
+
+        if ($months === 0) {
+            return '0 bulan';
         }
 
         $years = intval($months / 12);

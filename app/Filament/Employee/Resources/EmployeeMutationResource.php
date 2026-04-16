@@ -33,7 +33,7 @@ class EmployeeMutationResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Mutasi Pegawai';
 
-    protected static ?int $navigationSort = 302;
+    protected static ?int $navigationSort = 303;
 
     public static function getModelLabel(): string
     {
@@ -285,42 +285,30 @@ class EmployeeMutationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('decision_letter_number')
-                    ->tooltip('Klik untuk copy'),
-                
-                Tables\Columns\TextColumn::make('is_applied')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
-
-                Tables\Columns\TextColumn::make('mutation_date')
-                    ->label('Tanggal Mutasi')
-                    ->date('d/m/Y')
+                    ->label('No. SK')
+                    ->searchable()
                     ->sortable()
-                    ->icon('heroicon-m-calendar-days'),
+                    ->copyable()
+                    ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('employee.name')
                     ->label('Nama Pegawai')
-                    ->searchable()
-                    ->sortable()
-                    ->formatStateUsing(fn($record) => $record->employee?->name . ' (' . ($record->employee?->nippam ?? 'No NIPPAM') . ')')
-                    ->html()
-                    ->wrap(),
+                    ->description(fn ($record) => $record->employee?->nippam ?? '-')
+                    ->searchable(['name', 'nippam'])
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tgl Usulan / Realisasi')
+                    ->date('d/m/Y')
+                    ->description(fn ($record) => $record->applied_at ? 'Realisasi: ' . $record->applied_at->format('d/m/Y') : 'Realisasi: -')
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('mutation_from')
                     ->label('Dari')
                     ->getStateUsing(function ($record) {
                         $oldDept = $record->oldDepartment?->name ?? '-';
-                        $oldSubDept = $record->oldSubDepartment?->name ?? '';
                         $oldPos = $record->oldPosition?->name ?? '-';
-
-                        $from = $oldDept;
-                        if ($oldSubDept) {
-                            $from .= ' - ' . $oldSubDept;
-                        }
-                        $from .= "\n" . $oldPos;
-
-                        return $from;
+                        return $oldDept . "\n" . $oldPos;
                     })
                     ->html()
                     ->formatStateUsing(function ($state) {
@@ -336,16 +324,8 @@ class EmployeeMutationResource extends Resource
                     ->label('Ke')
                     ->getStateUsing(function ($record) {
                         $newDept = $record->newDepartment?->name ?? '-';
-                        $newSubDept = $record->newSubDepartment?->name ?? '';
                         $newPos = $record->newPosition?->name ?? '-';
-
-                        $to = $newDept;
-                        if ($newSubDept) {
-                            $to .= ' - ' . $newSubDept;
-                        }
-                        $to .= "\n" . $newPos;
-
-                        return $to;
+                        return $newDept . "\n" . $newPos;
                     })
                     ->html()
                     ->formatStateUsing(function ($state) {
@@ -357,33 +337,11 @@ class EmployeeMutationResource extends Resource
                     })
                     ->wrap(),
 
-                Tables\Columns\TextColumn::make('docs')
-                    ->label('Dokumen')
-                    ->formatStateUsing(fn($record) => $record->docs ? 'Ada Dokumen' : 'Tidak Ada')
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
                     ->badge()
-                    ->color(fn($record) => $record->docs ? 'success' : 'gray')
-                    ->icon(fn($record) => $record->docs ? 'heroicon-m-document-check' : 'heroicon-m-document-minus')
-                    ->url(fn($record) => $record->docs ? asset('storage/' . $record->docs) : null)
-                    ->openUrlInNewTab()
-                    ->tooltip(fn($record) => $record->docs ? 'Klik untuk lihat dokumen' : 'Belum ada dokumen'),
-
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Dibuat Oleh')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->placeholder('System'),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Diperbarui')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
             ])
             ->defaultSort('mutation_date', 'desc')
             ->filters([
@@ -495,14 +453,31 @@ class EmployeeMutationResource extends Resource
                     ->button(),
             ])
             ->headerActions([
-                Tables\Actions\Action::make('generate_report')
-                    ->label('Cetak Report PDF')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('primary')
-                    ->action(function () {
-                        return static::generatePDFReport();
-                    })
-                    ->tooltip('Generate laporan mutasi Pegawai dalam format PDF'),
+                Tables\Actions\Action::make('cetak_laporan')
+                    ->label('Cetak Laporan')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Tanggal Mulai')
+                            ->default(now()->startOfMonth()),
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Tanggal Selesai')
+                            ->default(now()),
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Pegawai (Opsional)')
+                            ->relationship('employee', 'name')
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function (array $data) {
+                        return redirect()->route('report.career-movement', [
+                            'type' => 'mutation',
+                            'start_date' => $data['start_date'],
+                            'end_date' => $data['end_date'],
+                            'employee_id' => $data['employee_id'],
+                        ]);
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

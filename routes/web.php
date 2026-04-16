@@ -85,6 +85,11 @@ Route::middleware(['auth'])->group(function () {
         return view('job-applications.print-profile', compact('record'));
     })->name('job-applications.print');
 
+    Route::get('/job-applications/{record}/print-interview-result', function (\App\Models\JobApplication $record) {
+        $record->load(['interviewProcesses', 'archive']);
+        return view('job-applications.print-interview-result', compact('record'));
+    })->name('job-applications.print-interview-result');
+
     Route::get('/employees/{record}/print', function (\App\Models\Employee $record) {
         return view('reports.employee-profile', compact('record'));
     })->name('employees.print');
@@ -125,4 +130,6 @@ Route::middleware(['auth'])->group(function () {
             'locationName' => $locationName,
         ]);
     })->name('attendance.report');
+
+    Route::get('/career-movement-report', [\App\Http\Controllers\ReportController::class, 'careerMovement'])->name('report.career-movement');
 });

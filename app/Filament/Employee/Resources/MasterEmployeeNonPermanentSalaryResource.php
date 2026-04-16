@@ -17,42 +17,46 @@ class MasterEmployeeNonPermanentSalaryResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
-    protected static ?string $navigationLabel = 'Referensi Gaji Pokok';
+    protected static ?string $navigationLabel = 'Standar UMK & Gaji';
 
-    protected static ?string $modelLabel = 'Referensi Gaji Pokok';
+    protected static ?string $modelLabel = 'Standar UMK';
 
-    protected static ?string $pluralModelLabel = 'Referensi Gaji Pokok';
+    protected static ?string $pluralModelLabel = 'Standar UMK';
 
-    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationGroup = 'Pengaturan Penggajian';
 
-    protected static ?int $navigationSort = 806;
+    protected static ?int $navigationSort = 100;
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Informasi Gaji Non-PNS')
+                Forms\Components\Section::make('Pengaturan Standar UMK & Gaji')
+                    ->description('Tentukan nilai nominal standar UMK atau gaji pokok untuk status kepegawaian Non-ASN seperti Kontrak, Magang, dan THL.')
                     ->schema([
                         Forms\Components\TextInput::make('name')
-                            ->label('Nama Standar Gaji')
-                            ->placeholder('Contoh: Gaji Standar THL Admin')
+                            ->label('Label Standar UMK/Gaji')
+                            ->placeholder('Contoh: UMK THL 2026')
                             ->required()
                             ->maxLength(255),
                         Forms\Components\Select::make('employment_status_id')
-                            ->label('Status Kepegawaian')
+                            ->label('Untuk Status Kepegawaian')
                             ->relationship('employmentStatus', 'name')
                             ->required()
                             ->preload()
-                            ->searchable(),
+                            ->searchable()
+                            ->hint('Berlaku untuk Kontrak, Magang, atau THL'),
                         Forms\Components\TextInput::make('amount')
-                            ->label('Nominal Gaji Pokok')
+                            ->label('Nominal UMK / Gaji Pokok')
                             ->numeric()
                             ->prefix('Rp')
                             ->required()
-                            ->step(10000),
+                            ->step(1000)
+                            ->minValue(0),
                         Forms\Components\Toggle::make('is_active')
-                            ->label('Aktif')
-                            ->default(true),
+                            ->label('Status Aktif')
+                            ->default(true)
+                            ->helperText('Hanya standar yang aktif yang dapat dipilih dalam proses administrasi.'),
                     ]),
             ]);
     }
@@ -62,14 +66,16 @@ class MasterEmployeeNonPermanentSalaryResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama')
+                    ->label('Kategori / Label')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('employmentStatus.name')
-                    ->label('Status')
+                    ->label('Status Pegawai')
+                    ->badge()
+                    ->color('info')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
-                    ->label('Nominal')
+                    ->label('Nominal UMK')
                     ->money('IDR')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_active')

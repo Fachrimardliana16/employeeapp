@@ -22,7 +22,7 @@ class MasterEmployeeNonPermanentSalary extends Model
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
+        'amount' => 'float',
         'is_active' => 'boolean',
     ];
 

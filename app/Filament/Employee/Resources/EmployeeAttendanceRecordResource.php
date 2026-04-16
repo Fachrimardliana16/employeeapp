@@ -93,6 +93,8 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->extraInputAttributes([
                                 'capture' => 'user',
                             ])
+                            ->optimize('webp')
+                            ->resize(50)
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_in'),
 
@@ -114,6 +116,8 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->extraInputAttributes([
                                 'capture' => 'user',
                             ])
+                            ->optimize('webp')
+                            ->resize(50)
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_out'),
                     ]),

@@ -120,30 +120,25 @@ class InterviewProcessResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('jobApplication.application_number')
-                    ->label('No. Lamaran')
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('jobApplication.name')
-                    ->label('Nama Pelamar')
+                    ->label('Pelamar')
+                    ->description(fn (InterviewProcess $record): string => $record->jobApplication->application_number ?? '-')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('interview_type')
-                    ->label('Jenis')
+                    ->label('Jenis & Jadwal')
                     ->badge()
-                    ->color('info'),
-                Tables\Columns\TextColumn::make('interview_date')
-                    ->label('Tanggal')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                    ->color('info')
+                    ->description(fn (InterviewProcess $record): string => 
+                        ($record->interview_date ? $record->interview_date->format('d/m/Y') : '-') . 
+                        ($record->interview_time ? ' @ ' . $record->interview_time : '')
+                    ),
                 Tables\Columns\TextColumn::make('interviewer_name')
-                    ->label('Nama Pewawancara')
+                    ->label('Pewawancara')
+                    ->description(fn (InterviewProcess $record): string => $record->interviewer->name ?? 'System User tidak diset')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('interviewer.name')
-                    ->label('Pewawancara (User System)')
-                    ->searchable()
-                    ->toggleable(),
                 Tables\Columns\BadgeColumn::make('result')
-                    ->label('Hasil')
+                    ->label('Hasil & Status')
                     ->colors([
                         'warning' => 'pending',
                         'success' => 'passed',
@@ -154,20 +149,16 @@ class InterviewProcessResource extends Resource
                         'passed' => 'Lulus',
                         'failed' => 'Gagal',
                         default => $state,
-                    }),
-                Tables\Columns\BadgeColumn::make('status')
-                    ->label('Status')
-                    ->colors([
-                        'info' => 'scheduled',
-                        'success' => 'completed',
-                        'danger' => 'cancelled',
-                    ])
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                    })
+                    ->description(fn (InterviewProcess $record): string => match ($record->status) {
                         'scheduled' => 'Terjadwal',
                         'completed' => 'Selesai',
                         'cancelled' => 'Batal',
-                        default => $state,
+                        default => $record->status ?? '',
                     }),
+                Tables\Columns\TextColumn::make('score')
+                    ->label('Nilai')
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('result')
@@ -226,6 +217,13 @@ class InterviewProcessResource extends Resource
                                 ->success()
                                 ->send();
                         }),
+                    Tables\Actions\Action::make('print_interview_result')
+                        ->label('Cetak Hasil Interview')
+                        ->icon('heroicon-o-document-check')
+                        ->color('success')
+                        ->url(fn(InterviewProcess $record): string => route('job-applications.print-interview-result', ['record' => $record->job_application_id]))
+                        ->openUrlInNewTab()
+                        ->visible(fn(InterviewProcess $record): bool => $record->status === 'completed'),
                     Tables\Actions\ViewAction::make()->label('Lihat'),
                     Tables\Actions\EditAction::make()->label('Edit'),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),

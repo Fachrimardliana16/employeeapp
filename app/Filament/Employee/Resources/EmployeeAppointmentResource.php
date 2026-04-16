@@ -23,7 +23,7 @@ class EmployeeAppointmentResource extends Resource
 
     protected static ?string $navigationLabel = 'Pengangkatan Pegawai';
 
-    protected static ?int $navigationSort = 305;
+    protected static ?int $navigationSort = 302;
 
     public static function getModelLabel(): string
     {
@@ -57,7 +57,7 @@ class EmployeeAppointmentResource extends Resource
 
                         Forms\Components\Toggle::make('is_applied')
                             ->label('Terapkan langsung (Realisasi)')
-                            ->default(true)
+                            ->default(false)
                             ->helperText('Jika dicentang, status dan golongan di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.'),
                     ])->columns(2),
 
@@ -179,12 +179,68 @@ class EmployeeAppointmentResource extends Resource
                                 $newStatus = \App\Models\MasterEmployeeStatusEmployment::find($newStatusId);
 
                                 if (!$employee || !$newStatus) return false;
+                                
+                                $oldStatus = \App\Models\MasterEmployeeStatusEmployment::find($get('old_employment_status_id'));
 
-                                // Muncul hanya jika dari Kontrak ke Calon Pegawai
-                                return $employee->employmentStatus?->name === 'Kontrak' &&
-                                       $newStatus->name === 'Calon Pegawai';
+                                // Sembunyikan jika dari Calon Pegawai ke Pegawai Tetap (Golongan sama)
+                                if ($oldStatus?->name === 'Calon Pegawai' && $newStatus->name === 'Pegawai Tetap') {
+                                    return false;
+                                }
+
+                                // Muncul hanya jika ke Calon Pegawai atau Pegawai Tetap
+                                return $newStatus && in_array($newStatus->name, ['Calon Pegawai', 'Pegawai Tetap']);
                             })
-                            ->helperText('Pilih golongan untuk pengangkatan menjadi Calon Pegawai'),
+                            ->required(function (Forms\Get $get) {
+                                $newStatusId = $get('new_employment_status_id');
+                                if (!$newStatusId) return false;
+                                $newStatus = \App\Models\MasterEmployeeStatusEmployment::find($newStatusId);
+                                $oldStatus = \App\Models\MasterEmployeeStatusEmployment::find($get('old_employment_status_id'));
+                                
+                                if ($oldStatus?->name === 'Calon Pegawai' && $newStatus?->name === 'Pegawai Tetap') {
+                                    return false;
+                                }
+                                
+                                return $newStatus && in_array($newStatus->name, ['Calon Pegawai', 'Pegawai Tetap']);
+                            })
+                            ->live()
+                            ->helperText('Pilih golongan untuk pengangkatan ini'),
+
+                        Forms\Components\Select::make('employee_service_grade_id')
+                            ->label('MKG Baru (Masa Kerja Golongan)')
+                            ->options(function (Forms\Get $get) {
+                                // Prioritas: ambil dari form state (jika user pilih golongan baru)
+                                $gradeId = $get('employee_grade_id');
+                                
+                                // Fallback: jika golongan baru tidak dipilih (misal hidden), ambil dari profil pegawai
+                                if (!$gradeId) {
+                                    $employeeId = $get('employee_id');
+                                    if ($employeeId) {
+                                        $employee = \App\Models\Employee::find($employeeId);
+                                        $gradeId = $employee?->basic_salary_id;
+                                    }
+                                }
+
+                                if (!$gradeId) return [];
+                                
+                                return \App\Models\MasterEmployeeServiceGrade::where('is_active', true)
+                                    ->orderByRaw('CAST(service_grade AS UNSIGNED) ASC')
+                                    ->pluck('service_grade', 'id')
+                                    ->map(fn($val) => $val . ' Tahun')
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->visible(function (Forms\Get $get) {
+                                $newStatusId = $get('new_employment_status_id');
+                                if (!$newStatusId) return false;
+                                
+                                return \App\Models\MasterEmployeeStatusEmployment::where('id', $newStatusId)
+                                    ->whereIn('name', ['Calon Pegawai', 'Pegawai Tetap'])
+                                    ->exists();
+                            })
+                            ->helperText('Pilih Masa Kerja Golongan (MKG)'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Dokumen & Keterangan')
@@ -205,6 +261,7 @@ class EmployeeAppointmentResource extends Resource
                             ->downloadable()
                             ->openable()
                             ->visibility('public')
+                            ->visible(fn (Forms\Get $get) => $get('is_applied'))
                             ->required(fn (Forms\Get $get) => $get('is_applied'))
                             ->helperText('Upload file PDF SK Pengangkatan, maksimal 10MB'),
 
@@ -225,30 +282,22 @@ class EmployeeAppointmentResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('decision_letter_number')
-                    ->label('No. SK Pengangkatan')
+                    ->label('No. SK')
                     ->searchable()
                     ->sortable()
+                    ->copyable()
                     ->weight('bold'),
 
-                Tables\Columns\TextColumn::make('is_applied')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
-
                 Tables\Columns\TextColumn::make('employee.name')
-                    ->label('Nama Pegawai')
-                    ->searchable()
+                    ->label('Nama Pegawai / NIPPAM')
+                    ->description(fn ($record) => $record->employee?->nippam ?? '-')
+                    ->searchable(['name', 'nippam'])
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('employee.nippam')
-                    ->label('NIPPAM')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('appointment_date')
-                    ->label('Tanggal Efektif')
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tgl Usulan / Realisasi')
                     ->date('d/m/Y')
+                    ->description(fn ($record) => $record->applied_at ? 'Realisasi: ' . $record->applied_at->format('d/m/Y') : 'Realisasi: -')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('oldEmploymentStatus.name')
@@ -262,21 +311,17 @@ class EmployeeAppointmentResource extends Resource
                     ->color('success'),
 
                 Tables\Columns\IconColumn::make('docs')
-                    ->label('Dokumen SK')
+                    ->label('Berkas')
                     ->boolean()
                     ->trueIcon('heroicon-o-document-text')
                     ->falseIcon('heroicon-o-x-mark')
                     ->getStateUsing(fn ($record) => !empty($record->docs)),
 
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Dibuat Oleh')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
             ])
             ->defaultSort('appointment_date', 'desc')
             ->filters([
@@ -337,11 +382,20 @@ class EmployeeAppointmentResource extends Resource
                                 ]);
 
                                 // Update Employee Profile
-                                $record->employee->update([
+                                $employeeUpdateData = [
                                     'employment_status_id' => $record->new_employment_status_id,
                                     'basic_salary_id' => $record->employee_grade_id ?? $record->employee->basic_salary_id,
+                                    'employee_service_grade_id' => $record->employee_service_grade_id ?? $record->employee->employee_service_grade_id,
                                     'grade_date_start' => $data['appointment_date'],
-                                ]);
+                                ];
+
+                                // Jika diangkat menjadi Pegawai Tetap, update permanent_appointment_date
+                                $newStatus = \App\Models\MasterEmployeeStatusEmployment::find($record->new_employment_status_id);
+                                if ($newStatus && $newStatus->name === 'Pegawai Tetap') {
+                                    $employeeUpdateData['permanent_appointment_date'] = $data['appointment_date'];
+                                }
+
+                                $record->employee->update($employeeUpdateData);
 
                                 // Deactivate current contracts
                                 EmployeeAgreement::where('employees_id', $record->employee_id)
@@ -364,6 +418,33 @@ class EmployeeAppointmentResource extends Resource
                     ->size('sm')
                     ->color('gray')
                     ->button(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('cetak_laporan')
+                    ->label('Cetak Laporan')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Tanggal Mulai')
+                            ->default(now()->startOfMonth()),
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Tanggal Selesai')
+                            ->default(now()),
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Pegawai (Opsional)')
+                            ->relationship('employee', 'name')
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function (array $data) {
+                        return redirect()->route('report.career-movement', [
+                            'type' => 'appointment',
+                            'start_date' => $data['start_date'],
+                            'end_date' => $data['end_date'],
+                            'employee_id' => $data['employee_id'],
+                        ]);
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

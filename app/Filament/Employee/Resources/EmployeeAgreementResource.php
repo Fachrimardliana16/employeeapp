@@ -305,78 +305,51 @@ class EmployeeAgreementResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('agreement_number')
-                    ->label('Nomor Kontrak')
-                    ->searchable()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama Pegawai')
-                    ->searchable()
+                    ->label('Pegawai')
+                    ->description(fn (EmployeeAgreement $record): string => "No: {$record->agreement_number}")
+                    ->searchable(['name', 'agreement_number'])
                     ->sortable(),
-                Tables\Columns\TextColumn::make('email')
-                    ->label('Email')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('phone_number')
-                    ->label('No. Telepon')
-                    ->searchable()
+                Tables\Columns\TextColumn::make('contact')
+                    ->label('Kontak')
+                    ->getStateUsing(fn ($record) => $record->email . "\n" . $record->phone_number)
+                    ->description(fn ($record) => $record->phone_number)
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('masterAgreement.name')
-                    ->label('Jenis Kontrak')
+                    ->label('Jenis & Status')
+                    ->description(fn (EmployeeAgreement $record): string => $record->employmentStatus->name ?? '-')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('employeePosition.name')
-                    ->label('Posisi/Jabatan')
+                    ->label('Jabatan & Unit')
+                    ->description(function (EmployeeAgreement $record) {
+                        $unit = $record->department->name ?? '-';
+                        $subUnit = $record->subDepartment->name ?? '';
+                        return $unit . ($subUnit ? " / " . $subUnit : "");
+                    })
                     ->sortable(),
-                Tables\Columns\TextColumn::make('employmentStatus.name')
-                    ->label('Status Kepegawaian')
+                Tables\Columns\TextColumn::make('education_grade')
+                    ->label('Pendidikan & Gol')
+                    ->getStateUsing(fn($record) => ($record->education->name ?? '-') . " / " . ($record->basicSalaryGrade->name ?? '-'))
+                    ->description(fn($record) => $record->basic_salary ? 'Rp ' . number_format($record->basic_salary, 0, ',', '.') : null)
                     ->sortable(),
-                Tables\Columns\TextColumn::make('education.name')
-                    ->label('Tingkat Pendidikan')
-                    ->badge()
-                    ->color('success')
-                    ->placeholder('Belum diisi')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('basicSalaryGrade.name')
-                    ->label('Golongan')
-                    ->badge()
-                    ->color('info')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('basic_salary')
-                    ->label('Gaji Pokok')
-                    ->money('IDR')
-                    ->getStateUsing(fn($record) => $record->basic_salary)
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('agreement_date_start')
-                    ->label('Tanggal Mulai')
-                    ->date('d/m/Y')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('agreement_date_end')
-                    ->label('Tanggal Berakhir')
-                    ->date('d/m/Y')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('contract_duration')
-                    ->label('Durasi Kontrak')
-                    ->getStateUsing(fn($record) => $record->agreement_date_end ? $record->contract_duration . ' tahun' : 'Tidak Terbatas')
-                    ->badge()
-                    ->color(fn($record) => $record->agreement_date_end ? 'info' : 'success'),
+                Tables\Columns\TextColumn::make('agreement_period')
+                    ->label('Periode Kontrak')
+                    ->getStateUsing(function (EmployeeAgreement $record) {
+                        $start = Carbon::parse($record->agreement_date_start)->format('d/m/Y');
+                        $end = $record->agreement_date_end ? Carbon::parse($record->agreement_date_end)->format('d/m/Y') : 'Tetap';
+                        return "{$start} - {$end}";
+                    })
+                    ->description(function (EmployeeAgreement $record) {
+                        if (!$record->agreement_date_end) return 'Kontrak Tidak Terbatas';
+                        $days = $record->days_remaining;
+                        return $days > 0 ? "Sisa {$days} hari ({$record->contract_duration} thn)" : "Kontrak Berakhir";
+                    })
+                    ->color(fn($record) => !$record->agreement_date_end || $record->days_remaining > 30 ? 'success' : ($record->days_remaining > 0 ? 'warning' : 'danger'))
+                    ->sortable(['agreement_date_end']),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Status Kontrak')
+                    ->label('Aktif')
                     ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('danger'),
-                Tables\Columns\TextColumn::make('days_remaining')
-                    ->label('Sisa Hari')
-                    ->getStateUsing(fn($record) => $record->agreement_date_end ? ($record->days_remaining > 0 ? $record->days_remaining . ' hari' : 'Berakhir') : 'Tidak Terbatas')
-                    ->badge()
-                    ->color(fn($record) => !$record->agreement_date_end || $record->days_remaining > 30 ? 'success' : ($record->days_remaining > 0 ? 'warning' : 'danger')),
-                Tables\Columns\TextColumn::make('department.name')
-                    ->label('Bagian')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('subDepartment.name')
-                    ->label('Sub Bagian')
-                    ->sortable(),
+                    ->alignCenter(),
                 Tables\Columns\TextColumn::make('docs')
                     ->label('Dokumen')
                     ->formatStateUsing(fn($record) => $record->has_document ? 'Ada Dokumen' : 'Tidak Ada')

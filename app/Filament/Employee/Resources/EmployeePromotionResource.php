@@ -30,7 +30,7 @@ class EmployeePromotionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Kenaikan Golongan';
 
-    protected static ?int $navigationSort = 303;
+    protected static ?int $navigationSort = 305;
     public static function getModelLabel(): string
     {
         return 'Kenaikan Golongan';
@@ -194,32 +194,31 @@ class EmployeePromotionResource extends Resource
                 Tables\Columns\TextColumn::make('decision_letter_number')
                     ->label('No. SK')
                     ->searchable()
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('is_applied')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
+                    ->sortable()
+                    ->copyable()
+                    ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('employee.name')
-                    ->label('Nama Pegawai')
-                    ->searchable()
+                    ->label('Nama Pegawai / NIPPAM')
+                    ->description(fn ($record) => $record->employee?->nippam ?? '-')
+                    ->searchable(['name', 'nippam'])
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('employee.nippam')
-                    ->label('NIPPAM')
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('employee.employmentStatus.name')
-                    ->label('Status Pegawai')
-                    ->badge()
-                    ->color('success')
-                    ->icon('heroicon-m-check-circle'),
-
-                Tables\Columns\TextColumn::make('promotion_date')
-                    ->label('Tanggal Berlaku')
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tgl Usulan / Realisasi')
                     ->date('d/m/Y')
+                    ->description(fn ($record) => $record->applied_at ? 'Realisasi: ' . $record->applied_at->format('d/m/Y') : 'Realisasi: -')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('newSalaryGrade.name')
+                    ->label('Golongan Lama / Baru')
+                    ->description(fn ($record) => 'Lama: ' . ($record->oldSalaryGrade?->name ?? '-'))
+                    ->badge()
+                    ->color('success'),
+
+                Tables\Columns\TextColumn::make('salary_increase')
+                    ->label('Kenaikan Gaji')
+                    ->money('IDR')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('next_promotion_date')
@@ -227,39 +226,21 @@ class EmployeePromotionResource extends Resource
                     ->date('d/m/Y')
                     ->sortable()
                     ->color('warning')
-                    ->icon('heroicon-m-calendar'),
-
-                Tables\Columns\TextColumn::make('oldSalaryGrade.name')
-                    ->label('Golongan Lama')
-                    ->badge()
-                    ->color('gray'),
-
-                Tables\Columns\TextColumn::make('newSalaryGrade.name')
-                    ->label('Golongan Baru')
-                    ->badge()
-                    ->color('success'),
-
-                Tables\Columns\TextColumn::make('salary_increase')
-                    ->label('Kenaikan Gaji')
-                    ->money('IDR')
-                    ->getStateUsing(fn ($record) => $record->salary_increase),
+                    ->icon('heroicon-m-calendar')
+                    ->toggleable(),
 
                 Tables\Columns\IconColumn::make('doc_promotion')
-                    ->label('Dokumen')
+                    ->label('Berkas')
                     ->boolean()
                     ->trueIcon('heroicon-o-document-text')
                     ->falseIcon('heroicon-o-x-mark')
                     ->getStateUsing(fn ($record) => !empty($record->doc_promotion)),
 
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Dibuat Oleh')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('employee_id')
@@ -341,6 +322,33 @@ class EmployeePromotionResource extends Resource
                 ->size('sm')
                 ->color('gray')
                 ->button(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('cetak_laporan')
+                    ->label('Cetak Laporan')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Tanggal Mulai')
+                            ->default(now()->startOfMonth()),
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Tanggal Selesai')
+                            ->default(now()),
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Pegawai (Opsional)')
+                            ->relationship('employee', 'name')
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function (array $data) {
+                        return redirect()->route('report.career-movement', [
+                            'type' => 'promotion',
+                            'start_date' => $data['start_date'],
+                            'end_date' => $data['end_date'],
+                            'employee_id' => $data['employee_id'],
+                        ]);
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

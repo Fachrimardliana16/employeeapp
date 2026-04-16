@@ -45,17 +45,28 @@ class CreateEmployeeAppointment extends CreateRecord
         if ($employee) {
             $updateData = ['employment_status_id' => $newStatusId];
             
-            // Update Golongan jika diinputkan
+            // Update Golongan & MKG jika diinputkan
             if (!empty($appointment->employee_grade_id)) {
                 $updateData['basic_salary_id'] = $appointment->employee_grade_id;
             }
 
+            if (!empty($appointment->employee_service_grade_id)) {
+                $updateData['employee_service_grade_id'] = $appointment->employee_service_grade_id;
+            }
+
+            // Jika diangkat menjadi Pegawai Tetap, update permanent_appointment_date
+            $targetStatus = \App\Models\MasterEmployeeStatusEmployment::find($newStatusId);
+            if ($targetStatus && $targetStatus->name === 'Pegawai Tetap') {
+                $updateData['permanent_appointment_date'] = $appointment->appointment_date;
+            }
+
             $employee->update($updateData);
             
-            Log::info('EmployeeAppointment: Status/Golongan pegawai diperbarui.', [
+            Log::info('EmployeeAppointment: Status/Golongan/MKG pegawai diperbarui.', [
                 'employee_id'    => $employeeId,
                 'new_status_id'  => $newStatusId,
                 'new_grade_id'   => $appointment->employee_grade_id,
+                'new_mkg_id'     => $appointment->employee_service_grade_id,
                 'appointment_id' => $appointment->id,
             ]);
         }

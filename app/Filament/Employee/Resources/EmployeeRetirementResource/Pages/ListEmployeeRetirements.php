@@ -16,4 +16,11 @@ class ListEmployeeRetirements extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            EmployeeRetirementResource\Widgets\RetirementStatsWidget::class,
+        ];
+    }
 }

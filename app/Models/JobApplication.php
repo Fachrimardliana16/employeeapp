@@ -65,9 +65,9 @@ class JobApplication extends Model
         'documents' => 'array',
         'interview_schedule' => 'array',
         'interview_results' => 'array',
-        'education_gpa' => 'decimal:2',
-        'last_salary' => 'decimal:2',
-        'expected_salary' => 'decimal:2',
+        'education_gpa' => 'float',
+        'last_salary' => 'float',
+        'expected_salary' => 'float',
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'interview_at' => 'datetime',
@@ -98,6 +98,11 @@ class JobApplication extends Model
     public function archive(): HasOne
     {
         return $this->hasOne(JobApplicationArchive::class);
+    }
+
+    public function interviewProcesses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(InterviewProcess::class);
     }
 
     public function createdBy(): BelongsTo

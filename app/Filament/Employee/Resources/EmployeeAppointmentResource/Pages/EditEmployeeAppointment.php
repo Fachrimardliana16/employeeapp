@@ -49,10 +49,29 @@ class EditEmployeeAppointment extends EditRecord
         // Sync status kepegawaian ke data pegawai
         $employee = Employee::find($employeeId);
         if ($employee) {
-            $employee->update(['employment_status_id' => $newStatusId]);
-            Log::info('EmployeeAppointment (Edit): Status pegawai diperbarui.', [
+            $updateData = ['employment_status_id' => $newStatusId];
+            
+            if (!empty($appointment->employee_grade_id)) {
+                $updateData['basic_salary_id'] = $appointment->employee_grade_id;
+            }
+
+            if (!empty($appointment->employee_service_grade_id)) {
+                $updateData['employee_service_grade_id'] = $appointment->employee_service_grade_id;
+            }
+
+            // Jika diangkat menjadi Pegawai Tetap, update permanent_appointment_date
+            $targetStatus = \App\Models\MasterEmployeeStatusEmployment::find($newStatusId);
+            if ($targetStatus && $targetStatus->name === 'Pegawai Tetap') {
+                $updateData['permanent_appointment_date'] = $appointment->appointment_date;
+            }
+
+            $employee->update($updateData);
+
+            Log::info('EmployeeAppointment (Edit): Status/Golongan/MKG pegawai diperbarui.', [
                 'employee_id'    => $employeeId,
                 'new_status_id'  => $newStatusId,
+                'new_grade_id'   => $appointment->employee_grade_id,
+                'new_mkg_id'     => $appointment->employee_service_grade_id,
                 'appointment_id' => $appointment->id,
             ]);
         }

@@ -46,7 +46,8 @@ class EmployeeDailyReportResource extends Resource
                 Forms\Components\Textarea::make('desc')
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('image')
-                    ->image(),
+                    ->image()
+                    ->optimize('webp'),
                 Forms\Components\TextInput::make('users_id')
                     ->required()
                     ->numeric(),

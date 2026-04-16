@@ -56,6 +56,7 @@ class Login extends BaseLogin
             ->label('PASSWORD')
             ->placeholder('Masukkan password anda')
             ->prefixIcon('heroicon-o-lock-closed')
-            ->prefixIconColor('blue');
+            ->prefixIconColor('blue')
+            ->revealable();
     }
 }

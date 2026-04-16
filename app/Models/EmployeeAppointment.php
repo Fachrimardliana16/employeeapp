@@ -17,6 +17,7 @@ class EmployeeAppointment extends Model
         'old_employment_status_id',
         'new_employment_status_id',
         'employee_grade_id',
+        'employee_service_grade_id',
         'is_applied',
         'proposal_docs',
         'applied_at',
@@ -50,6 +51,11 @@ class EmployeeAppointment extends Model
     public function grade(): BelongsTo
     {
         return $this->belongsTo(MasterEmployeeGrade::class, 'employee_grade_id');
+    }
+
+    public function serviceGrade(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeServiceGrade::class, 'employee_service_grade_id');
     }
 
     public function user(): BelongsTo

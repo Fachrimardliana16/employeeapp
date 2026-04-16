@@ -13,31 +13,26 @@ class EmployeePeriodicSalaryIncrease extends Model
     protected $table = 'employee_periodic_salary_increase';
 
     protected $fillable = [
-        'employees_id',
-        'previous_basic_salary',
-        'new_basic_salary',
-        'increase_amount',
-        'increase_percentage',
-        'effective_date',
-        'increase_reason',
-        'approval_date',
-        'approved_by',
+        'number_psi',
+        'date_periodic_salary_increase',
+        'employee_id',
+        'old_basic_salary_id',
+        'new_basic_salary_id',
+        'total_basic_salary',
+        'docs_letter',
+        'docs_archive',
+        'users_id',
         'is_applied',
         'proposal_docs',
         'new_employee_service_grade_id',
         'applied_at',
         'applied_by',
         'notes',
-        'users_id',
     ];
 
     protected $casts = [
-        'previous_basic_salary' => 'decimal:2',
-        'new_basic_salary' => 'decimal:2',
-        'increase_amount' => 'decimal:2',
-        'increase_percentage' => 'decimal:2',
-        'effective_date' => 'date',
-        'approval_date' => 'date',
+        'total_basic_salary' => 'decimal:2',
+        'date_periodic_salary_increase' => 'date',
         'is_applied' => 'boolean',
         'applied_at' => 'datetime',
     ];
@@ -47,7 +42,7 @@ class EmployeePeriodicSalaryIncrease extends Model
      */
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'employees_id');
+        return $this->belongsTo(Employee::class, 'employee_id');
     }
 
     /**
@@ -72,5 +67,15 @@ class EmployeePeriodicSalaryIncrease extends Model
     public function newServiceGrade(): BelongsTo
     {
         return $this->belongsTo(MasterEmployeeServiceGrade::class, 'new_employee_service_grade_id');
+    }
+
+    public function oldSalaryGrade(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeGrade::class, 'old_basic_salary_id');
+    }
+
+    public function newSalaryGrade(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeGrade::class, 'new_basic_salary_id');
     }
 }

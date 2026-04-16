@@ -29,7 +29,7 @@ class EmployeeCareerMovementResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Promosi & Demosi';
 
-    protected static ?int $navigationSort = 304;
+    protected static ?int $navigationSort = 306;
 
     public static function form(Form $form): Form
     {
@@ -191,13 +191,15 @@ class EmployeeCareerMovementResource extends Resource
                 Tables\Columns\TextColumn::make('decision_letter_number')
                     ->label('No. SK')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->copyable()
+                    ->weight('bold'),
 
-                Tables\Columns\TextColumn::make('is_applied')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
+                Tables\Columns\TextColumn::make('employee.name')
+                    ->label('Nama Pegawai / NIPPAM')
+                    ->description(fn ($record) => $record->employee?->nippam ?? '-')
+                    ->searchable(['name', 'nippam'])
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('type')
                     ->label('Jenis')
@@ -211,15 +213,16 @@ class EmployeeCareerMovementResource extends Resource
                         'demotion' => 'DEMOSI',
                     }),
 
-                Tables\Columns\TextColumn::make('employee.name')
-                    ->label('Pegawai')
-                    ->searchable()
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tgl Usulan / Realisasi')
+                    ->date('d/m/Y')
+                    ->description(fn ($record) => $record->applied_at ? 'Realisasi: ' . $record->applied_at->format('d/m/Y') : 'Realisasi: -')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('movement_date')
-                    ->label('Tanggal')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('oldPosition.name')
+                    ->label('Jabatan Lama')
+                    ->description(fn ($record) => $record->oldDepartment?->name)
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('newPosition.name')
                     ->label('Jabatan Baru')
@@ -227,10 +230,16 @@ class EmployeeCareerMovementResource extends Resource
                     ->searchable(),
 
                 Tables\Columns\IconColumn::make('doc_path')
-                    ->label('SK')
+                    ->label('Berkas')
                     ->boolean()
                     ->trueIcon('heroicon-o-document-text')
                     ->getStateUsing(fn ($record) => (bool) $record->doc_path),
+
+                Tables\Columns\TextColumn::make('is_applied')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
@@ -300,6 +309,33 @@ class EmployeeCareerMovementResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ])->label('Hapus yang Dipilih'),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('cetak_laporan')
+                    ->label('Cetak Laporan')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Tanggal Mulai')
+                            ->default(now()->startOfMonth()),
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Tanggal Selesai')
+                            ->default(now()),
+                        Forms\Components\Select::make('employee_id')
+                            ->label('Pegawai (Opsional)')
+                            ->relationship('employee', 'name')
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function (array $data) {
+                        return redirect()->route('report.career-movement', [
+                            'type' => 'career_movement',
+                            'start_date' => $data['start_date'],
+                            'end_date' => $data['end_date'],
+                            'employee_id' => $data['employee_id'],
+                        ]);
+                    }),
             ]);
     }
 

@@ -109,4 +109,6 @@ class JobApplicationArchive extends Model
     public function getSnapshotPositionAttribute() { return $this->application_data['applied_position']['name'] ?? 'N/A'; }
     public function getSnapshotDepartmentAttribute() { return $this->application_data['applied_department']['name'] ?? 'N/A'; }
     public function getSnapshotExpectedSalaryAttribute() { return $this->application_data['expected_salary'] ?? 0; }
+    public function getSnapshotPhotoAttribute() { return $this->application_data['photo'] ?? null; }
+    public function getSnapshotDocumentsAttribute() { return $this->application_data['documents'] ?? []; }
 }
