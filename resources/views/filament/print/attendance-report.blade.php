@@ -81,8 +81,16 @@
                             <span class="font-bold border-b border-dotted border-gray-300">{{ $record->employee_name }}</span>
                             <span class="block text-gray-400">PIN: {{ $record->pin }}</span>
                         </td>
-                        <td class="py-2 px-2 border-x border-black text-center uppercase font-bold">
-                            {{ in_array($record->state, ['in', 'check_in', 'ot_in']) ? 'Masuk' : 'Keluar' }}
+                        <td class="py-2 px-2 border-x border-black text-center uppercase font-bold text-[8px]">
+                            {{ match($record->state) {
+                                'in', 'check_in' => 'Masuk',
+                                'out', 'check_out' => 'Keluar',
+                                'dl_in' => 'Dinas Luar (M)',
+                                'dl_out' => 'Dinas Luar (P)',
+                                'ot_in' => 'Lembur (M)',
+                                'ot_out' => 'Lembur (P)',
+                                default => $record->state
+                            } }}
                         </td>
                         <td class="py-2 px-2 border-x border-black text-center font-bold">
                             @if($record->attendance_status === 'late')

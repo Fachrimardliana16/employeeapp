@@ -3,7 +3,8 @@
         latitude: null,
         longitude: null,
         currentTime: '',
-        status: 'searching', // searching, success, far
+        accuracy: null,
+        status: 'idle',
 
         updateTime() {
             const now = new Date();
@@ -12,10 +13,12 @@
 
         getLocation() {
             if (navigator.geolocation) {
+                this.status = 'searching';
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         this.latitude = position.coords.latitude;
                         this.longitude = position.coords.longitude;
+                        this.accuracy = position.coords.accuracy;
                         $wire.$set('data.latitude', this.latitude);
                         $wire.$set('data.longitude', this.longitude);
                         this.status = 'success';
@@ -24,7 +27,11 @@
                         this.status = 'error';
                         console.error('Location error:', error);
                     },
-                    { enableHighAccuracy: true }
+                    { 
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
                 );
             } else {
                 alert('Browser Anda tidak mendukung geolocation');
@@ -47,8 +54,28 @@
                                 </svg>
                             </div>
                             <div>
-                                <h2 class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">Lokasi</h2>
-                                <p class="text-sm font-bold text-gray-900 dark:text-white" x-text="latitude && longitude ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Mencari...'"></p>
+                                <h2 class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">Lokasi & Presisi</h2>
+                                <div class="flex items-center gap-3">
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white" x-text="latitude && longitude ? `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` : 'Mencari...'"></p>
+                                    <template x-if="accuracy">
+                                        <span @class([
+                                            'px-1.5 py-0.5 rounded text-[9px] font-bold uppercase',
+                                            'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400' => true,
+                                        ]) x-text="`±${Math.round(accuracy)}m`" :class="accuracy > 100 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400' : ''"></span>
+                                    </template>
+                                    
+                                    <!-- Refresh Location Button with better feedback -->
+                                    <button 
+                                        type="button" 
+                                        @click="getLocation()" 
+                                        class="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-500/10 rounded-full transition-all active:scale-90 focus:outline-none ring-1 ring-transparent hover:ring-primary-200 dark:hover:ring-primary-500/30"
+                                        title="Perbarui Lokasi GPS"
+                                    >
+                                        <svg :class="status === 'searching' ? 'animate-spin text-primary-600' : ''" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="flex flex-row sm:flex-col justify-between items-center sm:items-end sm:text-right border-t sm:border-t-0 border-gray-100 dark:border-white/5 pt-3 sm:pt-0">
@@ -67,12 +94,20 @@
                             <button
                                 type="button"
                                 wire:click="submitAttendance"
-                                class="w-full relative group flex items-center justify-center gap-3 px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-bold text-md transition-all active:scale-[0.98]"
+                                wire:loading.attr="disabled"
+                                class="w-full relative group flex items-center justify-center gap-3 px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-bold text-md transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                             >
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div wire:loading wire:target="submitAttendance" class="absolute left-6">
+                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                                <svg wire:loading.remove wire:target="submitAttendance" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                                 </svg>
-                                <span>Simpan Kehadiran</span>
+                                <span wire:loading.remove wire:target="submitAttendance">Simpan Kehadiran</span>
+                                <span wire:loading wire:target="submitAttendance">Memproses...</span>
                             </button>
                         </div>
                     </div>
@@ -147,6 +182,7 @@
                                     'w-10 h-10 rounded-lg flex items-center justify-center',
                                     'bg-green-50 text-green-600 dark:bg-green-500/10' => $record->state === 'in',
                                     'bg-orange-50 text-orange-600 dark:bg-orange-500/10' => $record->state === 'out',
+                                    'bg-blue-50 text-blue-600 dark:bg-blue-500/10' => str_starts_with($record->state, 'dl'),
                                     'bg-purple-50 text-purple-600 dark:bg-purple-500/10' => str_starts_with($record->state, 'ot'),
                                 ])>
                                     @if($record->state === 'in')

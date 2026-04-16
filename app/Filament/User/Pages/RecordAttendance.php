@@ -57,8 +57,10 @@ class RecordAttendance extends Page implements HasActions
                             ->options([
                                 'in'            => 'Check In ',
                                 'out'           => 'Check Out',
+                                'dl_in'         => 'Dinas Luar (Masuk)',
+                                'dl_out'        => 'Dinas Luar (Pulang)',
                                 'ot_in'         => 'Overtime In',
-                                'ot_out'    => 'Overtime Out',
+                                'ot_out'        => 'Overtime Out',
                             ])
                             ->required()
                             ->native(false),
@@ -135,10 +137,23 @@ class RecordAttendance extends Page implements HasActions
         $attendanceData = $this->form->getState();
 
         $user = Auth::user();
-        $employee = Employee::where('users_id', $user->id)
-            ->orWhere('email', $user->email)
-            ->orWhere('office_email', $user->email)
-            ->first();
+        
+        // Cek berdasarkan users_id terlebih dahulu (canonical link)
+        $employee = Employee::where('users_id', $user->id)->first();
+        
+        // Fallback ke email atau username jika link users_id belum diatur
+        if (!$employee) {
+            $employee = Employee::where(function($query) use ($user) {
+                $query->where('email', $user->email)
+                    ->orWhere('office_email', $user->email)
+                    ->orWhere('username', $user->username);
+            })->first();
+            
+            // Link secara otomatis jika ditemukan (self-healing)
+            if ($employee && empty($employee->users_id)) {
+                $employee->update(['users_id' => $user->id]);
+            }
+        }
 
         if (!$employee) {
             Notification::make()
@@ -150,9 +165,42 @@ class RecordAttendance extends Page implements HasActions
         }
 
         // 2. Schedule Validation & Status Calculation
-        $dayName = now()->format('l');
+        $daysMap = [
+            'Monday'    => 'Senin',
+            'Tuesday'   => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday'  => 'Kamis',
+            'Friday'    => 'Jumat',
+            'Saturday'  => 'Sabtu',
+            'Sunday'    => 'Minggu',
+        ];
+        
+        $dayName = $daysMap[now()->format('l')];
         $schedule = AttendanceSchedule::where('day', $dayName)->where('is_active', true)->first();
         
+        // 2.1 Duplicate Check
+        $exists = EmployeeAttendanceRecord::where('pin', $employee->pin ?? $employee->id)
+            ->where('state', $attendanceData['state'])
+            ->whereDate('attendance_time', now())
+            ->exists();
+
+        if ($exists) {
+            $stateLabel = match($attendanceData['state']) {
+                'in' => 'Check In',
+                'out' => 'Check Out',
+                'ot_in' => 'Overtime In',
+                'ot_out' => 'Overtime Out',
+                default => $attendanceData['state'],
+            };
+            
+            Notification::make()
+                ->title('Gagal')
+                ->body("Anda sudah melakukan {$stateLabel} hari ini.")
+                ->warning()
+                ->send();
+            return;
+        }
+
         $attendanceStatus = 'on_time';
         $currentTime = now()->format('H:i:s');
 
@@ -210,6 +258,11 @@ class RecordAttendance extends Page implements HasActions
             }
         }
 
+        // 3.1 Bypass Radius for Dinas Luar (LUAR KANTOR)
+        if (str_starts_with($attendanceData['state'], 'dl_')) {
+            $isInRange = true;
+        }
+
         if (!$isInRange) {
             Notification::make()
                 ->title('Lokasi Terlalu Jauh')
@@ -258,8 +311,8 @@ class RecordAttendance extends Page implements HasActions
                 'check_longitude' => $attendanceData['longitude'],
                 'distance_from_office' => (int) round($minDistance),
                 'is_within_radius' => $isInRange,
-                'photo_checkin' => in_array($attendanceData['state'], ['in', 'ot_in']) ? $picturePath : null,
-                'photo_checkout' => in_array($attendanceData['state'], ['out', 'ot_out']) ? $picturePath : null,
+                'photo_checkin' => in_array($attendanceData['state'], ['in', 'ot_in', 'dl_in']) ? $picturePath : null,
+                'photo_checkout' => in_array($attendanceData['state'], ['out', 'ot_out', 'dl_out']) ? $picturePath : null,
                 'attendance_status' => $attendanceStatus,
                 'users_id' => $user->id,
                 'device' => 'web',
@@ -311,8 +364,8 @@ class RecordAttendance extends Page implements HasActions
             $img = imagescale($img, $newWidth, $newHeight);
         }
 
-        // Generate unique filename
-        $filename = 'attendance_' . time() . '_' . uniqid() . '.jpg';
+        // Generate unique filename with .webp extension
+        $filename = 'attendance_' . time() . '_' . uniqid() . '.webp';
         $directory = storage_path('app/public/attendance-photos');
         
         if (!file_exists($directory)) {
@@ -321,8 +374,16 @@ class RecordAttendance extends Page implements HasActions
 
         $path = $directory . '/' . $filename;
         
-        // Save as JPEG with 70% quality (optimization)
-        imagejpeg($img, $path, 70);
+        // Save as WebP with 75% quality (better optimization)
+        if (function_exists('imagewebp')) {
+            imagewebp($img, $path, 75);
+        } else {
+            // Fallback to JPEG if WebP not supported
+            $filename = str_replace('.webp', '.jpg', $filename);
+            $path = str_replace('.webp', '.jpg', $path);
+            imagejpeg($img, $path, 75);
+        }
+        
         imagedestroy($img);
 
         return 'attendance-photos/' . $filename;

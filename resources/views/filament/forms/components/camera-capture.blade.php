@@ -9,6 +9,9 @@
         showVideo: true,
 
         async initCamera() {
+            // Clean up existing stream if any
+            this.stopCamera();
+
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 alert('Browser Anda tidak mendukung akses kamera atau Anda sedang tidak menggunakan HTTPS.');
                 return;
@@ -18,19 +21,23 @@
                 this.stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'user',
-                        width: { ideal: 1024 },
-                        height: { ideal: 768 }
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     }
                 });
                 
                 this.$nextTick(() => {
-                    this.$refs.video.srcObject = this.stream;
-                    this.$refs.video.play().catch(e => console.error('Play error:', e));
+                    if (this.$refs.video) {
+                        this.$refs.video.srcObject = this.stream;
+                        this.$refs.video.onloadedmetadata = () => {
+                            this.$refs.video.play().catch(e => console.error('Play error:', e));
+                        };
+                    }
                 });
             } catch (err) {
                 console.error('Camera error:', err);
                 let message = 'TIDAK DAPAT MENGAKSES KAMERA: ';
-                if (err.name === 'NotAllowedError') message += 'Izin ditolak.';
+                if (err.name === 'NotAllowedError') message += 'Izin ditolak. Silakan cek pengaturan browser.';
                 else if (err.name === 'NotFoundError') message += 'Kamera tidak ditemukan.';
                 else message += err.message;
                 alert(message);
@@ -40,9 +47,17 @@
         capture() {
             const video = this.$refs.video;
             const canvas = this.$refs.canvas;
+            
+            if (!video || !canvas) return;
+
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const context = canvas.getContext('2d');
+            
+            // Handle mirroring for captured image
+            context.translate(canvas.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             this.capturedImage = canvas.toDataURL('image/jpeg', 0.8);
             this.state = this.capturedImage;
@@ -50,17 +65,25 @@
             this.stopCamera();
         },
 
-        retake() {
+        async retake() {
+            this.stopCamera();
             this.capturedImage = null;
             this.state = null;
             this.showVideo = true;
-            this.initCamera();
+            
+            // Small delay to ensure DOM is ready after showVideo = true
+            this.$nextTick(async () => {
+                await this.initCamera();
+            });
         },
 
         stopCamera() {
             if (this.stream) {
                 this.stream.getTracks().forEach(track => track.stop());
                 this.stream = null;
+            }
+            if (this.$refs.video) {
+                this.$refs.video.srcObject = null;
             }
         }
     }"

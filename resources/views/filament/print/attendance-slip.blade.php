@@ -56,7 +56,15 @@
                         <div class="flex gap-4 mt-2">
                              <span class="text-sm text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded">PIN: {{ $record->pin }}</span>
                              <div class="inline-block px-4 py-2 bg-black text-white text-sm font-black uppercase italic shadow-lg">
-                                {{ $record->state === 'check_in' || $record->state === 'in' ? 'MASUK / CHECK-IN' : 'KELUAR / CHECK-OUT' }}
+                                 {{ match($record->state) {
+                                     'in', 'check_in' => 'MASUK / CHECK-IN',
+                                     'out', 'check_out' => 'KELUAR / CHECK-OUT',
+                                     'dl_in' => 'DINAS LUAR (MASUK)',
+                                     'dl_out' => 'DINAS LUAR (PULANG)',
+                                     'ot_in' => 'LEMBUR (MASUK)',
+                                     'ot_out' => 'LEMBUR (PULANG)',
+                                     default => strtoupper($record->state)
+                                 } }}
                                 @if($record->attendance_status === 'late')
                                     <span class="ml-2 bg-red-600 px-1 text-[10px] not-italic">(TERLAMBAT)</span>
                                 @elseif($record->attendance_status === 'early')

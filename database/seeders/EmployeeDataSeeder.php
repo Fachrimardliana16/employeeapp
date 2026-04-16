@@ -1777,9 +1777,27 @@ class EmployeeDataSeeder extends Seeder
 
                 // Use withoutEvents to prevent automatic NIPPAM generation
                 Employee::withoutEvents(function () use ($nippam, $name, $address, $npwp, $email, $username, $gradeId, $serviceGradeId, $statusId, $user, $gender, $entryDate) {
-                    Employee::updateOrCreate(
-                        ["name" => $name],
-                        [
+                    $employee = Employee::where('name', $name)->first();
+                    
+                    if ($employee) {
+                        $employee->update([
+                            "nippam" => $nippam,
+                            "address" => $address,
+                            "npwp_number" => $npwp,
+                            "email" => $email,
+                            "office_email" => $email,
+                            "username" => $username,
+                            "basic_salary_id" => $gradeId,
+                            "employee_service_grade_id" => $serviceGradeId,
+                            "employment_status_id" => $statusId,
+                            "users_id" => $user->id,
+                            "gender" => $gender,
+                            "entry_date" => $entryDate,
+                            "leave_balance" => 12,
+                        ]);
+                    } else {
+                        Employee::create([
+                            "name" => $name,
                             "nippam" => $nippam,
                             "address" => $address,
                             "npwp_number" => $npwp,
@@ -1794,8 +1812,8 @@ class EmployeeDataSeeder extends Seeder
                             "gender" => $gender,
                             "entry_date" => $entryDate,
                             "leave_balance" => 12,
-                        ]
-                    );
+                        ]);
+                    }
                 });
             } catch (\Exception $e) {
                 $this->command->error("Failed to import {$name}: " . $e->getMessage());

@@ -190,14 +190,30 @@ class EmployeeAttendanceRecordResource extends Resource
                     ->description(fn (EmployeeAttendanceRecord $record): string => "PIN: {$record->pin}"),
 
                 Tables\Columns\TextColumn::make('attendance_time')
-                    ->label('Waktu & Status')
+                    ->label('Waktu Kehadiran')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->description(fn (EmployeeAttendanceRecord $record): string => match ($record->state) {
-                        'check_in' => 'Masuk',
-                        'check_out' => 'Keluar',
-                        default => $record->state,
-                    }),
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('state')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'in', 'check_in' => 'success',
+                        'out', 'check_out' => 'warning',
+                        'dl_in', 'dl_out' => 'info',
+                        'ot_in', 'ot_out' => 'purple',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'in', 'check_in' => 'MASUK',
+                        'out', 'check_out' => 'KELUAR',
+                        'dl_in' => 'DINAS LUAR (M)',
+                        'dl_out' => 'DINAS LUAR (P)',
+                        'ot_in' => 'LEMBUR (M)',
+                        'ot_out' => 'LEMBUR (P)',
+                        default => strtoupper($state),
+                    })
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('attendance_status')
                     ->label('Ketepatan')
@@ -251,8 +267,12 @@ class EmployeeAttendanceRecordResource extends Resource
                 Tables\Filters\SelectFilter::make('state')
                     ->label('Status')
                     ->options([
-                        'check_in' => 'Check In',
-                        'check_out' => 'Check Out',
+                        'in' => 'Masuk',
+                        'out' => 'Keluar',
+                        'dl_in' => 'Dinas Luar (M)',
+                        'dl_out' => 'Dinas Luar (P)',
+                        'ot_in' => 'Lembur (M)',
+                        'ot_out' => 'Lembur (P)',
                     ])
                     ->native(false),
 
@@ -327,6 +347,25 @@ class EmployeeAttendanceRecordResource extends Resource
                                     ->weight(FontWeight::Bold),
                                 Components\TextEntry::make('pin')
                                     ->label('PIN'),
+                                Components\TextEntry::make('state')
+                                    ->label('Status Kehadiran')
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'in', 'check_in' => 'success',
+                                        'out', 'check_out' => 'warning',
+                                        'dl_in', 'dl_out' => 'info',
+                                        'ot_in', 'ot_out' => 'purple',
+                                        default => 'gray',
+                                    })
+                                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                                        'in', 'check_in' => 'MASUK (CHECK-IN)',
+                                        'out', 'check_out' => 'KELUAR (CHECK-OUT)',
+                                        'dl_in' => 'DINAS LUAR (MASUK)',
+                                        'dl_out' => 'DINAS LUAR (PULANG)',
+                                        'ot_in' => 'LEMBUR (MASUK)',
+                                        'ot_out' => 'LEMBUR (PULANG)',
+                                        default => strtoupper($state),
+                                    }),
                                 Components\TextEntry::make('attendance_status')
                                     ->label('Ketepatan Waktu')
                                     ->badge()
@@ -409,11 +448,17 @@ class EmployeeAttendanceRecordResource extends Resource
                                     ->height(350)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->photo_checkout),
+
+                                Components\ImageEntry::make('picture')
+                                    ->hiddenLabel()
+                                    ->height(350)
+                                    ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
+                                    ->visible(fn($record) => $record->picture && !$record->photo_checkin && !$record->photo_checkout),
                                     
                                 Components\TextEntry::make('no_photo')
                                     ->hiddenLabel()
-                                    ->default('Tidak ada foto')
-                                    ->visible(fn($record) => !$record->photo_checkin && !$record->photo_checkout),
+                                    ->default('Tidak ada foto bukti yang terekam.')
+                                    ->visible(fn($record) => !$record->photo_checkin && !$record->photo_checkout && !$record->picture),
                             ])->columnSpan(1),
                     ]),
 
