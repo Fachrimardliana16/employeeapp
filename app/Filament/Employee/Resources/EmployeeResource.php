@@ -1017,138 +1017,148 @@ class EmployeeResource extends Resource
 
                         $stats = ['created' => 0, 'updated' => 0];
                         // Phase 2: Processing (Transactional)
-                        \Illuminate\Support\Facades\DB::transaction(function() use ($processedData, &$stats) {
-                            foreach ($processedData as $data) {
-                                $rowData = $data['row'];
-                                $ids = $data['ids'];
+                        try {
+                            \Illuminate\Support\Facades\DB::transaction(function() use ($processedData, &$stats) {
+                                foreach ($processedData as $data) {
+                                    $rowData = $data['row'];
+                                    $ids = $data['ids'];
 
-                                $convertDate = function($dateStr) {
-                                    if (empty($dateStr)) return null;
-                                    $dateStr = trim($dateStr);
-                                    // Try various common formats covers dash, slash, dot and 2/4 digit years
-                                    $formats = [
-                                        'd-m-Y', 'd/m/Y', 'd.m.Y', 
-                                        'd-m-y', 'd/m/y', 'd.m.y',
-                                        'j-n-Y', 'j/n/Y', 'j.n.Y', 
-                                        'Y-m-d', 'Y/m/d', 'Y.m.d',
-                                    ];
-                                    foreach ($formats as $format) {
-                                        try { 
-                                            $d = \Carbon\Carbon::createFromFormat($format, $dateStr);
-                                            if ($d) {
-                                                // Sanity check for 2-digit year misparsing (e.g. 24 -> 0024)
-                                                if ($d->year < 100) {
-                                                    $d->year($d->year < 70 ? 2000 + $d->year : 1900 + $d->year);
+                                    $convertDate = function($dateStr) {
+                                        if (empty($dateStr)) return null;
+                                        $dateStr = trim($dateStr);
+                                        // Try various common formats covers dash, slash, dot and 2/4 digit years
+                                        $formats = [
+                                            'd-m-Y', 'd/m/Y', 'd.m.Y', 
+                                            'd-m-y', 'd/m/y', 'd.m.y',
+                                            'j-n-Y', 'j/n/Y', 'j.n.Y', 
+                                            'Y-m-d', 'Y/m/d', 'Y.m.d',
+                                        ];
+                                        foreach ($formats as $format) {
+                                            try { 
+                                                $d = \Carbon\Carbon::createFromFormat($format, $dateStr);
+                                                if ($d) {
+                                                    // Sanity check for 2-digit year misparsing (e.g. 24 -> 0024)
+                                                    if ($d->year < 100) {
+                                                        $d->year($d->year < 70 ? 2000 + $d->year : 1900 + $d->year);
+                                                    }
+                                                    return $d->format('Y-m-d');
                                                 }
-                                                return $d->format('Y-m-d');
-                                            }
-                                        } catch (\Exception $e) {}
-                                    }
-                                    
-                                    // Final attempt: Smart parsing
-                                    try {
-                                        $d = \Carbon\Carbon::parse($dateStr);
-                                        if ($d->year < 100) {
-                                            $d->year($d->year < 70 ? 2000 + $d->year : 1900 + $d->year);
+                                            } catch (\Exception $e) {}
                                         }
-                                        return $d->format('Y-m-d');
-                                    } catch (\Exception $e) {
-                                        return null;
-                                    }
-                                };
+                                        
+                                        // Final attempt: Smart parsing
+                                        try {
+                                            $d = \Carbon\Carbon::parse($dateStr);
+                                            if ($d->year < 100) {
+                                                $d->year($d->year < 70 ? 2000 + $d->year : 1900 + $d->year);
+                                            }
+                                            return $d->format('Y-m-d');
+                                        } catch (\Exception $e) {
+                                            return null;
+                                        }
+                                    };
 
-                                $isNew = empty($rowData['id']);
-                                if ($isNew) $stats['created']++; else $stats['updated']++;
-                                
-                                $employeeData = [
-                                    'name' => $rowData['name'],
-                                    'gender' => $rowData['gender'] ?? 'male',
-                                    'religion' => $rowData['religion'] ?? null,
-                                    'place_birth' => $rowData['place_birth'] ?? null,
-                                    'date_birth' => $convertDate($rowData['date_birth'] ?? ''),
-                                    'marital_status' => $rowData['marital_status'] ?? 'single',
-                                    'blood_type' => $rowData['blood_type'] ?? null,
-                                    'email' => $rowData['email'] ?? null,
-                                    'office_email' => $rowData['office_email'] ?? null,
-                                    'phone_number' => $rowData['phone_number'] ?? null,
-                                    'id_number' => $rowData['id_number'] ?? null,
-                                    'familycard_number' => $rowData['familycard_number'] ?? null,
-                                    'npwp_number' => $rowData['npwp_number'] ?? null,
-                                    'bank_account_number' => $rowData['bank_account_number'] ?? null,
-                                    'bpjs_tk_number' => $rowData['bpjs_tk_number'] ?? null,
-                                    'bpjs_tk_status' => $rowData['bpjs_tk_status'] ?? 'Aktif',
-                                    'bpjs_kes_number' => $rowData['bpjs_kes_number'] ?? null,
-                                    'bpjs_kes_status' => $rowData['bpjs_kes_status'] ?? 'Aktif',
-                                    'bpjs_kes_class' => $rowData['bpjs_kes_class'] ?? null,
-                                    'rek_dplk_pribadi' => $rowData['rek_dplk_pribadi'] ?? null,
-                                    'rek_dplk_bersama' => $rowData['rek_dplk_bersama'] ?? null,
-                                    'dapenma_number' => $rowData['dapenma_number'] ?? null,
-                                    'dapenma_phdp' => $rowData['dapenma_phdp'] ?? 0,
-                                    'dapenma_status' => $rowData['dapenma_status'] ?? 'Aktif',
-                                    'address' => $rowData['address'] ?? null,
-                                    'departments_id' => $ids['dept_id'],
-                                    'bagian_id' => $ids['bagian_id'],
-                                    'cabang_id' => $ids['cabang_id'],
-                                    'unit_id' => $ids['unit_id'],
-                                    'sub_department_id' => $ids['sub_dept_id'],
-                                    'employee_position_id' => $ids['pos_id'],
-                                    'employment_status_id' => $ids['status_id'],
-                                    'employee_education_id' => $ids['edu_id'],
-                                    'basic_salary_id' => $ids['grade_id'],
-                                    'employee_service_grade_id' => $ids['mkg_id'],
-                                    'master_employee_agreement_id' => $ids['agreement_id'],
-                                    'entry_date' => $convertDate($rowData['entry_date'] ?? ''),
-                                    'probation_appointment_date' => $convertDate($rowData['probation_appointment_date'] ?? ''),
-                                    'leave_balance' => $rowData['leave_balance'] ?? 12,
-                                    'agreement_date_start' => $convertDate($rowData['agreement_date_start'] ?? ''),
-                                    'agreement_date_end' => $convertDate($rowData['agreement_date_end'] ?? ''),
-                                    'grade_date_start' => $convertDate($rowData['grade_date_start'] ?? ''),
-                                    'grade_date_end' => $convertDate($rowData['grade_date_end'] ?? ''),
-                                    'periodic_salary_date_start' => $convertDate($rowData['periodic_salary_date_start'] ?? ''),
-                                    'periodic_salary_date_end' => $convertDate($rowData['periodic_salary_date_end'] ?? ''),
-                                    'users_id' => auth()->id() ?? 1,
-                                ];
-
-                                if ($rowData['nippam']) {
-                                    $employeeData['nippam'] = $rowData['nippam'];
-                                } elseif ($isNew) {
-                                    $employeeData['nippam'] = Employee::generateNippam();
-                                }
-
-                                $employee = Employee::updateOrCreate(
-                                    ['id' => $rowData['id'] ?: null],
-                                    $employeeData
-                                );
-
-                                if ($isNew) {
-                                    // 1. Create User
-                                    $user = \App\Models\User::create([
-                                        'name' => $employee->name,
-                                        'email' => $employee->email ?: $employee->username . '@pdam.com',
-                                        'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
-                                        'is_verified' => true,
-                                    ]);
-                                    $employee->update(['users_id' => $user->id]);
-
-                                    // 2. Create Initial Appointment
-                                    \App\Models\EmployeeAppointment::create([
-                                        'employee_id' => $employee->id,
-                                        'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),
-                                        'appointment_date' => $employee->entry_date ?: now(),
-                                        'new_employment_status_id' => $employee->employment_status_id ?: 1,
-                                        'employee_grade_id' => $employee->basic_salary_id,
-                                        'is_applied' => true,
-                                        'applied_at' => now(),
+                                    $isNew = empty($rowData['id']);
+                                    if ($isNew) $stats['created']++; else $stats['updated']++;
+                                    
+                                    $employeeData = [
+                                        'name' => $rowData['name'],
+                                        'gender' => $rowData['gender'] ?? 'male',
+                                        'religion' => $rowData['religion'] ?? null,
+                                        'place_birth' => $rowData['place_birth'] ?? null,
+                                        'date_birth' => $convertDate($rowData['date_birth'] ?? ''),
+                                        'marital_status' => $rowData['marital_status'] ?? 'single',
+                                        'blood_type' => $rowData['blood_type'] ?? null,
+                                        'email' => $rowData['email'] ?? null,
+                                        'office_email' => $rowData['office_email'] ?? null,
+                                        'phone_number' => $rowData['phone_number'] ?? null,
+                                        'id_number' => $rowData['id_number'] ?? null,
+                                        'familycard_number' => $rowData['familycard_number'] ?? null,
+                                        'npwp_number' => $rowData['npwp_number'] ?? null,
+                                        'bank_account_number' => $rowData['bank_account_number'] ?? null,
+                                        'bpjs_tk_number' => $rowData['bpjs_tk_number'] ?? null,
+                                        'bpjs_tk_status' => $rowData['bpjs_tk_status'] ?? 'Aktif',
+                                        'bpjs_kes_number' => $rowData['bpjs_kes_number'] ?? null,
+                                        'bpjs_kes_status' => $rowData['bpjs_kes_status'] ?? 'Aktif',
+                                        'bpjs_kes_class' => $rowData['bpjs_kes_class'] ?? null,
+                                        'rek_dplk_pribadi' => $rowData['rek_dplk_pribadi'] ?? null,
+                                        'rek_dplk_bersama' => $rowData['rek_dplk_bersama'] ?? null,
+                                        'dapenma_number' => $rowData['dapenma_number'] ?? null,
+                                        'dapenma_phdp' => $rowData['dapenma_phdp'] ?? 0,
+                                        'dapenma_status' => $rowData['dapenma_status'] ?? 'Aktif',
+                                        'address' => $rowData['address'] ?? null,
+                                        'departments_id' => $ids['dept_id'],
+                                        'bagian_id' => $ids['bagian_id'],
+                                        'cabang_id' => $ids['cabang_id'],
+                                        'unit_id' => $ids['unit_id'],
+                                        'sub_department_id' => $ids['sub_dept_id'],
+                                        'employee_position_id' => $ids['pos_id'],
+                                        'employment_status_id' => $ids['status_id'],
+                                        'employee_education_id' => $ids['edu_id'],
+                                        'basic_salary_id' => $ids['grade_id'],
+                                        'employee_service_grade_id' => $ids['mkg_id'],
+                                        'master_employee_agreement_id' => $ids['agreement_id'],
+                                        'entry_date' => $convertDate($rowData['entry_date'] ?? ''),
+                                        'probation_appointment_date' => $convertDate($rowData['probation_appointment_date'] ?? ''),
+                                        'leave_balance' => $rowData['leave_balance'] ?? 12,
+                                        'agreement_date_start' => $convertDate($rowData['agreement_date_start'] ?? ''),
+                                        'agreement_date_end' => $convertDate($rowData['agreement_date_end'] ?? ''),
+                                        'grade_date_start' => $convertDate($rowData['grade_date_start'] ?? ''),
+                                        'grade_date_end' => $convertDate($rowData['grade_date_end'] ?? ''),
+                                        'periodic_salary_date_start' => $convertDate($rowData['periodic_salary_date_start'] ?? ''),
+                                        'periodic_salary_date_end' => $convertDate($rowData['periodic_salary_date_end'] ?? ''),
                                         'users_id' => auth()->id() ?? 1,
-                                    ]);
-                                }
-                            }
-                        });
+                                    ];
 
-                        Notification::make()
-                            ->title('Proses Berhasil')
-                            ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
-                            ->success()->send();
+                                    if ($rowData['nippam']) {
+                                        $employeeData['nippam'] = $rowData['nippam'];
+                                    } elseif ($isNew) {
+                                        $employeeData['nippam'] = \App\Models\Employee::generateNippam();
+                                    }
+
+                                    $employee = \App\Models\Employee::updateOrCreate(
+                                        ['id' => $rowData['id'] ?: null],
+                                        $employeeData
+                                    );
+
+                                    if ($isNew) {
+                                        // 1. Create User
+                                        $user = \App\Models\User::create([
+                                            'name' => $employee->name,
+                                            'email' => $employee->email ?: "pegawai_{$employee->id}@pdam.com",
+                                            'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
+                                            'is_verified' => true,
+                                        ]);
+                                        $employee->update(['users_id' => $user->id]);
+
+                                        // 2. Create Initial Appointment
+                                        \App\Models\EmployeeAppointment::create([
+                                            'employee_id' => $employee->id,
+                                            'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),
+                                            'appointment_date' => $employee->entry_date ?: now(),
+                                            'new_employment_status_id' => $employee->employment_status_id ?: 1,
+                                            'employee_grade_id' => $employee->basic_salary_id,
+                                            'is_applied' => true,
+                                            'applied_at' => now(),
+                                            'users_id' => auth()->id() ?? 1,
+                                        ]);
+                                    }
+                                }
+                            });
+
+                            Notification::make()
+                                ->title('Proses Berhasil')
+                                ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
+                                ->success()->send();
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error('Import Error: ' . $e->getMessage());
+                            Notification::make()
+                                ->title('Proses Gagal')
+                                ->body('Terjadi kesalahan saat menyimpan data: ' . $e->getMessage())
+                                ->danger()
+                                ->persistent()
+                                ->send();
+                        }
                     }),
 
 
