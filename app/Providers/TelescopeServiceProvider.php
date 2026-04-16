@@ -15,8 +15,6 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
      */
     public function register(): void
     {
-        Telescope::ignoreMigrations();
-
         if (! config('telescope.enabled')) {
             return;
         }
