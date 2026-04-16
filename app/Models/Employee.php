@@ -506,8 +506,8 @@ class Employee extends Model
                     'Staf',
                     'Kepala SubBagian'
                 ])
-                ->where('name', 'NOT LIKE', '%Staff%')
-                ->where('name', 'NOT LIKE', '%Staf%');
+                    ->where('name', 'NOT LIKE', '%Staff%')
+                    ->where('name', 'NOT LIKE', '%Staf%');
             })
             ->orderBy('name')
             ->get()
