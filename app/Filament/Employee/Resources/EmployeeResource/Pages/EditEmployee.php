@@ -56,6 +56,23 @@ class EditEmployee extends EditRecord
             ->body('Data pegawai telah diperbarui.');
     }
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $decimalFields = [
+            'dapenma_phdp',
+            'rek_dplk_pribadi',
+            'rek_dplk_bersama',
+        ];
+
+        foreach ($decimalFields as $field) {
+            if (isset($data[$field]) && $data[$field] === '') {
+                $data[$field] = null;
+            }
+        }
+
+        return $data;
+    }
+
     protected function handleRecordUpdate(\Illuminate\Database\Eloquent\Model $record, array $data): \Illuminate\Database\Eloquent\Model
     {
         try {
