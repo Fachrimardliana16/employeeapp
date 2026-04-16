@@ -97,6 +97,12 @@ class Employee extends Model
         'password',
     ];
 
+    // Mutator untuk kolom decimal agar string kosong dikonversi ke null
+    public function setDapenmaPhpdAttribute($value): void
+    {
+        $this->attributes['dapenma_phdp'] = ($value === '' || $value === null) ? null : $value;
+    }
+
     // Boot method untuk auto-generate fields
     protected static function boot()
     {
