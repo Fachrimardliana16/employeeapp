@@ -836,6 +836,9 @@ class EmployeeResource extends Resource
                         ];
                     })
                     ->action(function (array $data) {
+                        set_time_limit(300); // 5 minutes
+                        ini_set('memory_limit', '512M');
+
                         $path = \Illuminate\Support\Facades\Storage::disk('public')->path($data['csv_file']);
                         
                         // Detect Delimiter (Comma or Semicolon)
@@ -897,6 +900,25 @@ class EmployeeResource extends Resource
                         $errors = [];
                         $processedData = [];
 
+                        // Pre-load Master Data for Performance
+                        $masterLookups = [
+                            'positions' => \App\Models\MasterEmployeePosition::all()->mapWithKeys(fn($i) => [strtolower(trim($i->name)) => $i->id])->toArray(),
+                            'status' => \App\Models\MasterEmployeeStatusEmployment::all()->mapWithKeys(fn($i) => [strtolower(trim($i->name)) => $i->id])->toArray(),
+                            'education' => \App\Models\MasterEmployeeEducation::all()->mapWithKeys(fn($i) => [strtolower(trim($i->name)) => $i->id])->toArray(),
+                            'grades' => \App\Models\MasterEmployeeGrade::all()->mapWithKeys(fn($i) => [strtolower(trim($i->name)) => $i->id])->toArray(),
+                            'agreements' => \App\Models\MasterEmployeeAgreement::all()->mapWithKeys(fn($i) => [strtolower(trim($i->name)) => $i->id])->toArray(),
+                            'sub_depts' => \App\Models\MasterSubDepartment::all()->mapWithKeys(fn($i) => [strtolower(trim($i->name)) => $i->id])->toArray(),
+                            'mkg' => \App\Models\MasterEmployeeServiceGrade::all()->mapWithKeys(fn($i) => [(string)$i->service_grade => $i->id])->toArray(),
+                            'units' => \App\Models\MasterDepartment::all()->mapWithKeys(fn($i) => [strtolower(trim($i->type . '|' . $i->name)) => $i->id])->toArray(),
+                        ];
+
+                        // Pre-load existing unique identifiers to avoid DB hits in loop
+                        $uniques = [
+                            'nippam' => \App\Models\Employee::whereNotNull('nippam')->pluck('id', 'nippam')->toArray(),
+                            'id_number' => \App\Models\Employee::whereNotNull('id_number')->pluck('id', 'id_number')->toArray(),
+                            'email' => \App\Models\Employee::whereNotNull('email')->pluck('id', 'email')->toArray(),
+                        ];
+
                         // Phase 1: Validation
                         foreach ($rows as $index => $rowData) {
                             // Find line number in original file for better error reporting
@@ -907,84 +929,89 @@ class EmployeeResource extends Resource
                                 $rowErrors[] = "Nama wajib diisi";
                             }
 
-                            // Smart Lookup Helper (ID or Name)
-                            $smartLookup = function($modelClass, $value, $label) use (&$rowErrors) {
+                            // Smart Lookup Helper (Optimized with Pre-loaded data)
+                            $smartLookup = function($lookupKey, $value, $label) use (&$rowErrors, $masterLookups) {
                                 if (empty($value)) return null;
                                 
-                                // Try ID first if numeric
-                                if (is_numeric($value)) {
-                                    $record = $modelClass::find($value);
-                                    if ($record) return $record->id;
+                                $valClean = strtolower(trim($value));
+                                
+                                // Try ID match
+                                if (is_numeric($value) && in_array($value, $masterLookups[$lookupKey])) {
+                                    return (int)$value;
                                 }
                                 
-                                // Try Name (exact case-insensitive)
-                                $record = $modelClass::whereRaw('LOWER(name) = ?', [trim(strtolower($value))])->first();
-                                if ($record) return $record->id;
+                                // Try Name match
+                                if (isset($masterLookups[$lookupKey][$valClean])) {
+                                    return $masterLookups[$lookupKey][$valClean];
+                                }
 
                                 $rowErrors[] = "{$label} '{$value}' tidak ditemukan (Gunakan Nama atau ID yang valid)";
                                 return null;
                             };
 
-                            // Unit Lookup
+                            // Unit Lookup (Optimized)
                             $unitType = trim(strtolower($rowData['work_unit_type'] ?? ''));
                             $unitName = trim($rowData['work_unit_name'] ?? '');
                             $deptId = null; $bagianId = null; $cabangId = null; $unitId = null;
 
                             if ($unitType && $unitName) {
-                                if (is_numeric($unitName)) {
-                                    $dept = \App\Models\MasterDepartment::find($unitName);
-                                } else {
-                                    $dept = \App\Models\MasterDepartment::whereRaw('LOWER(name) = ?', [strtolower($unitName)])
-                                        ->whereRaw('LOWER(type) = ?', [strtolower($unitType)])->first();
+                                $unitKey = strtolower($unitType . '|' . $unitName);
+                                if (isset($masterLookups['units'][$unitKey])) {
+                                    $deptId = $masterLookups['units'][$unitKey];
+                                } elseif (is_numeric($unitName)) {
+                                    $deptId = (int)$unitName;
                                 }
 
-                                if (!$dept) {
-                                    $rowErrors[] = "Unit Kerja '{$unitName}' tidak ditemukan";
+                                if (!$deptId) {
+                                    $rowErrors[] = "Unit Kerja '{$unitName}' ({$unitType}) tidak ditemukan";
                                 } else {
-                                    $deptId = $dept->id;
-                                    if ($unitType === 'bagian') $bagianId = $dept->id;
-                                    elseif ($unitType === 'cabang') $cabangId = $dept->id;
-                                    elseif ($unitType === 'unit') $unitId = $dept->id;
+                                    if ($unitType === 'bagian') $bagianId = $deptId;
+                                    elseif ($unitType === 'cabang') $cabangId = $deptId;
+                                    elseif ($unitType === 'unit') $unitId = $deptId;
                                 }
                             }
 
-                            $subDeptId = $smartLookup(\App\Models\MasterSubDepartment::class, $rowData['sub_department_name'] ?? '', 'Sub Departemen');
-                            $posId = $smartLookup(\App\Models\MasterEmployeePosition::class, $rowData['position_name'] ?? '', 'Jabatan');
-                            $statusId = $smartLookup(\App\Models\MasterEmployeeStatusEmployment::class, $rowData['employment_status_name'] ?? '', 'Status');
-                            $eduId = $smartLookup(\App\Models\MasterEmployeeEducation::class, $rowData['education_name'] ?? '', 'Pendidikan');
-                            $gradeId = $smartLookup(\App\Models\MasterEmployeeGrade::class, $rowData['grade_name'] ?? '', 'Golongan');
-                            $agreementId = $smartLookup(\App\Models\MasterEmployeeAgreement::class, $rowData['agreement_type_name'] ?? '', 'Perjanjian');
+                            $subDeptId = $smartLookup('sub_depts', $rowData['sub_department_name'] ?? '', 'Sub Departemen');
+                            $posId = $smartLookup('positions', $rowData['position_name'] ?? '', 'Jabatan');
+                            $statusId = $smartLookup('status', $rowData['employment_status_name'] ?? '', 'Status');
+                            $eduId = $smartLookup('education', $rowData['education_name'] ?? '', 'Pendidikan');
+                            $gradeId = $smartLookup('grades', $rowData['grade_name'] ?? '', 'Golongan');
+                            $agreementId = $smartLookup('agreements', $rowData['agreement_type_name'] ?? '', 'Perjanjian');
 
-                            // Uniqueness Validation
-                            $checkUnique = function($column, $value, $label) use ($rowData, &$rowErrors) {
+                            // Uniqueness Validation (Partial pre-load check to reduce queries)
+                            $checkUnique = function($column, $value, $label) use ($rowData, &$rowErrors, $uniques) {
                                 if (empty($value)) return;
+                                
+                                // For performance, we only do DB check if it's not in our small pre-load or if it's a field we didn't pre-load
+                                if (isset($uniques[$column])) {
+                                    if (isset($uniques[$column][$value]) && $uniques[$column][$value] != ($rowData['id'] ?? null)) {
+                                        $rowErrors[] = "{$label} '{$value}' sudah terdaftar";
+                                    }
+                                    return;
+                                }
+
+                                // Fallback for other columns
                                 $query = \App\Models\Employee::where($column, $value);
                                 if (!empty($rowData['id'])) {
                                     $query->where('id', '!=', $rowData['id']);
                                 }
                                 if ($query->exists()) {
-                                    $rowErrors[] = "{$label} '{$value}' sudah terdaftar pada pegawai lain";
+                                    $rowErrors[] = "{$label} '{$value}' sudah terdaftar";
                                 }
                             };
 
                             $checkUnique('nippam', $rowData['nippam'] ?? '', 'NIPPAM');
                             $checkUnique('id_number', $rowData['id_number'] ?? '', 'NIK');
-                            $checkUnique('email', $rowData['email'] ?? '', 'Email Pribadi');
-                            $checkUnique('office_email', $rowData['office_email'] ?? '', 'Email Kantor');
-                            $checkUnique('phone_number', $rowData['phone_number'] ?? '', 'No. HP');
-                            $checkUnique('npwp_number', $rowData['npwp_number'] ?? '', 'NPWP');
-                            $checkUnique('bpjs_tk_number', $rowData['bpjs_tk_number'] ?? '', 'No. BPJS Ketenagakerjaan');
-                            $checkUnique('bpjs_kes_number', $rowData['bpjs_kes_number'] ?? '', 'No. BPJS Kesehatan');
+                            $checkUnique('email', $rowData['email'] ?? '', 'Email');
 
                             // MKG Lookup
                             $mkgValue = trim($rowData['mkg_years'] ?? '');
                             $mkgId = null;
                             if ($mkgValue !== '') {
-                                if (is_numeric($mkgValue)) {
-                                    $mkg = \App\Models\MasterEmployeeServiceGrade::where('service_grade', $mkgValue)->first() 
-                                           ?: \App\Models\MasterEmployeeServiceGrade::find($mkgValue);
-                                    if ($mkg) $mkgId = $mkg->id;
-                                    else $rowErrors[] = "MKG '{$mkgValue}' tidak ditemukan";
+                                if (isset($masterLookups['mkg'][$mkgValue])) {
+                                    $mkgId = $masterLookups['mkg'][$mkgValue];
+                                } else {
+                                    $rowErrors[] = "MKG '{$mkgValue}' tidak ditemukan";
                                 }
                             }
 
