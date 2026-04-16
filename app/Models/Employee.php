@@ -98,7 +98,7 @@ class Employee extends Model
     ];
 
     // Mutator untuk kolom decimal agar string kosong dikonversi ke null
-    public function setDapenmaPhpdAttribute($value): void
+    public function setDapenmaPhdpAttribute($value): void
     {
         $this->attributes['dapenma_phdp'] = ($value === '' || $value === null) ? null : $value;
     }

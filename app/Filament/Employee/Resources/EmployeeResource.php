@@ -1084,7 +1084,7 @@ class EmployeeResource extends Resource
                                         'rek_dplk_pribadi' => $rowData['rek_dplk_pribadi'] ?? null,
                                         'rek_dplk_bersama' => $rowData['rek_dplk_bersama'] ?? null,
                                         'dapenma_number' => $rowData['dapenma_number'] ?? null,
-                                        'dapenma_phdp' => $rowData['dapenma_phdp'] ?? 0,
+                                        'dapenma_phdp' => (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '') ? $rowData['dapenma_phdp'] : null,
                                         'dapenma_status' => $rowData['dapenma_status'] ?? 'Aktif',
                                         'address' => $rowData['address'] ?? null,
                                         'departments_id' => $ids['dept_id'],
