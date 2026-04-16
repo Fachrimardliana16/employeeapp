@@ -437,6 +437,17 @@ class EmployeeResource extends Resource
                                                     ->live()
                                                     ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('departments_id', $state)),
 
+                                                Forms\Components\Select::make('sub_department_id')
+                                                    ->label('Sub Bagian')
+                                                    ->options(function (Forms\Get $get) {
+                                                        $deptId = $get('departments_id');
+                                                        if (!$deptId) return [];
+                                                        return \App\Models\MasterSubDepartment::where('master_department_id', $deptId)->pluck('name', 'id');
+                                                    })
+                                                    ->searchable()
+                                                    ->preload()
+                                                    ->visible(fn (Forms\Get $get) => $get('departments_id') !== null),
+
                                                 Forms\Components\Hidden::make('departments_id'),
                                                 Forms\Components\Select::make('employee_position_id')
                                                     ->label('Posisi/Jabatan')
@@ -549,9 +560,11 @@ class EmployeeResource extends Resource
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('unit_kerja')
-                    ->label('Unit Kerja')
+                    ->label('Unit Kerja / Bagian')
                     ->getStateUsing(function (Employee $record) {
-                        return $record->active_organizational_unit->name ?? '-';
+                        $unit = $record->active_organizational_unit->name ?? '-';
+                        $subUnit = $record->subDepartment->name ?? '';
+                        return $unit . ($subUnit ? " / " . $subUnit : "");
                     })
                     ->description(function (Employee $record) {
                         return $record->active_organizational_unit->type ?? '';
@@ -575,6 +588,14 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('basic_salary_amount')
                     ->label('Gaji Pokok')
                     ->money('IDR')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('age')
+                    ->label('Umur')
+                    ->suffix(' Thn')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('retirement')
+                    ->label('Pensiun')
+                    ->date('d-m-Y')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('position_status')
                     ->label('Posisi / Status')
@@ -678,7 +699,7 @@ class EmployeeResource extends Resource
                                 Forms\Components\Grid::make(2)
                                     ->schema([
                                         Forms\Components\Select::make('department_filter')
-                                            ->label('Departemen')
+                                            ->label('Pilih Bagian')
                                             ->options(\App\Models\MasterDepartment::pluck('name', 'id')->toArray())
                                             ->searchable()
                                             ->placeholder('Semua Departemen'),
@@ -716,129 +737,402 @@ class EmployeeResource extends Resource
                     ->color('info')
                     ->action(function () {
                         $headers = [
-                            'nippam',
-                            'name',
-                            'gender',
-                            'place_birth',
-                            'date_birth',
-                            'religion',
-                            'marital_status',
-                            'email',
-                            'phone_number',
-                            'id_number',
-                            'familycard_number',
-                            'npwp_number',
-                            'bank_account_number',
-                            'bpjs_tk_number',
-                            'bpjs_kes_number',
-                            'rek_dplk_pribadi',
-                            'rek_dplk_bersama',
-                            'address',
-                            'department_name',
-                            'position_name',
-                            'employment_status_name'
+                            'id', 'nippam', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
+                            'email', 'office_email', 'phone_number', 'id_number', 'familycard_number', 'npwp_number',
+                            'bank_account_number', 'bpjs_tk_number', 'bpjs_tk_status', 'bpjs_kes_number', 'bpjs_kes_status',
+                            'bpjs_kes_class', 'rek_dplk_pribadi', 'rek_dplk_bersama', 'dapenma_number', 'dapenma_phdp',
+                            'dapenma_status', 'address', 'work_unit_type', 'work_unit_name', 'sub_department_name',
+                            'position_name', 'employment_status_name', 'education_name', 'grade_name', 'mkg_years',
+                            'agreement_type_name', 'entry_date', 'probation_appointment_date', 'leave_balance',
+                            'agreement_date_start', 'agreement_date_end', 'grade_date_start', 'grade_date_end',
+                            'periodic_salary_date_start', 'periodic_salary_date_end'
                         ];
 
                         $callback = function () use ($headers) {
                             $file = fopen('php://output', 'w');
                             fputcsv($file, $headers);
-                            // Add example row
+                            
+                            // Instruction Row
                             fputcsv($file, [
-                                '12345',
-                                'Nama Pegawai',
-                                'male',
-                                'Jakarta',
-                                '1990-01-01',
-                                'Islam',
-                                'single',
-                                'email@example.com',
-                                '08123456789',
-                                '1234567890123456',
-                                '1234567890123456',
-                                '12.345.678.9-012.345',
-                                '1234567890',
-                                '12345678901',
-                                '0001234567890',
-                                '1234567890',
-                                '1234567890',
-                                'Alamat Lengkap',
-                                'Bagian Umum',
-                                'Staff',
-                                'Pegawai Tetap'
+                                'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'Otomatis', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
+                                'Email Pribadi', 'Email Kantor', 'Hanya Angka', '16 Digit', '16 Digit', 'NPWP',
+                                'No Rek', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
+                                'Kelas 1/2/3', 'DPLK', 'DPLK', 'No Dapenma', 'Hanya Angka',
+                                'Aktif/Tidak', 'Alamat Lengkap', 'Bag/Cab/Unit', 'Nama Unit/ID', 'Sub Bagian (Nama/ID)',
+                                'Jabatan (Nama/ID)', 'Status (Nama/ID)', 'Pendidikan (Nama/ID)', 'Golongan (Nama/ID)', 'Tahun (0/2/4)',
+                                'Jenis SK (Nama/ID)', 'Tgl Masuk (dd-mm-yy)', 'Tgl Pengangkatan (dd-mm-yy)', 'Cuti (Angka)',
+                                'Tgl Kontrak Mulai', 'Tgl Kontrak Selesai', 'Tgl Golongan Mulai', 'Tgl Golongan Selesai', 'Tgl Gaji Berkala Mulai', 'Tgl Gaji Berkala Selesai'
+                            ]);
+
+                            // Get some real data for example
+                            $edu = \App\Models\MasterEmployeeEducation::first()?->name ?? 'S1';
+                            $pos = \App\Models\MasterEmployeePosition::first()?->name ?? 'Staff';
+                            $grade = \App\Models\MasterEmployeeGrade::first()?->name ?? 'A1';
+                            $status = \App\Models\MasterEmployeeStatusEmployment::first()?->name ?? 'Pegawai Tetap';
+                            $dept = \App\Models\MasterDepartment::first();
+
+                            fputcsv($file, [
+                                '', 'NIP-202404-0001', 'Budi Santoso', 'male', 'Jakarta', '30-01-1990', 'Islam', 'married', 'O',
+                                'budi@example.com', 'budi.pdam@example.com', '08123456789', '1234567890123456', '1234567890123456',
+                                '12.345.678.9-012.345', '1234567890', '12345678901', 'Aktif', '0001234567890', 'Aktif',
+                                'Kelas 1', '1234567890', '1234567890', '12345', '5000000', 'Aktif', 'Jl. Contoh No. 123',
+                                $dept?->type ?? 'bagian', $dept?->name ?? 'Bagian Umum', 'Sub Bagian Umum', $pos, $status, $edu, $grade, '0',
+                                'PKWTT', '01-01-2024', '01-07-2024', '12',
+                                '01-01-2024', '31-12-2024', '01-01-2024', '01-01-2026', '01-01-2024', '01-01-2026'
                             ]);
                             fclose($file);
                         };
 
-                        return response()->streamDownload($callback, 'template_import_pegawai.csv');
+                        return response()->streamDownload($callback, 'template_manajemen_pegawai.csv');
                     }),
 
                 Tables\Actions\Action::make('import_pegawai')
-                    ->label('Import CSV')
+                    ->label('Import / Sync CSV')
                     ->icon('heroicon-o-document-plus')
                     ->color('success')
-                    ->form([
-                        Forms\Components\FileUpload::make('csv_file')
-                            ->label('File CSV')
-                            ->required()
-                            ->acceptedFileTypes(['text/csv', 'application/csv']),
-                    ])
+                    ->form(function() {
+                        // Dynamically fetch options for help text
+                        $grades = \App\Models\MasterEmployeeGrade::all()->map(fn($g) => "{$g->id}:{$g->name}")->implode(', ');
+                        $edus = \App\Models\MasterEmployeeEducation::all()->map(fn($e) => "{$e->id}:{$e->name}")->implode(', ');
+                        
+                        return [
+                            Forms\Components\FileUpload::make('csv_file')
+                                ->label('File CSV Pegawai')
+                                ->helperText(new \Illuminate\Support\HtmlString("
+                                    <strong>Panduan Singkat:</strong><br>
+                                    - Untuk EDIT: Isi kolom <code>id</code>. Untuk BARU: Kosongkan <code>id</code>.<br>
+                                    - Data Master (Pendidikan, Jabatan, dll) bisa diisi <strong>Nama</strong> atau <strong>Angka ID</strong>.<br>
+                                    - Contoh ID Golongan: <code>{$grades}</code><br>
+                                    - Contoh ID Pendidikan: <code>{$edus}</code><br>
+                                    - Tanggal wajib format <code>dd-mm-yyyy</code> (contoh: 31-01-1990).
+                                "))
+                                ->required()
+                                ->acceptedFileTypes(['text/csv', 'application/csv']),
+                        ];
+                    })
                     ->action(function (array $data) {
                         $path = \Illuminate\Support\Facades\Storage::disk('public')->path($data['csv_file']);
+                        
+                        // Detect Delimiter (Comma or Semicolon)
+                        $fileHandle = fopen($path, 'r');
+                        $firstLine = fgets($fileHandle);
+                        fclose($fileHandle);
+                        $delimiter = (strpos($firstLine, ';') !== false && strpos($firstLine, ',') === false) ? ';' : ',';
+
                         $file = fopen($path, 'r');
-                        $header = fgetcsv($file);
+                        $rows = [];
+                        $tempRows = [];
+                        
+                        while (($row = fgetcsv($file, 0, $delimiter)) !== false) {
+                            $tempRows[] = $row;
+                        }
+                        fclose($file);
 
-                        $count = 0;
-                        while (($row = fgetcsv($file)) !== false) {
-                            $rowData = array_combine($header, $row);
+                        // 1. Find the Header Row (Look for 'id', 'nippam', 'name')
+                        $headerIndex = -1;
+                        foreach ($tempRows as $idx => $row) {
+                            // Strip BOM and non-breaking spaces
+                            $rowNormalized = array_map(function($v) {
+                                $v = str_replace("\xEF\xBB\xBF", '', $v); // Strip BOM
+                                return strtolower(trim($v, " \t\n\r\0\x0B\u{A0}")); 
+                            }, $row);
 
-                            // Find IDs from names
-                            $dept = \App\Models\MasterDepartment::where('name', 'LIKE', '%' . ($rowData['department_name'] ?? '') . '%')->first();
-                            $pos = \App\Models\MasterEmployeePosition::where('name', 'LIKE', '%' . ($rowData['position_name'] ?? '') . '%')->first();
-                            $status = \App\Models\MasterEmployeeStatusEmployment::where('name', 'LIKE', '%' . ($rowData['employment_status_name'] ?? '') . '%')->first();
+                            if (in_array('id', $rowNormalized) && in_array('nippam', $rowNormalized) && in_array('name', $rowNormalized)) {
+                                $header = $rowNormalized; // USE NORMALIZED HEADER AS KEYS
+                                $headerIndex = $idx;
+                                break;
+                            }
+                        }
 
-                            Employee::updateOrCreate(
-                                [
-                                    'nippam' => $rowData['nippam'],
-                                ],
-                                [
+                        if ($headerIndex === -1) {
+                            Notification::make()->title('Header CSV tidak ditemukan')->body('Pastikan kolom "id", "nippam", dan "name" tersedia.')->danger()->send();
+                            return;
+                        }
+
+                        // 2. Identify Data Rows (Skip instruction row if present)
+                        for ($i = $headerIndex + 1; $i < count($tempRows); $i++) {
+                            $row = $tempRows[$i];
+                            
+                            // Skip if it looks like the Instruction Row (contains 'Wajib' or 'Otomatis' or 'dd-mm-yyyy')
+                            $rowString = implode(' ', $row);
+                            if (stripos($rowString, 'Wajib') !== false || stripos($rowString, 'Otomatis') !== false || stripos($rowString, 'dd-mm-yyyy') !== false) {
+                                continue;
+                            }
+
+                            if (count($header) === count($row)) {
+                                $rows[] = array_combine($header, $row);
+                            }
+                        }
+
+                        if (empty($rows)) {
+                            Notification::make()->title('File CSV kosong atau tidak valid')->danger()->send();
+                            return;
+                        }
+
+                        $errors = [];
+                        $processedData = [];
+
+                        // Phase 1: Validation
+                        foreach ($rows as $index => $rowData) {
+                            // Find line number in original file for better error reporting
+                            $actualRowInFile = ($headerIndex + 1) + ($index + 1); 
+                            $rowErrors = [];
+
+                            if (empty($rowData['name'])) {
+                                $rowErrors[] = "Nama wajib diisi";
+                            }
+
+                            // Smart Lookup Helper (ID or Name)
+                            $smartLookup = function($modelClass, $value, $label) use (&$rowErrors) {
+                                if (empty($value)) return null;
+                                
+                                // Try ID first if numeric
+                                if (is_numeric($value)) {
+                                    $record = $modelClass::find($value);
+                                    if ($record) return $record->id;
+                                }
+                                
+                                // Try Name (exact case-insensitive)
+                                $record = $modelClass::whereRaw('LOWER(name) = ?', [trim(strtolower($value))])->first();
+                                if ($record) return $record->id;
+
+                                $rowErrors[] = "{$label} '{$value}' tidak ditemukan (Gunakan Nama atau ID yang valid)";
+                                return null;
+                            };
+
+                            // Unit Lookup
+                            $unitType = trim(strtolower($rowData['work_unit_type'] ?? ''));
+                            $unitName = trim($rowData['work_unit_name'] ?? '');
+                            $deptId = null; $bagianId = null; $cabangId = null; $unitId = null;
+
+                            if ($unitType && $unitName) {
+                                if (is_numeric($unitName)) {
+                                    $dept = \App\Models\MasterDepartment::find($unitName);
+                                } else {
+                                    $dept = \App\Models\MasterDepartment::whereRaw('LOWER(name) = ?', [strtolower($unitName)])
+                                        ->whereRaw('LOWER(type) = ?', [strtolower($unitType)])->first();
+                                }
+
+                                if (!$dept) {
+                                    $rowErrors[] = "Unit Kerja '{$unitName}' tidak ditemukan";
+                                } else {
+                                    $deptId = $dept->id;
+                                    if ($unitType === 'bagian') $bagianId = $dept->id;
+                                    elseif ($unitType === 'cabang') $cabangId = $dept->id;
+                                    elseif ($unitType === 'unit') $unitId = $dept->id;
+                                }
+                            }
+
+                            $subDeptId = $smartLookup(\App\Models\MasterSubDepartment::class, $rowData['sub_department_name'] ?? '', 'Sub Departemen');
+                            $posId = $smartLookup(\App\Models\MasterEmployeePosition::class, $rowData['position_name'] ?? '', 'Jabatan');
+                            $statusId = $smartLookup(\App\Models\MasterEmployeeStatusEmployment::class, $rowData['employment_status_name'] ?? '', 'Status');
+                            $eduId = $smartLookup(\App\Models\MasterEmployeeEducation::class, $rowData['education_name'] ?? '', 'Pendidikan');
+                            $gradeId = $smartLookup(\App\Models\MasterEmployeeGrade::class, $rowData['grade_name'] ?? '', 'Golongan');
+                            $agreementId = $smartLookup(\App\Models\MasterEmployeeAgreement::class, $rowData['agreement_type_name'] ?? '', 'Perjanjian');
+
+                            // Uniqueness Validation
+                            $checkUnique = function($column, $value, $label) use ($rowData, &$rowErrors) {
+                                if (empty($value)) return;
+                                $query = \App\Models\Employee::where($column, $value);
+                                if (!empty($rowData['id'])) {
+                                    $query->where('id', '!=', $rowData['id']);
+                                }
+                                if ($query->exists()) {
+                                    $rowErrors[] = "{$label} '{$value}' sudah terdaftar pada pegawai lain";
+                                }
+                            };
+
+                            $checkUnique('nippam', $rowData['nippam'] ?? '', 'NIPPAM');
+                            $checkUnique('id_number', $rowData['id_number'] ?? '', 'NIK');
+                            $checkUnique('email', $rowData['email'] ?? '', 'Email Pribadi');
+                            $checkUnique('office_email', $rowData['office_email'] ?? '', 'Email Kantor');
+                            $checkUnique('phone_number', $rowData['phone_number'] ?? '', 'No. HP');
+                            $checkUnique('npwp_number', $rowData['npwp_number'] ?? '', 'NPWP');
+                            $checkUnique('bpjs_tk_number', $rowData['bpjs_tk_number'] ?? '', 'No. BPJS Ketenagakerjaan');
+                            $checkUnique('bpjs_kes_number', $rowData['bpjs_kes_number'] ?? '', 'No. BPJS Kesehatan');
+
+                            // MKG Lookup
+                            $mkgValue = trim($rowData['mkg_years'] ?? '');
+                            $mkgId = null;
+                            if ($mkgValue !== '') {
+                                if (is_numeric($mkgValue)) {
+                                    $mkg = \App\Models\MasterEmployeeServiceGrade::where('service_grade', $mkgValue)->first() 
+                                           ?: \App\Models\MasterEmployeeServiceGrade::find($mkgValue);
+                                    if ($mkg) $mkgId = $mkg->id;
+                                    else $rowErrors[] = "MKG '{$mkgValue}' tidak ditemukan";
+                                }
+                            }
+
+                            if (!empty($rowErrors)) {
+                                $displayName = ($rowData['name'] ?? null) ?: ($rowData['nippam'] ?? 'N/A');
+                                $errors[] = "<strong>Baris {$actualRowInFile} ({$displayName}):</strong> " . implode(', ', $rowErrors);
+                            }
+
+                            $processedData[] = [
+                                'row' => $rowData,
+                                'ids' => [
+                                    'dept_id' => $deptId, 'bagian_id' => $bagianId, 'cabang_id' => $cabangId, 'unit_id' => $unitId,
+                                    'sub_dept_id' => $subDeptId, 'pos_id' => $posId, 'status_id' => $statusId,
+                                    'edu_id' => $eduId, 'grade_id' => $gradeId, 'mkg_id' => $mkgId, 'agreement_id' => $agreementId,
+                                ]
+                            ];
+                        }
+
+                        if (!empty($errors)) {
+                            $totalErrors = count($errors);
+                            $errorDisplay = array_slice($errors, 0, 15);
+                            $footer = $totalErrors > 15 ? "<br><br><strong>...dan " . ($totalErrors - 15) . " baris lainnya juga bermasalah.</strong>" : "";
+                            
+                            Notification::make()
+                                ->title('Import Dibatalkan: Ditemukan ' . $totalErrors . ' Kesalahan Data')
+                                ->body(new \Illuminate\Support\HtmlString("Sistem menolak seluruh file agar data tetap aman. Mohon perbaiki sampel berikut:<br><br>" . implode('<br>', $errorDisplay) . $footer))
+                                ->danger()->persistent()->send();
+                            return;
+                        }
+
+                        $stats = ['created' => 0, 'updated' => 0];
+                        // Phase 2: Processing (Transactional)
+                        \Illuminate\Support\Facades\DB::transaction(function() use ($processedData, &$stats) {
+                            foreach ($processedData as $data) {
+                                $rowData = $data['row'];
+                                $ids = $data['ids'];
+
+                                $convertDate = function($dateStr) {
+                                    if (empty($dateStr)) return null;
+                                    $dateStr = trim($dateStr);
+                                    // Try various common formats covers dash, slash, dot and 2/4 digit years
+                                    $formats = [
+                                        'd-m-Y', 'd/m/Y', 'd.m.Y', 
+                                        'd-m-y', 'd/m/y', 'd.m.y',
+                                        'j-n-Y', 'j/n/Y', 'j.n.Y', 
+                                        'Y-m-d', 'Y/m/d', 'Y.m.d',
+                                    ];
+                                    foreach ($formats as $format) {
+                                        try { 
+                                            $d = \Carbon\Carbon::createFromFormat($format, $dateStr);
+                                            if ($d) {
+                                                // Sanity check for 2-digit year misparsing (e.g. 24 -> 0024)
+                                                if ($d->year < 100) {
+                                                    $d->year($d->year < 70 ? 2000 + $d->year : 1900 + $d->year);
+                                                }
+                                                return $d->format('Y-m-d');
+                                            }
+                                        } catch (\Exception $e) {}
+                                    }
+                                    
+                                    // Final attempt: Smart parsing
+                                    try {
+                                        $d = \Carbon\Carbon::parse($dateStr);
+                                        if ($d->year < 100) {
+                                            $d->year($d->year < 70 ? 2000 + $d->year : 1900 + $d->year);
+                                        }
+                                        return $d->format('Y-m-d');
+                                    } catch (\Exception $e) {
+                                        return null;
+                                    }
+                                };
+
+                                $isNew = empty($rowData['id']);
+                                if ($isNew) $stats['created']++; else $stats['updated']++;
+                                
+                                $employeeData = [
                                     'name' => $rowData['name'],
-                                    'gender' => $rowData['gender'],
+                                    'gender' => $rowData['gender'] ?? 'male',
                                     'religion' => $rowData['religion'] ?? null,
-                                    'place_birth' => $rowData['place_birth'],
-                                    'date_birth' => $rowData['date_birth'],
-                                    'marital_status' => $rowData['marital_status'],
-                                    'email' => $rowData['email'],
-                                    'phone_number' => $rowData['phone_number'],
-                                    'id_number' => $rowData['id_number'],
+                                    'place_birth' => $rowData['place_birth'] ?? null,
+                                    'date_birth' => $convertDate($rowData['date_birth'] ?? ''),
+                                    'marital_status' => $rowData['marital_status'] ?? 'single',
+                                    'blood_type' => $rowData['blood_type'] ?? null,
+                                    'email' => $rowData['email'] ?? null,
+                                    'office_email' => $rowData['office_email'] ?? null,
+                                    'phone_number' => $rowData['phone_number'] ?? null,
+                                    'id_number' => $rowData['id_number'] ?? null,
                                     'familycard_number' => $rowData['familycard_number'] ?? null,
                                     'npwp_number' => $rowData['npwp_number'] ?? null,
                                     'bank_account_number' => $rowData['bank_account_number'] ?? null,
                                     'bpjs_tk_number' => $rowData['bpjs_tk_number'] ?? null,
+                                    'bpjs_tk_status' => $rowData['bpjs_tk_status'] ?? 'Aktif',
                                     'bpjs_kes_number' => $rowData['bpjs_kes_number'] ?? null,
+                                    'bpjs_kes_status' => $rowData['bpjs_kes_status'] ?? 'Aktif',
+                                    'bpjs_kes_class' => $rowData['bpjs_kes_class'] ?? null,
                                     'rek_dplk_pribadi' => $rowData['rek_dplk_pribadi'] ?? null,
                                     'rek_dplk_bersama' => $rowData['rek_dplk_bersama'] ?? null,
-                                    'address' => $rowData['address'],
-                                    'departments_id' => $dept?->id,
-                                    'employee_position_id' => $pos?->id,
-                                    'employment_status_id' => $status?->id,
-                                    'entry_date' => now(),
+                                    'dapenma_number' => $rowData['dapenma_number'] ?? null,
+                                    'dapenma_phdp' => $rowData['dapenma_phdp'] ?? 0,
+                                    'dapenma_status' => $rowData['dapenma_status'] ?? 'Aktif',
+                                    'address' => $rowData['address'] ?? null,
+                                    'departments_id' => $ids['dept_id'],
+                                    'bagian_id' => $ids['bagian_id'],
+                                    'cabang_id' => $ids['cabang_id'],
+                                    'unit_id' => $ids['unit_id'],
+                                    'sub_department_id' => $ids['sub_dept_id'],
+                                    'employee_position_id' => $ids['pos_id'],
+                                    'employment_status_id' => $ids['status_id'],
+                                    'employee_education_id' => $ids['edu_id'],
+                                    'basic_salary_id' => $ids['grade_id'],
+                                    'employee_service_grade_id' => $ids['mkg_id'],
+                                    'master_employee_agreement_id' => $ids['agreement_id'],
+                                    'entry_date' => $convertDate($rowData['entry_date'] ?? ''),
+                                    'probation_appointment_date' => $convertDate($rowData['probation_appointment_date'] ?? ''),
+                                    'leave_balance' => $rowData['leave_balance'] ?? 12,
+                                    'agreement_date_start' => $convertDate($rowData['agreement_date_start'] ?? ''),
+                                    'agreement_date_end' => $convertDate($rowData['agreement_date_end'] ?? ''),
+                                    'grade_date_start' => $convertDate($rowData['grade_date_start'] ?? ''),
+                                    'grade_date_end' => $convertDate($rowData['grade_date_end'] ?? ''),
+                                    'periodic_salary_date_start' => $convertDate($rowData['periodic_salary_date_start'] ?? ''),
+                                    'periodic_salary_date_end' => $convertDate($rowData['periodic_salary_date_end'] ?? ''),
                                     'users_id' => auth()->id() ?? 1,
-                                ]
-                            );
-                            $count++;
-                        }
-                        fclose($file);
+                                ];
+
+                                if ($rowData['nippam']) {
+                                    $employeeData['nippam'] = $rowData['nippam'];
+                                } elseif ($isNew) {
+                                    $employeeData['nippam'] = Employee::generateNippam();
+                                }
+
+                                $employee = Employee::updateOrCreate(
+                                    ['id' => $rowData['id'] ?: null],
+                                    $employeeData
+                                );
+
+                                if ($isNew) {
+                                    // 1. Create User
+                                    $user = \App\Models\User::create([
+                                        'name' => $employee->name,
+                                        'email' => $employee->email ?: $employee->username . '@pdam.com',
+                                        'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
+                                        'is_verified' => true,
+                                    ]);
+                                    $employee->update(['users_id' => $user->id]);
+
+                                    // 2. Create Initial Appointment
+                                    \App\Models\EmployeeAppointment::create([
+                                        'employee_id' => $employee->id,
+                                        'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),
+                                        'appointment_date' => $employee->entry_date ?: now(),
+                                        'new_employment_status_id' => $employee->employment_status_id ?: 1,
+                                        'employee_grade_id' => $employee->basic_salary_id,
+                                        'is_applied' => true,
+                                        'applied_at' => now(),
+                                        'users_id' => auth()->id() ?? 1,
+                                    ]);
+                                }
+                            }
+                        });
 
                         Notification::make()
-                            ->title($count . ' data pegawai berhasil diimport')
-                            ->success()
-                            ->send();
+                            ->title('Proses Berhasil')
+                            ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
+                            ->success()->send();
                     }),
+
+
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('departments_id')
+                    ->label('Bagian')
                     ->relationship('department', 'name')
-                    ->label('Departemen')
+                    ->label('Bagian')
                     ->searchable()
                     ->preload(),
                 Tables\Filters\SelectFilter::make('employee_position_id')
@@ -1005,6 +1299,102 @@ class EmployeeResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('export_selected')
+                        ->label('Export Terpilih')
+                        ->icon('heroicon-o-arrow-up-tray')
+                        ->color('info')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $headers = [
+                                'id', 'nippam', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
+                                'email', 'office_email', 'phone_number', 'id_number', 'familycard_number', 'npwp_number',
+                                'bank_account_number', 'bpjs_tk_number', 'bpjs_tk_status', 'bpjs_kes_number', 'bpjs_kes_status',
+                                'bpjs_kes_class', 'rek_dplk_pribadi', 'rek_dplk_bersama', 'dapenma_number', 'dapenma_phdp',
+                                'dapenma_status', 'address', 'work_unit_type', 'work_unit_name', 'sub_department_name',
+                                'position_name', 'employment_status_name', 'education_name', 'grade_name', 'mkg_years',
+                                'agreement_type_name', 'entry_date', 'probation_appointment_date', 'leave_balance',
+                                'agreement_date_start', 'agreement_date_end', 'grade_date_start', 'grade_date_end',
+                                'periodic_salary_date_start', 'periodic_salary_date_end'
+                            ];
+
+                            $callback = function () use ($records, $headers) {
+                                $file = fopen('php://output', 'w');
+                                fputcsv($file, $headers);
+
+                                // Add Instruction Row for consistency
+                                fputcsv($file, [
+                                    'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'Otomatis', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
+                                    'Email Pribadi', 'Email Kantor', 'Hanya Angka', '16 Digit', '16 Digit', 'NPWP',
+                                    'No Rek', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
+                                    'Kelas 1/2/3', 'DPLK', 'DPLK', 'No Dapenma', 'Hanya Angka',
+                                    'Aktif/Tidak', 'Alamat Lengkap', 'bagian/cabang/unit', 'Nama Bagian/ID', 'Nama/ID',
+                                    'Nama/ID', 'Nama/ID', 'Nama/ID', 'Nama/ID', 'Tahun (0/2/4)',
+                                    'Nama/ID', 'dd-mm-yyyy', 'dd-mm-yyyy', 'Angka',
+                                    'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy'
+                                ]);
+
+                                foreach ($records as $record) {
+                                    $record->load(['position', 'employmentStatus', 'education', 'grade', 'serviceGrade', 'agreement', 'department', 'subDepartment', 'bagian', 'cabang', 'unit']);
+                                    
+                                    // Determine work unit type and name
+                                    $unitType = ''; $unitName = '';
+                                    if ($record->bagian_id) { $unitType = 'bagian'; $unitName = $record->bagian->name ?? ''; }
+                                    elseif ($record->cabang_id) { $unitType = 'cabang'; $unitName = $record->cabang->name ?? ''; }
+                                    elseif ($record->unit_id) { $unitType = 'unit'; $unitName = $record->unit->name ?? ''; }
+                                    elseif ($record->departments_id) { $unitType = 'bagian'; $unitName = $record->department->name ?? ''; }
+
+                                    fputcsv($file, [
+                                        $record->id,
+                                        $record->nippam,
+                                        $record->name,
+                                        $record->gender,
+                                        $record->place_birth,
+                                        $record->date_birth?->format('d-m-Y'),
+                                        $record->religion,
+                                        $record->marital_status,
+                                        $record->blood_type,
+                                        $record->email,
+                                        $record->office_email,
+                                        $record->phone_number,
+                                        $record->id_number,
+                                        $record->familycard_number,
+                                        $record->npwp_number,
+                                        $record->bank_account_number,
+                                        $record->bpjs_tk_number,
+                                        $record->bpjs_tk_status,
+                                        $record->bpjs_kes_number,
+                                        $record->bpjs_kes_status,
+                                        $record->bpjs_kes_class,
+                                        $record->rek_dplk_pribadi,
+                                        $record->rek_dplk_bersama,
+                                        $record->dapenma_number,
+                                        $record->dapenma_phdp,
+                                        $record->dapenma_status,
+                                        $record->address,
+                                        $unitType,
+                                        $unitName,
+                                        $record->subDepartment->name ?? '',
+                                        $record->position->name ?? '',
+                                        $record->employmentStatus->name ?? '',
+                                        $record->education->name ?? '',
+                                        $record->grade->name ?? '',
+                                        $record->serviceGrade->service_grade ?? '',
+                                        $record->agreement->name ?? '',
+                                        $record->entry_date?->format('d-m-Y'),
+                                        $record->probation_appointment_date?->format('d-m-Y'),
+                                        $record->leave_balance,
+                                        $record->agreement_date_start?->format('d-m-Y'),
+                                        $record->agreement_date_end?->format('d-m-Y'),
+                                        $record->grade_date_start?->format('d-m-Y'),
+                                        $record->grade_date_end?->format('d-m-Y'),
+                                        $record->periodic_salary_date_start?->format('d-m-Y'),
+                                        $record->periodic_salary_date_end?->format('d-m-Y'),
+                                    ]);
+                                }
+                                fclose($file);
+                            };
+
+                            return response()->streamDownload($callback, 'export_pegawai_' . now()->format('YmdHis') . '.csv');
+                        }),
                     Tables\Actions\DeleteBulkAction::make()
                         ->label('Hapus yang Dipilih'),
                 ]),
@@ -1065,6 +1455,9 @@ class EmployeeResource extends Resource
                                     ->date('d F Y'),
                                 Infolists\Components\TextEntry::make('marital_status')
                                     ->label('Status Perkawinan'),
+                                Infolists\Components\TextEntry::make('age')
+                                    ->label('Umur')
+                                    ->suffix(' Tahun'),
                             ])->columnSpan(1),
 
                         Infolists\Components\Section::make('Kontak & Alamat')
@@ -1089,7 +1482,9 @@ class EmployeeResource extends Resource
                         Infolists\Components\Section::make('Kepegawaian & Finansial')
                             ->schema([
                                 Infolists\Components\TextEntry::make('department.name')
-                                    ->label('Departemen'),
+                                    ->label('Bagian'),
+                                Infolists\Components\TextEntry::make('subDepartment.name')
+                                    ->label('Sub Bagian'),
                                 Infolists\Components\TextEntry::make('education.name')
                                     ->label('Pendidikan Terakhir')
                                     ->badge()
@@ -1097,6 +1492,11 @@ class EmployeeResource extends Resource
                                 Infolists\Components\TextEntry::make('entry_date')
                                     ->label('Tanggal Masuk')
                                     ->date('d M Y'),
+                                Infolists\Components\TextEntry::make('retirement')
+                                    ->label('Tanggal Pensiun')
+                                    ->date('d M Y')
+                                    ->color('danger')
+                                    ->weight('bold'),
                                 Infolists\Components\TextEntry::make('grade.name')
                                     ->label('Golongan')
                                     ->badge()
@@ -1224,6 +1624,12 @@ class EmployeeResource extends Resource
         return [
             EmployeeResource\Widgets\EmployeeStatsOverview::class,
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit']);
     }
 
     public static function getPages(): array

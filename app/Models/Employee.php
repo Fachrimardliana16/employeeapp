@@ -114,9 +114,10 @@ class Employee extends Model
      */
     protected function generateAutomaticFields()
     {
-        // Auto-generate retirement date (56 years from birth date)
+        // Auto-generate age and retirement date (56 years from birth date)
         if ($this->date_birth) {
             $this->retirement = $this->date_birth->copy()->addYears(56);
+            $this->age = $this->date_birth->age;
         }
 
         // Auto-generate username from name slug
