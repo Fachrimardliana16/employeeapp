@@ -10,6 +10,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
@@ -29,6 +31,18 @@ class EmployeePermissionResource extends Resource
     protected static ?string $pluralModelLabel = 'Izin & Cuti';
 
     protected static ?int $navigationSort = 502;
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::where('approval_status', 'pending')->count();
+            
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
 
     public static function form(Form $form): Form
     {
@@ -94,24 +108,85 @@ class EmployeePermissionResource extends Resource
                             ->default('pending')
                             ->required(),
                         Forms\Components\Select::make('approved_by')
-                            ->label('Disetujui Oleh')
+                            ->label(fn(Forms\Get $get) => $get('approval_status') === 'rejected' ? 'Ditolak Oleh' : 'Disetujui Oleh')
                             ->relationship('approver', 'name')
                             ->searchable()
                             ->preload()
                             ->placeholder('Pilih penyetuju...')
                             ->visible(fn(Forms\Get $get) => $get('approval_status') !== 'pending'),
                         Forms\Components\DateTimePicker::make('approved_at')
-                            ->label('Tanggal Persetujuan')
+                            ->label(fn(Forms\Get $get) => $get('approval_status') === 'rejected' ? 'Tanggal Ditolak' : 'Tanggal Persetujuan')
                             ->native(false)
                             ->visible(fn(Forms\Get $get) => $get('approval_status') !== 'pending'),
                         Forms\Components\Textarea::make('approval_notes')
-                            ->label('Catatan Persetujuan')
+                            ->label(fn(Forms\Get $get) => $get('approval_status') === 'rejected' ? 'Alasan Penolakan' : 'Catatan Persetujuan')
                             ->rows(2)
-                            ->placeholder('Catatan dari penyetuju...')
+                            ->placeholder('Catatan (jika ada)...')
                             ->visible(fn(Forms\Get $get) => $get('approval_status') !== 'pending'),
                         Forms\Components\Hidden::make('users_id')
                             ->default(Auth::id()),
                     ]),
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Informasi & Status Pengajuan')
+                    ->description('Detail Data Pegawai, Izin/Cuti, dan Status Terkini.')
+                    ->icon('heroicon-o-information-circle')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('employee.name')
+                            ->label('Nama Pegawai')
+                            ->weight('bold')
+                            ->size(Infolists\Components\TextEntry\TextEntrySize::Large)
+                            ->color('primary')
+                            ->icon('heroicon-o-user'),
+                        Infolists\Components\TextEntry::make('approval_status')
+                            ->label('Status Pengajuan')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'approved' => 'success',
+                                'rejected' => 'danger',
+                                'pending' => 'warning',
+                                default => 'gray',
+                            })
+                            ->formatStateUsing(fn (string $state): string => match ($state) {
+                                'pending' => 'Menunggu',
+                                'approved' => 'Disetujui',
+                                'rejected' => 'Ditolak',
+                                default => $state,
+                            })
+                            ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                        Infolists\Components\TextEntry::make('permission.name')
+                            ->label('Jenis Izin/Cuti')
+                            ->weight('bold')
+                            ->icon('heroicon-o-bookmark'),
+                        Infolists\Components\TextEntry::make('start_permission_date')
+                            ->label('Tanggal Mulai')
+                            ->date('d F Y')
+                            ->icon('heroicon-o-calendar-days'),
+                        Infolists\Components\TextEntry::make('end_permission_date')
+                            ->label('Tanggal Selesai')
+                            ->date('d F Y')
+                            ->icon('heroicon-o-calendar-days'),
+                        Infolists\Components\TextEntry::make('permission_desc')
+                            ->label('Alasan / Deskripsi')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
+
+                Infolists\Components\Section::make('Kronologi Proses')
+                    ->description('Jejak waktu pengajuan hingga penetapan keputusan.')
+                    ->icon('heroicon-o-clock')
+                    ->schema([
+                        Infolists\Components\ViewEntry::make('status')
+                            ->hiddenLabel()
+                            ->view('infolists.components.approval-timeline')
+                            ->columnSpanFull()
+                    ])
+                    ->columns(1),
             ]);
     }
 
@@ -150,11 +225,11 @@ class EmployeePermissionResource extends Resource
                         default => $state,
                     }),
                 Tables\Columns\TextColumn::make('approver.name')
-                    ->label('Disetujui Oleh')
+                    ->label('Diproses Oleh')
                     ->sortable()
                     ->placeholder('Belum ada'),
                 Tables\Columns\TextColumn::make('approved_at')
-                    ->label('Tgl Persetujuan')
+                    ->label('Tgl Keputusan')
                     ->dateTime('d/m/Y H:i')
                     ->placeholder('Belum disetujui')
                     ->toggleable(),
@@ -191,13 +266,29 @@ class EmployeePermissionResource extends Resource
                         ->label('Lihat'),
                     Tables\Actions\EditAction::make()
                         ->label('Edit'),
+                    Tables\Actions\Action::make('downloadForm')
+                        ->label('Download Form')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('info')
+                        ->action(fn(EmployeePermission $record, \App\Services\LeaveFormPdfService $service) => 
+                            response()->streamDownload(
+                                fn() => print($service->generateLeaveForm($record)->output()),
+                                "Form_Cuti_{$record->employee->name}.pdf"
+                            )
+                        ),
                     Tables\Actions\Action::make('approve')
-                        ->label('Setujui')
+                        ->label('Setujui & Upload')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->visible(fn(EmployeePermission $record) => $record->approval_status === 'pending')
                         ->requiresConfirmation()
                         ->form([
+                            Forms\Components\FileUpload::make('scan_doc')
+                                ->label('Upload Dokumen TTD Basah')
+                                ->directory('permissions')
+                                ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                ->helperText('Wajib unggah form cuti yang sudah ditandatangani fisik.')
+                                ->required(),
                             Forms\Components\Textarea::make('approval_notes')
                                 ->label('Catatan Persetujuan')
                                 ->rows(3)
@@ -205,6 +296,7 @@ class EmployeePermissionResource extends Resource
                         ])
                         ->action(function (EmployeePermission $record, array $data) {
                             $record->update([
+                                'scan_doc' => $data['scan_doc'] ?? null,
                                 'approval_status' => 'approved',
                                 'approved_by' => \Illuminate\Support\Facades\Auth::id(),
                                 'approved_at' => now(),
@@ -219,6 +311,10 @@ class EmployeePermissionResource extends Resource
                         ->visible(fn(EmployeePermission $record) => $record->approval_status === 'pending')
                         ->requiresConfirmation()
                         ->form([
+                            Forms\Components\FileUpload::make('scan_doc')
+                                ->label('Upload Dokumen TTD (Opsional)')
+                                ->directory('permissions')
+                                ->acceptedFileTypes(['application/pdf', 'image/*']),
                             Forms\Components\Textarea::make('approval_notes')
                                 ->label('Alasan Penolakan')
                                 ->required()
@@ -227,6 +323,7 @@ class EmployeePermissionResource extends Resource
                         ])
                         ->action(function (EmployeePermission $record, array $data) {
                             $record->update([
+                                'scan_doc' => $data['scan_doc'] ?? null,
                                 'approval_status' => 'rejected',
                                 'approved_by' => \Illuminate\Support\Facades\Auth::id(),
                                 'approved_at' => now(),

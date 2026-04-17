@@ -9,6 +9,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
@@ -31,7 +33,7 @@ class MyPermissionResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = Auth::user();
-        $employee = \App\Models\Employee::where('email', $user->email)->first();
+        $employee = $user->employee;
 
         if (!$employee) {
             return parent::getEloquentQuery()->whereRaw('1 = 0');
@@ -75,13 +77,17 @@ class MyPermissionResource extends Resource
                         Forms\Components\DatePicker::make('start_permission_date')
                             ->label('Tanggal Mulai')
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            ->prefixIcon('heroicon-m-calendar')
+                            ->placeholder('Pilih tanggal mulai...'),
 
                         Forms\Components\DatePicker::make('end_permission_date')
                             ->label('Tanggal Selesai')
                             ->required()
                             ->native(false)
-                            ->afterOrEqual('start_permission_date'),
+                            ->afterOrEqual('start_permission_date')
+                            ->prefixIcon('heroicon-m-calendar')
+                            ->placeholder('Pilih tanggal selesai...'),
 
                         Forms\Components\Textarea::make('permission_desc')
                             ->label('Alasan/Deskripsi')
@@ -91,11 +97,12 @@ class MyPermissionResource extends Resource
                             ->columnSpanFull(),
 
                         Forms\Components\FileUpload::make('scan_doc')
-                            ->label('Dokumen Pendukung')
+                            ->label('Dokumen yang Sudah Ditandatangani')
                             ->directory('permissions')
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->maxSize(5120)
-                            ->helperText('Upload surat keterangan dokter, undangan, dll (opsional)')
+                            ->hidden(fn($operation) => $operation === 'create')
+                            ->helperText('Form yang sudah diprint dan ditandatangani basah.')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
@@ -112,20 +119,76 @@ class MyPermissionResource extends Resource
                             }),
 
                         Forms\Components\Placeholder::make('approver_name')
-                            ->label('Disetujui Oleh')
+                            ->label(fn($record) => $record?->approval_status === 'rejected' ? 'Ditolak Oleh' : 'Disetujui Oleh')
                             ->content(fn($record) => $record?->approver?->name ?? 'Belum ada'),
 
                         Forms\Components\Placeholder::make('approved_at_view')
-                            ->label('Tanggal Persetujuan')
+                            ->label(fn($record) => $record?->approval_status === 'rejected' ? 'Tanggal Ditolak' : 'Tanggal Persetujuan')
                             ->content(fn($record) => $record?->approved_at?->format('d/m/Y H:i') ?? 'Belum ada'),
 
                         Forms\Components\Placeholder::make('approval_notes_view')
-                            ->label('Catatan')
+                            ->label(fn($record) => $record?->approval_status === 'rejected' ? 'Alasan Penolakan' : 'Catatan Persetujuan')
                             ->content(fn($record) => $record?->approval_notes ?? 'Tidak ada catatan')
                             ->columnSpanFull(),
                     ])
                     ->columns(3)
                     ->hidden(fn($operation) => $operation === 'create'),
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Informasi & Status Pengajuan')
+                    ->description('Detail jenis, tanggal izin/cuti beserta statusnya.')
+                    ->icon('heroicon-o-information-circle')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('approval_status')
+                            ->label('Status Terkini')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'approved' => 'success',
+                                'rejected' => 'danger',
+                                'pending' => 'warning',
+                                default => 'gray',
+                            })
+                            ->formatStateUsing(fn (string $state): string => match ($state) {
+                                'pending' => 'Menunggu',
+                                'approved' => 'Disetujui',
+                                'rejected' => 'Ditolak',
+                                default => $state,
+                            })
+                            ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                        Infolists\Components\TextEntry::make('permission.name')
+                            ->label('Jenis Izin/Cuti')
+                            ->weight('bold')
+                            ->color('primary')
+                            ->icon('heroicon-o-bookmark'),
+                        Infolists\Components\TextEntry::make('start_permission_date')
+                            ->label('Tanggal Mulai')
+                            ->date('d F Y')
+                            ->icon('heroicon-o-calendar-days'),
+                        Infolists\Components\TextEntry::make('end_permission_date')
+                            ->label('Tanggal Selesai')
+                            ->date('d F Y')
+                            ->icon('heroicon-o-calendar-days'),
+                        Infolists\Components\TextEntry::make('permission_desc')
+                            ->label('Alasan / Deskripsi')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
+
+                Infolists\Components\Section::make('Kronologi Proses')
+                    ->description('Jejak waktu pengajuan hingga penetapan keputusan.')
+                    ->icon('heroicon-o-clock')
+                    ->schema([
+                        Infolists\Components\ViewEntry::make('status')
+                            ->hiddenLabel()
+                            ->view('infolists.components.approval-timeline')
+                            ->columnSpanFull()
+                    ])
+                    ->columns(1),
             ]);
     }
 
@@ -161,11 +224,11 @@ class MyPermissionResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('approver.name')
-                    ->label('Disetujui Oleh')
+                    ->label('Diproses Oleh')
                     ->placeholder('Belum ada'),
 
                 Tables\Columns\TextColumn::make('approved_at')
-                    ->label('Tgl Persetujuan')
+                    ->label('Tgl Keputusan')
                     ->dateTime('d/m/Y')
                     ->placeholder('Belum ada'),
             ])
@@ -182,6 +245,16 @@ class MyPermissionResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\Action::make('downloadForm')
+                        ->label('Download Form')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('info')
+                        ->action(fn(EmployeePermission $record, \App\Services\LeaveFormPdfService $service) => 
+                            response()->streamDownload(
+                                fn() => print($service->generateLeaveForm($record)->output()),
+                                "Form_Cuti_{$record->employee->name}.pdf"
+                            )
+                        ),
                     Tables\Actions\EditAction::make()
                         ->label('Edit')
                         ->visible(fn($record) => $record->approval_status === 'pending'),

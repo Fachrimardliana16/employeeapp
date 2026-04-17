@@ -118,6 +118,53 @@ Route::middleware(['auth'])->group(function () {
         }
 
         $records = $query->orderBy('attendance_time', 'asc')->get();
+
+        // Integrate Approved Permissions (Leaves)
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $permissionQuery = \App\Models\EmployeePermission::where('approval_status', 'approved')
+                ->with(['employee', 'permission'])
+                ->where(function($q) use ($request) {
+                    $q->whereBetween('start_permission_date', [$request->from_date, $request->to_date])
+                      ->orWhereBetween('end_permission_date', [$request->from_date, $request->to_date])
+                      ->orWhere(function($subQ) use ($request) {
+                          $subQ->where('start_permission_date', '<=', $request->from_date)
+                               ->where('end_permission_date', '>=', $request->to_date);
+                      });
+                });
+
+            if ($request->filled('employee_id')) {
+                $permissionQuery->where('employee_id', $request->employee_id);
+            }
+
+            $permissions = $permissionQuery->get();
+
+            foreach ($permissions as $permission) {
+                $startDate = \Carbon\Carbon::parse($permission->start_permission_date)->clamp($request->from_date, $request->to_date);
+                $endDate = \Carbon\Carbon::parse($permission->end_permission_date)->clamp($request->from_date, $request->to_date);
+
+                $period = \Carbon\CarbonPeriod::create($startDate, $endDate);
+
+                foreach ($period as $date) {
+                    $records->push((object)[
+                        'id' => 'perm_' . $permission->id . '_' . $date->format('Ymd'),
+                        'attendance_time' => $date->startOfDay(),
+                        'employee_name' => $permission->employee->name ?? 'Pegawai',
+                        'pin' => $permission->employee->pin ?? '-',
+                        'state' => 'permission',
+                        'attendance_status' => 'on_time',
+                        'permission_name' => $permission->permission->name ?? 'Izin/Cuti',
+                        'officeLocation' => (object)['name' => '-'],
+                        'distance_from_office' => null,
+                        'is_within_radius' => true,
+                    ]);
+                }
+            }
+            
+            // Re-sort records by attendance_time
+            $records = $records->sortBy(function($record) {
+                return \Carbon\Carbon::parse($record->attendance_time)->timestamp;
+            });
+        }
         
         $employeeName = $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : null;
         $locationName = $request->filled('office_location_id') ? \App\Models\MasterOfficeLocation::find($request->office_location_id)?->name : null;

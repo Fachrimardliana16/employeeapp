@@ -48,6 +48,7 @@ class ListEmployeeAttendanceRecords extends ListRecords
     {
         return [
             EmployeeAttendanceRecordResource\Widgets\AttendanceStatsWidget::class,
+            EmployeeAttendanceRecordResource\Widgets\ActivePermissionsWidget::class,
         ];
     }
 }

@@ -31,8 +31,7 @@ class EmployeePanelProvider extends PanelProvider
             ])
             ->login(\App\Filament\Pages\Auth\Login::class)
             ->brandName('Manajemen Pegawai')
-
-            ->favicon(asset('images/favicon.ico'))
+            ->favicon(asset('favicon.png'))
             ->discoverResources(in: app_path('Filament/Employee/Resources'), for: 'App\\Filament\\Employee\\Resources')
             ->discoverPages(in: app_path('Filament/Employee/Pages'), for: 'App\\Filament\\Employee\\Pages')
             ->pages([

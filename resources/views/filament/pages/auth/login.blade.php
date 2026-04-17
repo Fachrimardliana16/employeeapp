@@ -70,7 +70,7 @@
             <form wire:submit.prevent="authenticate" class="space-y-6">
                 @csrf
                 <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Email</label>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Email/Username</label>
                     <div class="relative group">
                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-slate-300 group-focus-within:text-blue-500 transition-colors @error('data.email') text-red-500 @enderror" fill="none" stroke="currentColor" viewBox="0 0 24 24">

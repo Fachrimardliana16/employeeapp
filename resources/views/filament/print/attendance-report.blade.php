@@ -71,37 +71,50 @@
                 </thead>
                 <tbody class="text-[10px]">
                     @forelse($records as $index => $record)
-                    <tr class="border-b border-black">
+                    @php 
+                        $isPermission = ($record->state === 'permission');
+                    @endphp
+                    <tr class="border-b border-black {{ $isPermission ? 'bg-amber-50' : '' }}">
                         <td class="py-2 px-2 border-x border-black text-center">{{ $index + 1 }}</td>
                         <td class="py-2 px-2 border-x border-black font-semibold">
                             {{ \Carbon\Carbon::parse($record->attendance_time)->translatedFormat('d/m/Y') }}
-                            <span class="block font-normal text-gray-500">{{ \Carbon\Carbon::parse($record->attendance_time)->format('H:i') }} WIB</span>
+                            @if(!$isPermission)
+                                <span class="block font-normal text-gray-500">{{ \Carbon\Carbon::parse($record->attendance_time)->format('H:i') }} WIB</span>
+                            @endif
                         </td>
                         <td class="py-2 px-2 border-x border-black">
                             <span class="font-bold border-b border-dotted border-gray-300">{{ $record->employee_name }}</span>
                             <span class="block text-gray-400">PIN: {{ $record->pin }}</span>
                         </td>
                         <td class="py-2 px-2 border-x border-black text-center uppercase font-bold text-[8px]">
-                            {{ match($record->state) {
-                                'in', 'check_in' => 'Masuk',
-                                'out', 'check_out' => 'Keluar',
-                                'dl_in' => 'Dinas Luar (M)',
-                                'dl_out' => 'Dinas Luar (P)',
-                                'ot_in' => 'Lembur (M)',
-                                'ot_out' => 'Lembur (P)',
-                                default => $record->state
-                            } }}
-                        </td>
-                        <td class="py-2 px-2 border-x border-black text-center font-bold">
-                            @if($record->attendance_status === 'late')
-                                <span class="text-red-700">TERLAMBAT</span>
-                            @elseif($record->attendance_status === 'early')
-                                <span class="text-amber-600">PLG CEPAT</span>
+                            @if($isPermission)
+                                <span class="text-amber-700">{{ $record->permission_name ?? 'IZIN/CUTI' }}</span>
                             @else
-                                <span class="text-emerald-700">TEPAT WAKTU</span>
+                                {{ match($record->state) {
+                                    'in', 'check_in' => 'Masuk',
+                                    'out', 'check_out' => 'Keluar',
+                                    'dl_in' => 'Dinas Luar (M)',
+                                    'dl_out' => 'Dinas Luar (P)',
+                                    'ot_in' => 'Lembur (M)',
+                                    'ot_out' => 'Lembur (P)',
+                                    default => $record->state
+                                } }}
                             @endif
                         </td>
-                        <td class="py-2 px-2 border-x border-black">{{ $record->officeLocation->name ?? '-' }}</td>
+                        <td class="py-2 px-2 border-x border-black text-center font-bold">
+                            @if($isPermission)
+                                <span class="text-amber-600 italic">IZIN RESMI</span>
+                            @else
+                                @if($record->attendance_status === 'late')
+                                    <span class="text-red-700">TERLAMBAT</span>
+                                @elseif($record->attendance_status === 'early')
+                                    <span class="text-amber-600">PLG CEPAT</span>
+                                @else
+                                    <span class="text-emerald-700">TEPAT WAKTU</span>
+                                @endif
+                            @endif
+                        </td>
+                        <td class="py-2 px-2 border-x border-black text-[9px]">{{ $record->officeLocation->name ?? '-' }}</td>
                         <td class="py-2 px-2 border-x border-black text-center">{{ $record->distance_from_office ?? '-' }}</td>
                     </tr>
                     @empty

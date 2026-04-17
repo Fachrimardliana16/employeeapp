@@ -28,6 +28,7 @@ class UserPanelProvider extends PanelProvider
             ->path('user')
             ->login(\App\Filament\Pages\Auth\Login::class)
             ->brandName('Panel Pegawai')
+            ->favicon(asset('favicon.png'))
             ->colors([
                 'primary' => Color::Green,
             ])

@@ -29,6 +29,8 @@ class AssetsPanelProvider extends PanelProvider
                 'primary' => Color::Amber,
             ])
             ->login(\App\Filament\Pages\Auth\Login::class)
+            ->brandName('Manajemen Aset')
+            ->favicon(asset('favicon.png'))
 
             ->discoverResources(in: app_path('Filament/Assets/Resources'), for: 'App\\Filament\\Assets\\Resources')
             ->discoverPages(in: app_path('Filament/Assets/Pages'), for: 'App\\Filament\\Assets\\Pages')
