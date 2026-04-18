@@ -11,3 +11,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 });
+
+// ADMS Protocol Routes
+Route::any('/iclock/cdata', [\App\Http\Controllers\AdmsController::class, 'cdata']);
+Route::get('/iclock/getrequest', [\App\Http\Controllers\AdmsController::class, 'getrequest']);

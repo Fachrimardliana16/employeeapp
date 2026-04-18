@@ -211,6 +211,11 @@ class EmployeeResource extends Resource
                                                             ->label('NIPPAM')
                                                             ->unique(ignoreRecord: true)
                                                             ->maxLength(50),
+                                                        Forms\Components\TextInput::make('pin')
+                                                            ->label('PIN Absensi')
+                                                            ->unique(ignoreRecord: true)
+                                                            ->helperText('ID yang digunakan pada mesin absensi')
+                                                            ->maxLength(50),
                                                     ])->columnSpan(1),
                                                 Forms\Components\Select::make('gender')
                                                     ->label('Jenis Kelamin')

@@ -14,6 +14,7 @@ class Employee extends Model
 {
     use HasUserTracking, LogsActivityTrait;
     protected $fillable = [
+        'pin',
         'nippam',
         'name',
         'place_birth',
