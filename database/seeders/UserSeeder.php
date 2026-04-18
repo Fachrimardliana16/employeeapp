@@ -75,6 +75,70 @@ class UserSeeder extends Seeder
             'access_user_panel',
         ]);
 
-        $this->command->info('Roles and permissions initialized successfully!');
+        // 1. Create superadmin users
+        $superAdmins = [
+            'fachri@pdampurbalingga.co.id' => 'Fachri',
+            'aulia@pdampurbalingga.co.id' => 'Aulia',
+            'anggoro@pdampurbalingga.co.id' => 'Anggoro',
+            'kholiq@pdampurbalingga.co.id' => 'Kholiq',
+        ];
+
+        foreach ($superAdmins as $email => $name) {
+            $firstName = strtolower(explode(' ', trim($name))[0]);
+            $username = $firstName;
+            $counter = 1;
+
+            while (User::where('username', $username)->where('email', '!=', $email)->exists()) {
+                $username = $firstName . $counter;
+                $counter++;
+            }
+
+            $user = User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $name,
+                    'username' => $username,
+                    'password' => Hash::make('pdam891706'),
+                    'email_verified_at' => now(),
+                    'is_verified' => true,
+                    'is_active' => true,
+                ]
+            );
+            $user->assignRole($superAdminRole);
+        }
+
+        // 2. Create admin users
+        $admins = [
+            'yuninur@pdampurbalingga.co.id' => 'Yuni Nur',
+            'arina@pdampurbalingga.co.id' => 'Arina',
+            'dian@pdampurbalingga.co.id' => 'Dian',
+            'yuniset@pdampurbalingga.co.id' => 'Yuni Set',
+        ];
+
+        foreach ($admins as $email => $name) {
+            $firstName = strtolower(explode(' ', trim($name))[0]);
+            $username = $firstName;
+            $counter = 1;
+
+            while (User::where('username', $username)->where('email', '!=', $email)->exists()) {
+                $username = $firstName . $counter;
+                $counter++;
+            }
+
+            $user = User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $name,
+                    'username' => $username,
+                    'password' => Hash::make('pdam891706'),
+                    'email_verified_at' => now(),
+                    'is_verified' => true,
+                    'is_active' => true,
+                ]
+            );
+            $user->assignRole($adminRole);
+        }
+
+        $this->command->info('Roles, permissions, and designated users initialized successfully!');
     }
 }
