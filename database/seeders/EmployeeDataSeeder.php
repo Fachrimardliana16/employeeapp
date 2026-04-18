@@ -14,12 +14,53 @@ use Carbon\Carbon;
 
 class EmployeeDataSeeder extends Seeder
 {
+    protected $designatedStaff = [
+        'FACHRI MARDLIANA' => ['email' => 'fachri@pdampurbalingga.co.id', 'role' => 'superadmin', 'username' => 'fachri'],
+        'M.MANSYUR KHOLIQ' => ['email' => 'kholiq@pdampurbalingga.co.id', 'role' => 'superadmin', 'username' => 'kholiq'],
+        'ANGGORO BAYU A' => ['email' => 'anggoro@pdampurbalingga.co.id', 'role' => 'superadmin', 'username' => 'anggoro'],
+        'AULIA' => ['email' => 'aulia@pdampurbalingga.co.id', 'role' => 'superadmin', 'username' => 'aulia'],
+        'YUNIATI NURHAYAH' => ['email' => 'yuninur@pdampurbalingga.co.id', 'role' => 'admin', 'username' => 'yuninur'],
+        'YUNI SETYOWATI,SE' => ['email' => 'yuniset@pdampurbalingga.co.id', 'role' => 'admin', 'username' => 'yuniset'],
+        'ARINA' => ['email' => 'arina@pdampurbalingga.co.id', 'role' => 'admin', 'username' => 'arina'],
+        'DIAN' => ['email' => 'dian@pdampurbalingga.co.id', 'role' => 'admin', 'username' => 'dian'],
+    ];
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
         $employees = [
+    [
+        'nippam' => null,
+        'name' => 'AULIA',
+        'address' => 'PURBALINGGA',
+        'npwp_number' => null,
+        'golongan' => null,
+        'tanggal_pegawai_tetap' => null,
+        'jenis_kelamin' => 'P',
+        'tanggal_capeg' => null,
+    ],
+    [
+        'nippam' => null,
+        'name' => 'ARINA',
+        'address' => 'PURBALINGGA',
+        'npwp_number' => null,
+        'golongan' => null,
+        'tanggal_pegawai_tetap' => null,
+        'jenis_kelamin' => 'P',
+        'tanggal_capeg' => null,
+    ],
+    [
+        'nippam' => null,
+        'name' => 'DIAN',
+        'address' => 'PURBALINGGA',
+        'npwp_number' => null,
+        'golongan' => null,
+        'tanggal_pegawai_tetap' => null,
+        'jenis_kelamin' => 'P',
+        'tanggal_capeg' => null,
+    ],
     [
         'nippam' => 750100124,
         'name' => 'ANDJAR ISWANTO',
@@ -1720,26 +1761,41 @@ class EmployeeDataSeeder extends Seeder
                 }
             }
 
-            // Generate first-name based email and username
-            $nameParts = explode(" ", $name);
-            $firstName = Str::slug($nameParts[0] ?? "pegawai" , "");
-            if (empty($firstName)) $firstName = "pegawai";
+            // Handle specific email/role for designated staff
+            $role = 'user';
+            $isDesignated = false;
+            foreach ($this->designatedStaff as $staffName => $staffData) {
+                if (strtoupper($name) === strtoupper($staffName)) {
+                    $email = $staffData['email'];
+                    $username = $staffData['username'];
+                    $role = $staffData['role'];
+                    $isDesignated = true;
+                    break;
+                }
+            }
 
-            $username = $firstName;
-            $email = $firstName . "@pdampurbalingga.co.id";
-            
-            // Handle duplicate first names for unique emails and usernames
-            $counter = 1;
-            while (
-                in_array($email, $usedEmails) || 
-                User::where("email", $email)->where("name", "!=", $name)->exists() ||
-                User::where("username", $username)->where("name", "!=", $name)->exists() ||
-                Employee::where("username", $username)->where("name", "!=", $name)->exists() ||
-                Employee::where("office_email", $email)->where("name", "!=", $name)->exists()
-            ) {
-                $username = $firstName . $counter;
-                $email = $firstName . $counter . "@pdampurbalingga.co.id";
-                $counter++;
+            if (!$isDesignated) {
+                // Generate first-name based email and username
+                $nameParts = explode(" ", $name);
+                $firstName = Str::slug($nameParts[0] ?? "pegawai" , "");
+                if (empty($firstName)) $firstName = "pegawai";
+
+                $username = $firstName;
+                $email = $firstName . "@pdampurbalingga.co.id";
+                
+                // Handle duplicate first names for unique emails and usernames
+                $counter = 1;
+                while (
+                    in_array($email, $usedEmails) || 
+                    User::where("email", $email)->where("name", "!=", $name)->exists() ||
+                    User::where("username", $username)->where("name", "!=", $name)->exists() ||
+                    Employee::where("username", $username)->where("name", "!=", $name)->exists() ||
+                    Employee::where("office_email", $email)->where("name", "!=", $name)->exists()
+                ) {
+                    $username = $firstName . $counter;
+                    $email = $firstName . $counter . "@pdampurbalingga.co.id";
+                    $counter++;
+                }
             }
             $usedEmails[] = $email;
 
@@ -1768,9 +1824,8 @@ class EmployeeDataSeeder extends Seeder
                 
                 // If using Spatie Permission
                 if (method_exists($user, "assignRole")) {
-                    // Make sure 'user' role exists
-                    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
-                    $user->assignRole("user");
+                    // Make sure roles exist (should be created by UserSeeder)
+                    $user->syncRoles([$role]);
                 }
 
                 $this->command->info("User created/updated for {$name} with email: {$email}");

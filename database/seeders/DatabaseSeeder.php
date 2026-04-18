@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             MasterEmployeeNonPermanentSalarySeeder::class,
             SignatoryEmployeeSeeder::class,
             MasterShsCsvSeeder::class,
+            EmployeeDataSeeder::class,
         ]);
     }
 }
