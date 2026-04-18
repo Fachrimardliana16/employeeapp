@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use App\Models\MasterStandarHargaSatuan;
+use App\Models\Employee;
 
 class EmployeeBusinessTravelLetterResource extends Resource
 {
@@ -56,43 +58,73 @@ class EmployeeBusinessTravelLetterResource extends Resource
                 $days = $start->diffInDays($end) + 1;
             }
 
-            $totalEmployees = 0;
-            if ($get('employee_id')) {
-                $totalEmployees += 1;
-            }
-            $additionalEmployees = $get('additional_employees_detail');
-            if (is_array($additionalEmployees)) {
-                $totalEmployees += count($additionalEmployees);
-            }
-
-            // Perhitungan
-            $totalPocketMoney = 0;
+            $shsCategory = $get('shs_category');
+            $shsLocation = $get('shs_location');
             
-            // 1. Uang saku pegawai utama
-            if ($get('employee_id')) {
+            $totalEmployees = 0;
+            $totalPocketMoney = 0;
+            $accommodationNote = "";
+
+            // 1. Pegawai Utama
+            if ($mainEmpId = $get('employee_id')) {
+                $totalEmployees += 1;
+                $mainEmp = Employee::with(['position', 'grade'])->find($mainEmpId);
+                
                 $mainPocketMoney = (float)($get('pocket_money_cost') ?: 0);
+
+                if ($mainEmp && $shsCategory && $shsLocation) {
+                    $mappedSpesifikasi = MasterStandarHargaSatuan::mapPositionToSpesifikasi(
+                        $mainEmp->position->name ?? '', 
+                        $mainEmp->grade->name ?? null
+                    );
+
+                    $baseLoc = preg_match('/^ZONA\s+[IVXLCDM]+/i', $shsLocation, $m) ? strtoupper($m[0]) : $shsLocation;
+
+                    $shs = MasterStandarHargaSatuan::where('category', $shsCategory)
+                        ->where(function ($query) use ($shsLocation, $baseLoc) {
+                            $query->where('location', trim($shsLocation))
+                                  ->orWhere('location', 'LIKE', $baseLoc . '%');
+                        })
+                        ->where('spesifikasi', trim($mappedSpesifikasi))
+                        ->first();
+
+                    if ($shs) {
+                        $mainPocketMoney = (float)$shs->amount;
+                        $set('pocket_money_cost', $mainPocketMoney);
+                        if (!empty($shs->description)) {
+                            $accommodationNote = "Rekomendasi Utama: " . $shs->description;
+                        }
+                    }
+                }
+                
                 $totalPocketMoney += ($mainPocketMoney * $days);
             }
 
-            // 2. Uang saku pegawai tambahan
+            // 2. Pegawai Tambahan
+            $additionalEmployees = $get('additional_employees_detail');
             if (is_array($additionalEmployees)) {
-                foreach ($additionalEmployees as $emp) {
-                    $empPocketMoney = (float)($emp['pocket_money_cost'] ?? 0);
+                $totalEmployees += count($additionalEmployees);
+                
+                foreach ($additionalEmployees as $empData) {
+                    $empPocketMoney = (float)($empData['pocket_money_cost'] ?? 0);
                     $totalPocketMoney += ($empPocketMoney * $days);
                 }
             }
 
             // 3. Biaya gabungan (Flat Total)
-            $accommodation = (float)($get('accommodation_cost') ?: 0);
-            $reserve = (float)($get('reserve_cost') ?: 0);
+            $combinedOperational = (float)($get('accommodation_reserve_cost') ?: 0);
 
-            $grandTotal = $accommodation + $reserve + $totalPocketMoney;
+            $grandTotal = $combinedOperational + $totalPocketMoney;
 
             // Update state
             $set('trip_duration_days', $days);
             $set('total_employees', $totalEmployees);
             $set('total_cost', $grandTotal);
             $set('business_trip_expenses', $grandTotal);
+            
+            if ($accommodationNote) {
+                // We can't easily push helper text but we can put it in a description or placeholder
+            }
         } catch (\Exception $e) {
             // Log or ignore to prevent crash
         }
@@ -105,46 +137,91 @@ class EmployeeBusinessTravelLetterResource extends Resource
                 Forms\Components\Section::make('Informasi Dasar & Destinasi')
                     ->description('Nomor registration, tujuan perjalanan, dan waktu perjalanan.')
                     ->schema([
-                        Forms\Components\TextInput::make('registration_number')
-                            ->label('Nomor Surat (SPD)')
-                            ->default(fn () => \App\Services\LetterNumberService::generateBusinessTravelNumber())
-                            ->disabled()
-                            ->dehydrated(),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('registration_number')
+                                    ->label('Nomor Surat (SPD)')
+                                    ->default(fn () => \App\Services\LetterNumberService::generateBusinessTravelNumber())
+                                    ->disabled()
+                                    ->dehydrated(),
 
-                        Forms\Components\TextInput::make('pasal')
-                            ->label('Pasal/Dasar Hukum')
-                            ->maxLength(255)
-                            ->placeholder('Contoh: Pasal 10 ayat 2'),
+                                Forms\Components\TextInput::make('pasal')
+                                    ->label('Pasal/Dasar Hukum')
+                                    ->maxLength(255)
+                                    ->placeholder('Contoh: Pasal 10 ayat 2'),
 
-                        Forms\Components\Textarea::make('purpose_of_trip')
-                            ->label('Maksud Perjalanan')
-                            ->required()
-                            ->rows(2)
-                            ->columnSpanFull(),
+                                Forms\Components\DatePicker::make('start_date')
+                                    ->label('Tanggal Berangkat')
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+
+                                Forms\Components\DatePicker::make('end_date')
+                                    ->label('Tanggal Kembali')
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+                            ]),
 
                         Forms\Components\TextInput::make('destination')
                             ->label('Kota/Tempat Tujuan')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpanFull(),
 
-                        Forms\Components\Textarea::make('destination_detail')
-                            ->label('Detail Alamat Destinasi')
-                            ->rows(2)
-                            ->placeholder('Detail lokasi atau alamat lengkap'),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Textarea::make('destination_detail')
+                                    ->label('Detail Alamat Destinasi')
+                                    ->rows(2)
+                                    ->placeholder('Detail lokasi atau alamat lengkap'),
 
-                        Forms\Components\DatePicker::make('start_date')
-                            ->label('Tanggal Berangkat')
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+                                Forms\Components\Textarea::make('purpose_of_trip')
+                                    ->label('Maksud Perjalanan')
+                                    ->required()
+                                    ->rows(2),
+                            ]),
 
-                        Forms\Components\DatePicker::make('end_date')
-                            ->label('Tanggal Kembali')
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
-                    ])
-                    ->columns(2),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Select::make('shs_category')
+                                    ->label('Kategori SHS Perjalanan')
+                                    ->options([
+                                        'DALAM WILAYAH PURBALINGGA (min. 15 Km)' => 'Dalam Wilayah Purbalingga',
+                                        'PERJALANAN DINAS LUAR WILAYAH' => 'Perjalanan Dinas Luar Wilayah',
+                                        'REPRESENTASI PERJALANAN DINAS' => 'Representasi Perjalanan Dinas',
+                                    ])
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set) {
+                                        $set('shs_location', null);
+                                    }),
+
+                                Forms\Components\Select::make('shs_location')
+                                    ->label('Zona / Wilayah SHS')
+                                    ->options(function (Get $get) {
+                                        $category = $get('shs_category');
+                                        if (!$category) return [];
+                                        
+                                        $locations = MasterStandarHargaSatuan::where('category', $category)
+                                            ->distinct()
+                                            ->pluck('location');
+                                            
+                                        $options = [];
+                                        foreach ($locations as $loc) {
+                                            $base = preg_match('/^ZONA\s+[IVXLCDM]+/i', $loc, $m) ? strtoupper($m[0]) : $loc;
+                                            if (!isset($options[$base]) || strlen($loc) > strlen($options[$base])) {
+                                                $options[$base] = $loc;
+                                            }
+                                        }
+                                        return array_combine(array_values($options), array_values($options));
+                                    })
+                                    ->required()
+                                    ->searchable()
+                                    ->live()
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+                            ]),
+                    ]),
 
                 Forms\Components\Section::make('Daftar Peserta & Biaya Perorangan')
                     ->description('Pilih pegawai yang melakukan perjalanan dan tentukan uang saku masing-masing.')
@@ -181,13 +258,36 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(function ($state, Set $set) {
+                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         if ($state) {
-                                            $employee = \App\Models\Employee::with('position')->find($state);
-                                            if ($employee && $employee->position) {
-                                                $set('position', $employee->position->name);
+                                            $employee = Employee::with(['position', 'grade'])->find($state);
+                                            if ($employee) {
+                                                if ($employee->position) {
+                                                    $set('position', $employee->position->name);
+                                                }
+                                                
+                                                // Fetch SHS
+                                                $shsCategory = $get('../../shs_category');
+                                                $shsLocation = $get('../../shs_location');
+                                                
+                                                if ($shsCategory && $shsLocation) {
+                                                    $mappedSpesifikasi = MasterStandarHargaSatuan::mapPositionToSpesifikasi(
+                                                        $employee->position->name ?? '', 
+                                                        $employee->grade->name ?? null
+                                                    );
+
+                                                    $shs = MasterStandarHargaSatuan::where('category', $shsCategory)
+                                                        ->where('location', $shsLocation)
+                                                        ->where('spesifikasi', $mappedSpesifikasi)
+                                                        ->first();
+
+                                                    if ($shs) {
+                                                        $set('pocket_money_cost', $shs->amount);
+                                                    }
+                                                }
                                             }
                                         }
+                                        self::updateTotals($get, $set);
                                     }),
                                 Forms\Components\TextInput::make('position')
                                     ->label('Jabatan')
@@ -213,36 +313,50 @@ class EmployeeBusinessTravelLetterResource extends Resource
                 Forms\Components\Section::make('Biaya Operasional & Ringkasan')
                     ->description('Biaya kolektif untuk seluruh tim dan ringkasan total biaya.')
                     ->schema([
-                        Forms\Components\Grid::make(2)
-                            ->schema([
-                                Forms\Components\TextInput::make('accommodation_cost')
-                                    ->label('Biaya Akomodasi (Total)')
+                                Forms\Components\TextInput::make('accommodation_reserve_cost')
+                                    ->label('Biaya Akomodasi & Cadangan (Total)')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->default(0)
-                                    ->helperText('Total biaya penginapan seluruh tim')
+                                    ->helperText('Gabungan biaya Hotel dan Uang Cadangan (Input Manual)')
                                     ->live(debounce: 500)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set))
+                                    ->columnSpanFull(),
 
-                                Forms\Components\TextInput::make('reserve_cost')
-                                    ->label('Uang Cadangan (Total)')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->default(0)
-                                    ->helperText('Total uang cadangan seluruh tim')
-                                    ->live(debounce: 500)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
-                            ]),
-
-                        Forms\Components\Placeholder::make('summary_info')
-                            ->label('Summary Perhitungan')
+                        Forms\Components\Placeholder::make('summary_review')
+                            ->label('Detail Review Biaya')
                             ->content(function (Get $get) {
-                                $days = $get('trip_duration_days') ?: 0;
-                                $employees = $get('total_employees') ?: 0;
+                                $days = (int)($get('trip_duration_days') ?: 0);
+                                $employees = (int)($get('total_employees') ?: 0);
+                                
+                                // Re-calculate sub-totals for display
+                                $mainPocket = (float)($get('pocket_money_cost') ?: 0);
+                                $totalPocket = $mainPocket * $days;
+                                
+                                $additionals = $get('additional_employees_detail') ?: [];
+                                if (is_array($additionals)) {
+                                    foreach ($additionals as $emp) {
+                                        $totalPocket += ((float)($emp['pocket_money_cost'] ?? 0) * $days);
+                                    }
+                                }
+                                
+                                $accReserve = (float)($get('accommodation_reserve_cost') ?: 0);
+                                $grandTotal = $totalPocket + $accReserve;
+
                                 return new \Illuminate\Support\HtmlString("
-                                    <div class='flex gap-4 text-sm'>
-                                        <span class='font-medium'>Durasi: <span class='text-primary-600'>{$days} hari</span></span>
-                                        <span class='font-medium'>Peserta: <span class='text-primary-600'>{$employees} orang</span></span>
+                                    <div class='bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm space-y-3'>
+                                        <div class='flex justify-between items-center text-sm'>
+                                            <span class='text-gray-500 dark:text-gray-400'>Total Uang Saku ($employees orang x $days hari)</span>
+                                            <span class='font-medium text-gray-900 dark:text-gray-100 font-mono'>Rp " . number_format($totalPocket, 0, ',', '.') . "</span>
+                                        </div>
+                                        <div class='flex justify-between items-center text-sm'>
+                                            <span class='text-gray-500 dark:text-gray-400'>Biaya Akomodasi & Cadangan (Manual)</span>
+                                            <span class='font-medium text-gray-900 dark:text-gray-100 font-mono'>Rp " . number_format($accReserve, 0, ',', '.') . "</span>
+                                        </div>
+                                        <div class='pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center font-bold'>
+                                            <span class='text-gray-900 dark:text-gray-100'>Estimasi Total Biaya Akhir</span>
+                                            <span class='text-primary-600 dark:text-primary-400 text-lg font-mono'>Rp " . number_format($grandTotal, 0, ',', '.') . "</span>
+                                        </div>
                                     </div>
                                 ");
                             })

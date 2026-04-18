@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>REKAPITULASI KEHADIRAN PEGAWAI</title>
+    <title>REKAPITULASI LAPORAN HARIAN PEGAWAI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -39,7 +39,7 @@
 
         <!-- Document Title -->
         <div class="text-center mb-8">
-            <h3 class="text-lg font-bold uppercase decoration-1 underline underline-offset-4">LAPORAN REKAPITULASI KEHADIRAN PEGAWAI</h3>
+            <h3 class="text-lg font-bold uppercase decoration-1 underline underline-offset-4">LAPORAN REKAPITULASI KERJA HARIAN PEGAWAI</h3>
             <p class="text-sm mt-1">Periode: {{ \Carbon\Carbon::parse($startDate)->translatedFormat('d F Y') }} s/d {{ \Carbon\Carbon::parse($endDate)->translatedFormat('d F Y') }}</p>
         </div>
 
@@ -49,10 +49,6 @@
                 <span class="font-bold w-24">Pegawai</span>
                 <span>: {{ $employeeName ?? 'Semua Pegawai' }}</span>
             </div>
-            <div class="flex gap-2 text-right justify-end">
-                <span class="font-bold w-24 text-right">Lokasi Kantor</span>
-                <span class="text-right">: {{ $locationName ?? 'Semua Lokasi' }}</span>
-            </div>
         </div>
 
         <!-- Attendance Table -->
@@ -61,65 +57,41 @@
                 <thead>
                     <tr class="bg-gray-100 text-[10px] font-bold">
                         <th class="py-2 px-2 border border-black text-center w-10">NO</th>
-                        <th class="py-2 px-2 border border-black">TANGGAL & WAKTU</th>
-                        <th class="py-2 px-2 border border-black">PEGAWAI (PIN)</th>
+                        <th class="py-2 px-2 border border-black w-24">TANGGAL</th>
+                        <th class="py-2 px-2 border border-black">PEGAWAI</th>
+                        <th class="py-2 px-2 border border-black w-1/3">DESKRIPSI PEKERJAAN</th>
                         <th class="py-2 px-2 border border-black text-center">STATUS</th>
-                        <th class="py-2 px-2 border border-black text-center">KETEPATAN</th>
-                        <th class="py-2 px-2 border border-black">LOKASI</th>
-                        <th class="py-2 px-2 border border-black text-center">JARAK (M)</th>
+                        <th class="py-2 px-2 border border-black">KETERANGAN</th>
                     </tr>
                 </thead>
                 <tbody class="text-[10px]">
                     @forelse($records as $index => $record)
-                    @php 
-                        $isPermission = ($record->state === 'permission');
-                    @endphp
-                    <tr class="border-b border-black {{ $isPermission ? 'bg-amber-50' : '' }}">
+                    <tr class="border-b border-black">
                         <td class="py-2 px-2 border-x border-black text-center">{{ $index + 1 }}</td>
-                        <td class="py-2 px-2 border-x border-black font-semibold">
-                            {{ \Carbon\Carbon::parse($record->attendance_time)->translatedFormat('d/m/Y') }}
-                            @if(!$isPermission)
-                                <span class="block font-normal text-gray-500">{{ \Carbon\Carbon::parse($record->attendance_time)->format('H:i') }} WIB</span>
-                            @endif
+                        <td class="py-2 px-2 border-x border-black font-semibold whitespace-nowrap">
+                            {{ \Carbon\Carbon::parse($record->daily_report_date)->translatedFormat('d M Y') }}
                         </td>
                         <td class="py-2 px-2 border-x border-black">
-                            <span class="font-bold border-b border-dotted border-gray-300">{{ $record->employee_name }}</span>
-                            <span class="block text-gray-400">PIN: {{ $record->pin }}</span>
+                            <span class="font-bold border-b border-dotted border-gray-300">{{ $record->employee->name ?? '-' }}</span>
+                            <span class="block text-gray-400">PIN: {{ $record->employee->pin ?? '-' }}</span>
                         </td>
-                        <td class="py-2 px-2 border-x border-black text-center uppercase font-bold text-[8px]">
-                            @if($isPermission)
-                                <span class="text-amber-700">{{ $record->permission_name ?? 'IZIN/CUTI' }}</span>
+                        <td class="py-2 px-2 border-x border-black">
+                            {{ $record->work_description }}
+                        </td>
+                        <td class="py-2 px-2 border-x border-black text-center font-bold uppercase text-[9px]">
+                            @if($record->work_status === 'Selesai' || strtolower($record->work_status) === 'completed')
+                                <span class="text-emerald-700">SELESAI</span>
+                            @elseif($record->work_status === 'Proses' || strtolower($record->work_status) === 'in_progress')
+                                <span class="text-amber-600">PROSES</span>
                             @else
-                                {{ match($record->state) {
-                                    'in', 'check_in' => 'Masuk',
-                                    'out', 'check_out' => 'Keluar',
-                                    'dl_in' => 'Dinas Luar (M)',
-                                    'dl_out' => 'Dinas Luar (P)',
-                                    'ot_in' => 'Lembur (M)',
-                                    'ot_out' => 'Lembur (P)',
-                                    default => $record->state
-                                } }}
+                                <span class="text-red-700">TERTUNDA</span>
                             @endif
                         </td>
-                        <td class="py-2 px-2 border-x border-black text-center font-bold">
-                            @if($isPermission)
-                                <span class="text-amber-600 italic">IZIN RESMI</span>
-                            @else
-                                @if($record->attendance_status === 'late')
-                                    <span class="text-red-700">TERLAMBAT</span>
-                                @elseif($record->attendance_status === 'early')
-                                    <span class="text-amber-600">PLG CEPAT</span>
-                                @else
-                                    <span class="text-emerald-700">TEPAT WAKTU</span>
-                                @endif
-                            @endif
-                        </td>
-                        <td class="py-2 px-2 border-x border-black text-[9px]">{{ $record->officeLocation->name ?? '-' }}</td>
-                        <td class="py-2 px-2 border-x border-black text-center">{{ $record->distance_from_office ?? '-' }}</td>
+                        <td class="py-2 px-2 border-x border-black text-[9px]">{{ $record->desc ?? '-' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="py-10 text-center italic text-gray-400">Pencarian data tidak ditemukan untuk kriteria ini.</td>
+                        <td colspan="6" class="py-10 text-center italic text-gray-400">Pencarian data tidak ditemukan untuk kriteria ini.</td>
                     </tr>
                     @endforelse
                 </tbody>

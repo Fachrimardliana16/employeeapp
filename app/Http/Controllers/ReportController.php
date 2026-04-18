@@ -89,4 +89,32 @@ class ReportController extends Controller
             default => 'Laporan Operasional Pegawai',
         };
     }
+
+    public function careerSchedule(Request $request)
+    {
+        $year = $request->query('year', now()->addYear()->year);
+        
+        $employees = Employee::with(['grade', 'position', 'serviceGrade'])
+            ->dueForCareerActionInYear($year)
+            ->get();
+
+        // 1. Group KGB by month
+        $kgbData = $employees->filter(fn($e) => optional($e->next_kgb_date)->year == $year)
+            ->groupBy(fn($e) => $e->next_kgb_date->format('m'))
+            ->sortKeys();
+
+        // 2. Group Promotion by month
+        $promoData = $employees->filter(fn($e) => optional($e->next_promotion_date)->year == $year)
+            ->groupBy(fn($e) => $e->next_promotion_date->format('m'))
+            ->sortKeys();
+
+        $pdf = Pdf::loadView('reports.career-schedule', [
+            'year' => $year,
+            'kgbData' => $kgbData,
+            'promoData' => $promoData,
+            'generated_at' => now()->translatedFormat('d F Y H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Jadwal_KGB_Golongan_' . $year . '.pdf');
+    }
 }

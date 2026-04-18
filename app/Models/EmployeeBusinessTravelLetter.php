@@ -39,6 +39,9 @@ class EmployeeBusinessTravelLetter extends Model
         'pdf_file_path',
         'signed_file_path',
         'visit_file_path',
+        'shs_category',
+        'shs_location',
+        'accommodation_reserve_cost',
         'status',
         'users_id',
     ];

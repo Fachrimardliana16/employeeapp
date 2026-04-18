@@ -28,7 +28,8 @@ class DatabaseSeeder extends Seeder
             AttendanceScheduleSeeder::class,
             PnsSalarySeeder::class,
             MasterEmployeeNonPermanentSalarySeeder::class,
-            EmployeeDataSeeder::class,
+            SignatoryEmployeeSeeder::class,
+            MasterShsCsvSeeder::class,
         ]);
     }
 }

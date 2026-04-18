@@ -139,8 +139,10 @@ Route::middleware(['auth'])->group(function () {
             $permissions = $permissionQuery->get();
 
             foreach ($permissions as $permission) {
-                $startDate = \Carbon\Carbon::parse($permission->start_permission_date)->clamp($request->from_date, $request->to_date);
-                $endDate = \Carbon\Carbon::parse($permission->end_permission_date)->clamp($request->from_date, $request->to_date);
+                $reqFrom = \Carbon\Carbon::parse($request->from_date)->startOfDay();
+                $reqTo = \Carbon\Carbon::parse($request->to_date)->endOfDay();
+                $startDate = \Carbon\Carbon::parse($permission->start_permission_date)->max($reqFrom);
+                $endDate = \Carbon\Carbon::parse($permission->end_permission_date)->min($reqTo);
 
                 $period = \Carbon\CarbonPeriod::create($startDate, $endDate);
 
@@ -178,5 +180,133 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('attendance.report');
 
+    Route::get('/attendance-summary-report', function (\Illuminate\Http\Request $request) {
+        $fromDate = \Carbon\Carbon::parse($request->from_date)->startOfDay();
+        $toDate = \Carbon\Carbon::parse($request->to_date)->endOfDay();
+        
+        // 1. Calculate Active Working Days from Schedule
+        $activeSchedules = \App\Models\AttendanceSchedule::where('is_active', true)->pluck('day')->map(function ($day) {
+            return strtolower($day);
+        })->toArray();
+        
+        $totalWorkingDays = 0;
+        $currentDate = $fromDate->copy();
+        while ($currentDate <= $toDate) {
+            $dayName = strtolower($currentDate->format('l'));
+            if (in_array($dayName, $activeSchedules)) {
+                $totalWorkingDays++;
+            }
+            $currentDate->addDay();
+        }
+
+        // 2. Fetch Employees
+        $query = \App\Models\Employee::query();
+        if ($request->filled('employee_id')) {
+            $query->where('id', $request->employee_id);
+        }
+        $employees = $query->get();
+
+        $summaries = collect();
+
+        foreach ($employees as $employee) {
+            // Count unique check-in days
+            $presentDaysCount = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
+                ->whereBetween('attendance_time', [$fromDate, $toDate])
+                ->whereIn('state', ['check_in', 'in', 'dl_in', 'ot_in'])
+                ->selectRaw('DATE(attendance_time) as date')
+                ->groupBy('date')
+                ->get()
+                ->count();
+                
+            $lateCount = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
+                ->whereBetween('attendance_time', [$fromDate, $toDate])
+                ->whereIn('state', ['check_in', 'in', 'dl_in', 'ot_in'])
+                ->where('attendance_status', 'late')
+                ->count();
+
+            $onTimeCount = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
+                ->whereBetween('attendance_time', [$fromDate, $toDate])
+                ->whereIn('state', ['check_in', 'in', 'dl_in', 'ot_in'])
+                ->whereIn('attendance_status', ['on_time', 'early'])
+                ->count();
+
+            // Permissions / Leave
+            $leaveQuery = \App\Models\EmployeePermission::where('employee_id', $employee->id)
+                ->where('approval_status', 'approved')
+                ->where(function($q) use ($fromDate, $toDate) {
+                    $q->whereBetween('start_permission_date', [$fromDate, $toDate])
+                      ->orWhereBetween('end_permission_date', [$fromDate, $toDate])
+                      ->orWhere(function($subQ) use ($fromDate, $toDate) {
+                          $subQ->where('start_permission_date', '<=', $fromDate)
+                               ->where('end_permission_date', '>=', $toDate);
+                      });
+                })->get();
+                
+            $leaveDays = 0;
+            // Count overlapping days that are actual working days
+            foreach ($leaveQuery as $leave) {
+                // If it's half day, we might handle it differently but let's count as full day leave for simplicity
+                $lStart = \Carbon\Carbon::parse($leave->start_permission_date)->max($fromDate);
+                $lEnd = \Carbon\Carbon::parse($leave->end_permission_date)->min($toDate);
+                
+                $period = \Carbon\CarbonPeriod::create($lStart, $lEnd);
+                foreach ($period as $date) {
+                    if (in_array(strtolower($date->format('l')), $activeSchedules)) {
+                        $leaveDays++;
+                    }
+                }
+            }
+
+            $effectiveWorkingDays = max(0, $totalWorkingDays - $leaveDays);
+            $absentCount = max(0, $effectiveWorkingDays - $presentDaysCount);
+            
+            $percentage = $effectiveWorkingDays > 0 ? round(($presentDaysCount / $effectiveWorkingDays) * 100, 2) : 0;
+
+            $summaries->push((object)[
+                'employee' => $employee,
+                'total_working_days' => $totalWorkingDays,
+                'present' => $presentDaysCount,
+                'late' => $lateCount,
+                'on_time' => $onTimeCount,
+                'leave' => $leaveDays,
+                'absent' => $absentCount,
+                'percentage' => $percentage,
+            ]);
+        }
+
+        return view('filament.print.attendance-summary', [
+            'summaries' => $summaries,
+            'startDate' => $request->from_date,
+            'endDate' => $request->to_date,
+            'totalWorkingDays' => $totalWorkingDays,
+            'singleEmployee' => $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : false,
+        ]);
+    })->name('attendance.summary.report');
+
+    Route::get('/daily-reports-report', function (\Illuminate\Http\Request $request) {
+        $query = \App\Models\EmployeeDailyReport::query()->with('employee');
+
+        if ($request->filled('from_date')) {
+            $query->whereDate('daily_report_date', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $query->whereDate('daily_report_date', '<=', $request->to_date);
+        }
+        if ($request->filled('employee_id')) {
+            $query->where('employee_id', $request->employee_id);
+        }
+
+        $records = $query->orderBy('daily_report_date', 'asc')->get();
+        $employeeName = $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : null;
+
+        return view('filament.print.daily-report', [
+            'records' => $records,
+            'startDate' => $request->from_date,
+            'endDate' => $request->to_date,
+            'employeeName' => $employeeName,
+        ]);
+    })->name('daily-reports.report');
+
     Route::get('/career-movement-report', [\App\Http\Controllers\ReportController::class, 'careerMovement'])->name('report.career-movement');
+    Route::get('/career-schedule-report', [\App\Http\Controllers\ReportController::class, 'careerSchedule'])->name('report.career-schedule');
 });

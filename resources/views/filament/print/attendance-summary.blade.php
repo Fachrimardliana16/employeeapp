@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>REKAPITULASI KEHADIRAN PEGAWAI</title>
+    <title>ANALISA KEHADIRAN PEGAWAI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -39,7 +39,7 @@
 
         <!-- Document Title -->
         <div class="text-center mb-8">
-            <h3 class="text-lg font-bold uppercase decoration-1 underline underline-offset-4">LAPORAN REKAPITULASI KEHADIRAN PEGAWAI</h3>
+            <h3 class="text-lg font-bold uppercase decoration-1 underline underline-offset-4">LAPORAN ANALISA & PERSENTASE KEHADIRAN</h3>
             <p class="text-sm mt-1">Periode: {{ \Carbon\Carbon::parse($startDate)->translatedFormat('d F Y') }} s/d {{ \Carbon\Carbon::parse($endDate)->translatedFormat('d F Y') }}</p>
         </div>
 
@@ -47,79 +47,55 @@
         <div class="mb-6 grid grid-cols-2 gap-4 text-xs">
             <div class="flex gap-2">
                 <span class="font-bold w-24">Pegawai</span>
-                <span>: {{ $employeeName ?? 'Semua Pegawai' }}</span>
+                <span>: {{ $singleEmployee ?: 'Semua Pegawai' }}</span>
             </div>
             <div class="flex gap-2 text-right justify-end">
-                <span class="font-bold w-24 text-right">Lokasi Kantor</span>
-                <span class="text-right">: {{ $locationName ?? 'Semua Lokasi' }}</span>
+                <span class="font-bold w-24 text-right">Hari Kerja Aktif</span>
+                <span class="text-right font-bold">: {{ $totalWorkingDays }} Hari</span>
             </div>
         </div>
 
-        <!-- Attendance Table -->
+        <!-- Attendance Summary Table -->
         <div class="overflow-x-auto mb-10">
-            <table class="w-full text-left border-collapse border border-black">
+            <table class="w-full text-left border-collapse border border-black text-center">
                 <thead>
-                    <tr class="bg-gray-100 text-[10px] font-bold">
-                        <th class="py-2 px-2 border border-black text-center w-10">NO</th>
-                        <th class="py-2 px-2 border border-black">TANGGAL & WAKTU</th>
-                        <th class="py-2 px-2 border border-black">PEGAWAI (PIN)</th>
-                        <th class="py-2 px-2 border border-black text-center">STATUS</th>
-                        <th class="py-2 px-2 border border-black text-center">KETEPATAN</th>
-                        <th class="py-2 px-2 border border-black">LOKASI</th>
-                        <th class="py-2 px-2 border border-black text-center">JARAK (M)</th>
+                    <tr class="bg-gray-100 text-[10px] font-bold border-b-2 border-black">
+                        <th class="py-2 px-2 border border-black w-10 text-center" rowspan="2">NO</th>
+                        <th class="py-2 px-2 border border-black text-left" rowspan="2">PEGAWAI</th>
+                        <th class="py-2 px-2 border border-black text-center" colspan="4">REKAPITULASI (HARI)</th>
+                        <th class="py-2 px-2 border border-black text-center" colspan="2">KETEPATAN</th>
+                        <th class="py-2 px-2 border border-black text-center w-24" rowspan="2">% KEHADIRAN<br><span class="text-[8px] font-normal italic">(Di luar Izin/Cuti)</span></th>
+                    </tr>
+                    <tr class="bg-gray-50 text-[9px] font-bold">
+                        <th class="py-1 px-2 border border-black text-center">HARI KERJA<br>EFEKTIF</th>
+                        <th class="py-1 px-2 border border-black text-center">HADIR</th>
+                        <th class="py-1 px-2 border border-black text-center text-amber-700">CUTI/IZIN</th>
+                        <th class="py-1 px-2 border border-black text-center text-red-700">ALPA</th>
+                        <th class="py-1 px-2 border border-black text-center text-emerald-700">TEPAT WAKTU</th>
+                        <th class="py-1 px-2 border border-black text-center text-orange-600">TERLAMBAT</th>
                     </tr>
                 </thead>
                 <tbody class="text-[10px]">
-                    @forelse($records as $index => $record)
-                    @php 
-                        $isPermission = ($record->state === 'permission');
-                    @endphp
-                    <tr class="border-b border-black {{ $isPermission ? 'bg-amber-50' : '' }}">
+                    @forelse($summaries as $index => $summary)
+                    <tr class="border-b border-black">
                         <td class="py-2 px-2 border-x border-black text-center">{{ $index + 1 }}</td>
-                        <td class="py-2 px-2 border-x border-black font-semibold">
-                            {{ \Carbon\Carbon::parse($record->attendance_time)->translatedFormat('d/m/Y') }}
-                            @if(!$isPermission)
-                                <span class="block font-normal text-gray-500">{{ \Carbon\Carbon::parse($record->attendance_time)->format('H:i') }} WIB</span>
-                            @endif
+                        <td class="py-2 px-2 border-x border-black text-left">
+                            <span class="font-bold">{{ $summary->employee->name }}</span>
+                            <span class="block text-gray-400 text-[8px]">PIN: {{ $summary->employee->pin }}</span>
                         </td>
-                        <td class="py-2 px-2 border-x border-black">
-                            <span class="font-bold border-b border-dotted border-gray-300">{{ $record->employee_name }}</span>
-                            <span class="block text-gray-400">PIN: {{ $record->pin }}</span>
+                        <td class="py-2 px-2 border-x border-black font-semibold">{{ $totalWorkingDays - $summary->leave }}</td>
+                        <td class="py-2 px-2 border-x border-black font-bold">{{ $summary->present }}</td>
+                        <td class="py-2 px-2 border-x border-black text-amber-700">{{ $summary->leave }}</td>
+                        <td class="py-2 px-2 border-x border-black font-bold text-red-700">{{ $summary->absent }}</td>
+                        <td class="py-2 px-2 border-x border-black text-emerald-700">{{ $summary->on_time }}</td>
+                        <td class="py-2 px-2 border-x border-black text-orange-600">{{ $summary->late }}</td>
+                        <td class="py-2 px-2 border-x border-black font-black text-center text-base {{ $summary->percentage < 80 ? 'text-red-600' : 'text-emerald-600' }}">
+                            {{ $summary->percentage }}%
                         </td>
-                        <td class="py-2 px-2 border-x border-black text-center uppercase font-bold text-[8px]">
-                            @if($isPermission)
-                                <span class="text-amber-700">{{ $record->permission_name ?? 'IZIN/CUTI' }}</span>
-                            @else
-                                {{ match($record->state) {
-                                    'in', 'check_in' => 'Masuk',
-                                    'out', 'check_out' => 'Keluar',
-                                    'dl_in' => 'Dinas Luar (M)',
-                                    'dl_out' => 'Dinas Luar (P)',
-                                    'ot_in' => 'Lembur (M)',
-                                    'ot_out' => 'Lembur (P)',
-                                    default => $record->state
-                                } }}
-                            @endif
-                        </td>
-                        <td class="py-2 px-2 border-x border-black text-center font-bold">
-                            @if($isPermission)
-                                <span class="text-amber-600 italic">IZIN RESMI</span>
-                            @else
-                                @if($record->attendance_status === 'late')
-                                    <span class="text-red-700">TERLAMBAT</span>
-                                @elseif($record->attendance_status === 'early')
-                                    <span class="text-amber-600">PLG CEPAT</span>
-                                @else
-                                    <span class="text-emerald-700">TEPAT WAKTU</span>
-                                @endif
-                            @endif
-                        </td>
-                        <td class="py-2 px-2 border-x border-black text-[9px]">{{ $record->officeLocation->name ?? '-' }}</td>
-                        <td class="py-2 px-2 border-x border-black text-center">{{ $record->distance_from_office ?? '-' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="py-10 text-center italic text-gray-400">Pencarian data tidak ditemukan untuk kriteria ini.</td>
+                        <td colspan="9" class="py-10 text-center italic text-gray-400">Tidak ada pegawai yang ditemukan.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -130,6 +106,7 @@
         <div class="flex justify-between items-start mt-12">
             <div class="text-[10px] italic text-gray-400">
                 <p>Dokumen ini diterbitkan secara otomatis secara digital.</p>
+                <p>Formula Persentase: (Hadir / (Hari Kerja - Izin)) * 100%</p>
                 <p>Dicetak pada: {{ now()->translatedFormat('l, d F Y | H:i') }} WIB</p>
             </div>
             <div class="w-64 text-center">

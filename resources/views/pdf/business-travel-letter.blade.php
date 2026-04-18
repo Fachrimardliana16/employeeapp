@@ -483,15 +483,8 @@
 
             <tr>
                 <td class="text-center">{{ $no++ }}</td>
-                <td colspan="2">2. BIAYA AKOMODASI / PENGINAPAN (TOTAL)</td>
-                <td class="text-right">{{ number_format($travel->accommodation_cost, 0, ',', '.') }}</td>
-                <td></td>
-            </tr>
-
-            <tr>
-                <td class="text-center">{{ $no++ }}</td>
-                <td colspan="2">3. UANG CADANGAN (TOTAL)</td>
-                <td class="text-right">{{ number_format($travel->reserve_cost, 0, ',', '.') }}</td>
+                <td colspan="2">2. BIAYA AKOMODASI & CADANGAN (TOTAL)</td>
+                <td class="text-right">{{ number_format($travel->accommodation_reserve_cost, 0, ',', '.') }}</td>
                 <td></td>
             </tr>
         </tbody>

@@ -575,7 +575,12 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->color(function (Employee $record) {
+                        return ($record->next_kgb_date && $record->next_kgb_date <= now()) || 
+                               ($record->next_promotion_date && $record->next_promotion_date <= now()) 
+                               ? 'warning' : null;
+                    }),
                 Tables\Columns\TextColumn::make('id_number')
                     ->label('NIK (KTP)')
                     ->searchable()
@@ -610,6 +615,16 @@ class EmployeeResource extends Resource
                     ->label('MKG (Thn)')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('next_kgb_date')
+                    ->label('KGB Berikutnya')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('next_promotion_date')
+                    ->label('Golongan Berikutnya')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('basic_salary_amount')
                     ->label('Gaji Pokok')
                     ->money('IDR')
@@ -755,6 +770,34 @@ class EmployeeResource extends Resource
                         );
                     })
                     ->tooltip('Generate laporan Pegawai dalam format PDF dengan filter'),
+                
+                Tables\Actions\Action::make('generate_schedule')
+                    ->label('Cetak Jadwal Kenaikan')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('info')
+                    ->modalHeading('Cetak Jadwal Tahunan (KGB & Golongan)')
+                    ->modalDescription('Pilih tahun dan pejabat berwenang untuk mencetak jadwal pengingat.')
+                    ->form([
+                        Forms\Components\Select::make('year')
+                            ->label('Pilih Tahun')
+                            ->options(function () {
+                                $years = [];
+                                $currentYear = now()->year;
+                                for ($i = $currentYear; $i <= $currentYear + 5; $i++) {
+                                    $years[$i] = $i;
+                                }
+                                return $years;
+                            })
+                            ->default(now()->year)
+                            ->required(),
+                    ])
+                    ->action(function (array $data, $livewire) {
+                        $url = route('report.career-schedule', [
+                            'year' => $data['year'],
+                        ]);
+                        $livewire->js("window.open('{$url}', '_blank')");
+                    })
+                    ->tooltip('Cetak pengingat jadwal kenaikan berkala dan golongan untuk tahun depan'),
 
                 Tables\Actions\Action::make('download_template')
                     ->label('Download Template')

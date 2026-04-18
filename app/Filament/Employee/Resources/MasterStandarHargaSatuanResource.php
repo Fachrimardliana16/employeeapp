@@ -29,6 +29,8 @@ class MasterStandarHargaSatuanResource extends Resource
     {
         return $form
             ->schema([
+                Forms\Components\TextInput::make('code')
+                    ->maxLength(255),
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -37,7 +39,7 @@ class MasterStandarHargaSatuanResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('location')
                     ->maxLength(255),
-                Forms\Components\TextInput::make('grade_level')
+                Forms\Components\TextInput::make('spesifikasi')
                     ->maxLength(255),
                 Forms\Components\TextInput::make('amount')
                     ->required()
@@ -59,6 +61,9 @@ class MasterStandarHargaSatuanResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('code')
+                    ->label('Kode/No')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
                     ->searchable(),
@@ -68,12 +73,17 @@ class MasterStandarHargaSatuanResource extends Resource
                 Tables\Columns\TextColumn::make('location')
                     ->label('Lokasi')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('grade_level')
-                    ->label('Tingkat/Golongan')
+                Tables\Columns\TextColumn::make('spesifikasi')
+                    ->label('Spesifikasi/Jabatan')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('amount')
-                    ->label('Jumlah')
-                    ->numeric()
+                    ->label('Jumlah (Rp)')
+                    ->numeric(
+                        decimalPlaces: 0,
+                        decimalSeparator: ',',
+                        thousandsSeparator: '.',
+                    )
+                    ->prefix('Rp ')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('unit')
                     ->label('Satuan')
@@ -82,9 +92,10 @@ class MasterStandarHargaSatuanResource extends Resource
                     ->label('Aktif')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('users_id')
-                    ->label('Dibuat Oleh')
+                    ->label('Dibuat Oleh ID')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat Pada')
                     ->dateTime()

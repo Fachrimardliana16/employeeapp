@@ -69,6 +69,8 @@ class Employee extends Model
         'employee_service_grade_id',
         'non_permanent_salary_id',
         'users_id',
+        'next_kgb_date',
+        'next_promotion_date',
     ];
 
     protected $casts = [
@@ -83,6 +85,8 @@ class Employee extends Model
         'grade_date_end' => 'date',
         'periodic_salary_date_start' => 'date',
         'periodic_salary_date_end' => 'date',
+        'next_kgb_date' => 'date',
+        'next_promotion_date' => 'date',
         'id_number' => 'encrypted',
         'familycard_number' => 'encrypted',
         'npwp_number' => 'encrypted',
@@ -146,6 +150,15 @@ class Employee extends Model
         // Auto-generate NIPPAM if empty
         if (!$this->nippam) {
             $this->nippam = static::generateNippam();
+        }
+
+        // Auto-generate next due dates for markers
+        if ($this->periodic_salary_date_start) {
+            $this->next_kgb_date = $this->periodic_salary_date_start->copy()->addYears(2);
+        }
+
+        if ($this->grade_date_start) {
+            $this->next_promotion_date = $this->grade_date_start->copy()->addYears(4);
         }
     }
 
@@ -548,5 +561,28 @@ class Employee extends Model
         }
 
         return $this->nonPermanentSalary?->amount ?? 0;
+    }
+
+    /**
+     * SCOPES FOR SCHEDULING
+     */
+    public function scopeDueForKgbInYear($query, $year)
+    {
+        return $query->whereYear('next_kgb_date', $year)
+            ->whereNotNull('periodic_salary_date_start');
+    }
+
+    public function scopeDueForPromotionInYear($query, $year)
+    {
+        return $query->whereYear('next_promotion_date', $year)
+            ->whereNotNull('grade_date_start');
+    }
+
+    public function scopeDueForCareerActionInYear($query, $year)
+    {
+        return $query->where(function ($q) use ($year) {
+            $q->whereYear('next_kgb_date', $year)
+              ->orWhereYear('next_promotion_date', $year);
+        });
     }
 }

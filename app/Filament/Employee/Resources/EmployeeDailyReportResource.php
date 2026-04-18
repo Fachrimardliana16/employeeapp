@@ -110,16 +110,14 @@ class EmployeeDailyReportResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat'),
-                    Tables\Actions\EditAction::make()
-                        ->label('Edit'),
-                    Tables\Actions\DeleteAction::make()
-                        ->label('Hapus'),
-                ])->label('Aksi'),
+                ])->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ])->label('Hapus yang Dipilih'),
+                // Disabled
             ]);
     }
 
@@ -130,12 +128,15 @@ class EmployeeDailyReportResource extends Resource
         ];
     }
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListEmployeeDailyReports::route('/'),
-            'create' => Pages\CreateEmployeeDailyReport::route('/create'),
-            'edit' => Pages\EditEmployeeDailyReport::route('/{record}/edit'),
         ];
     }
 }
