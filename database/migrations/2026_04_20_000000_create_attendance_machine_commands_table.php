@@ -11,16 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('attendance_machine_commands', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('attendance_machine_id')->constrained()->cascadeOnDelete();
-            $table->text('command');
-            $table->enum('status', ['pending', 'sent', 'completed', 'failed'])->default('pending');
-            $table->dateTime('sent_at')->nullable();
-            $table->dateTime('completed_at')->nullable();
-            $table->text('response_payload')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('attendance_machine_commands')) {
+            Schema::create('attendance_machine_commands', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('attendance_machine_id')->constrained()->cascadeOnDelete();
+                $table->text('command');
+                $table->enum('status', ['pending', 'sent', 'completed', 'failed'])->default('pending');
+                $table->dateTime('sent_at')->nullable();
+                $table->dateTime('completed_at')->nullable();
+                $table->text('response_payload')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

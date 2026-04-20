@@ -42,7 +42,7 @@ class ListEmployeeAttendanceRecords extends ListRecords
                     $livewire->js("window.open('{$url}', '_blank');");
                 }),
             Actions\Action::make('summary_report')
-                ->label('Cetak Analisa Kehadiran')
+                ->label('Analisa Kehadiran (PDF)')
                 ->icon('heroicon-o-chart-pie')
                 ->color('warning')
                 ->modalHeading('Filter Analisa Kehadiran (Persentase)')
@@ -61,7 +61,7 @@ class ListEmployeeAttendanceRecords extends ListRecords
                         ->options(\App\Models\Employee::pluck('name', 'id'))
                         ->searchable(),
                 ])
-                ->action(function (array $data, \Filament\Resources\Pages\ListRecords $livewire) {
+                ->action(function (array $data, $livewire) {
                     $url = route('attendance.summary.report', $data);
                     $livewire->js("window.open('{$url}', '_blank');");
                 }),

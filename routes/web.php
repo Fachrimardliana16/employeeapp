@@ -184,21 +184,13 @@ Route::middleware(['auth'])->group(function () {
         $fromDate = \Carbon\Carbon::parse($request->from_date)->startOfDay();
         $toDate = \Carbon\Carbon::parse($request->to_date)->endOfDay();
         
-        // 1. Calculate Active Working Days from Schedule
-        $activeSchedules = \App\Models\AttendanceSchedule::where('is_active', true)->pluck('day')->map(function ($day) {
-            return strtolower($day);
-        })->toArray();
+        // 1. Fetch Active Schedules for all days
+        $allSchedules = \App\Models\AttendanceSchedule::where('is_active', true)->get()->keyBy(function($item) {
+            return strtolower($item->day);
+        });
         
-        $totalWorkingDays = 0;
-        $currentDate = $fromDate->copy();
-        while ($currentDate <= $toDate) {
-            $dayName = strtolower($currentDate->format('l'));
-            if (in_array($dayName, $activeSchedules)) {
-                $totalWorkingDays++;
-            }
-            $currentDate->addDay();
-        }
-
+        $activeDayNames = $allSchedules->keys()->toArray();
+        
         // 2. Fetch Employees
         $query = \App\Models\Employee::query();
         if ($request->filled('employee_id')) {
@@ -206,9 +198,37 @@ Route::middleware(['auth'])->group(function () {
         }
         $employees = $query->get();
 
+        // 3. Fetch Special Schedules for the range
+        $specialSchedules = \App\Models\AttendanceSpecialSchedule::whereBetween('date', [$fromDate, $toDate])
+            ->get()
+            ->groupBy('employee_id');
+
         $summaries = collect();
 
         foreach ($employees as $employee) {
+            $empSpecialSchedules = $specialSchedules->get($employee->id, collect())->keyBy(function($item) {
+                return $item->date->toDateString();
+            });
+
+            // Calculate Working Days for THIS employee
+            $empTotalWorkingDays = 0;
+            $currentDate = $fromDate->copy();
+            while ($currentDate <= $toDate) {
+                $dateStr = $currentDate->toDateString();
+                $isWork = false;
+                
+                if ($empSpecialSchedules->has($dateStr)) {
+                    $isWork = $empSpecialSchedules->get($dateStr)->is_working;
+                } else {
+                    $isWork = in_array(strtolower($currentDate->format('l')), $activeDayNames);
+                }
+
+                if ($isWork) {
+                    $empTotalWorkingDays++;
+                }
+                $currentDate->addDay();
+            }
+
             // Count unique check-in days
             $presentDaysCount = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
                 ->whereBetween('attendance_time', [$fromDate, $toDate])
@@ -230,6 +250,24 @@ Route::middleware(['auth'])->group(function () {
                 ->whereIn('attendance_status', ['on_time', 'early'])
                 ->count();
 
+            // Calculate Early Leave (Pulang Cepat)
+            $earlyLeaveCount = 0;
+            $checkoutRecords = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
+                ->whereBetween('attendance_time', [$fromDate, $toDate])
+                ->whereIn('state', ['check_out', 'out', 'dl_out', 'ot_out'])
+                ->get();
+            
+            foreach ($checkoutRecords as $record) {
+                $dayName = strtolower($record->attendance_time->format('l'));
+                $schedule = $allSchedules->get($dayName);
+                if ($schedule && $schedule->check_out_start) {
+                    $checkoutTime = $record->attendance_time->format('H:i:s');
+                    if ($checkoutTime < $schedule->check_out_start) {
+                        $earlyLeaveCount++;
+                    }
+                }
+            }
+
             // Permissions / Leave
             $leaveQuery = \App\Models\EmployeePermission::where('employee_id', $employee->id)
                 ->where('approval_status', 'approved')
@@ -243,34 +281,51 @@ Route::middleware(['auth'])->group(function () {
                 })->get();
                 
             $leaveDays = 0;
-            // Count overlapping days that are actual working days
             foreach ($leaveQuery as $leave) {
-                // If it's half day, we might handle it differently but let's count as full day leave for simplicity
                 $lStart = \Carbon\Carbon::parse($leave->start_permission_date)->max($fromDate);
                 $lEnd = \Carbon\Carbon::parse($leave->end_permission_date)->min($toDate);
-                
                 $period = \Carbon\CarbonPeriod::create($lStart, $lEnd);
                 foreach ($period as $date) {
-                    if (in_array(strtolower($date->format('l')), $activeSchedules)) {
+                    $dateStr = $date->toDateString();
+                    $isWork = false;
+                    if ($empSpecialSchedules->has($dateStr)) {
+                        $isWork = $empSpecialSchedules->get($dateStr)->is_working;
+                    } else {
+                        $isWork = in_array(strtolower($date->format('l')), $activeDayNames);
+                    }
+
+                    if ($isWork) {
                         $leaveDays++;
                     }
                 }
             }
 
-            $effectiveWorkingDays = max(0, $totalWorkingDays - $leaveDays);
+            $effectiveWorkingDays = max(0, $empTotalWorkingDays - $leaveDays);
             $absentCount = max(0, $effectiveWorkingDays - $presentDaysCount);
             
-            $percentage = $effectiveWorkingDays > 0 ? round(($presentDaysCount / $effectiveWorkingDays) * 100, 2) : 0;
+            // Calculate Percentages
+            $denom = $effectiveWorkingDays ?: 1;
+            $presencePct = round(($presentDaysCount / $denom) * 100, 1);
+            $absentPct = round(($absentCount / $denom) * 100, 1);
+            $latePct = round(($lateCount / $denom) * 100, 1);
+            $earlyPct = round(($earlyLeaveCount / $denom) * 100, 1);
+            $accuracyPct = round(($onTimeCount / $denom) * 100, 1);
 
             $summaries->push((object)[
                 'employee' => $employee,
-                'total_working_days' => $totalWorkingDays,
+                'total_working_days' => $empTotalWorkingDays,
+                'effective_working_days' => $effectiveWorkingDays,
                 'present' => $presentDaysCount,
-                'late' => $lateCount,
-                'on_time' => $onTimeCount,
-                'leave' => $leaveDays,
+                'presence_pct' => $presencePct,
                 'absent' => $absentCount,
-                'percentage' => $percentage,
+                'absent_pct' => $absentPct,
+                'late' => $lateCount,
+                'late_pct' => $latePct,
+                'early' => $earlyLeaveCount,
+                'early_pct' => $earlyPct,
+                'on_time' => $onTimeCount,
+                'accuracy_pct' => $accuracyPct,
+                'leave' => $leaveDays,
             ]);
         }
 
@@ -278,7 +333,7 @@ Route::middleware(['auth'])->group(function () {
             'summaries' => $summaries,
             'startDate' => $request->from_date,
             'endDate' => $request->to_date,
-            'totalWorkingDays' => $totalWorkingDays,
+            'totalWorkingDays' => $summaries->max('total_working_days'), // Use max for display header context
             'singleEmployee' => $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : false,
         ]);
     })->name('attendance.summary.report');
@@ -309,6 +364,31 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/career-movement-report', [\App\Http\Controllers\ReportController::class, 'careerMovement'])->name('report.career-movement');
     Route::get('/career-schedule-report', [\App\Http\Controllers\ReportController::class, 'careerSchedule'])->name('report.career-schedule');
+
+    Route::get('/attendance-logs-report-pdf', function (\Illuminate\Http\Request $request) {
+        $query = \App\Models\AttendanceMachineLog::query()
+            ->with(['machine.officeLocation', 'employee'])
+            ->when($request->from_date, fn($q, $date) => $q->whereDate('timestamp', '>=', $date))
+            ->when($request->to_date, fn($q, $date) => $q->whereDate('timestamp', '<=', $date))
+            ->when($request->employee_id, function($q, $id) {
+                $employee = \App\Models\Employee::find($id);
+                if ($employee && $employee->pin) {
+                    $q->where('pin', $employee->pin);
+                }
+            })
+            ->when($request->attendance_machine_id, fn($q, $id) => $q->where('attendance_machine_id', $id))
+            ->orderBy('timestamp', 'desc');
+
+        $records = $query->get();
+
+        return view('filament.print.attendance-logs', [
+            'records' => $records,
+            'startDate' => $request->from_date,
+            'endDate' => $request->to_date,
+            'singleEmployee' => $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : false,
+            'singleMachine' => $request->filled('attendance_machine_id') ? \App\Models\AttendanceMachine::find($request->attendance_machine_id)?->name : false,
+        ]);
+    })->name('attendance.logs.report.pdf');
 });
 
 // ADMS (Attendance Machine) Routes - Root Level

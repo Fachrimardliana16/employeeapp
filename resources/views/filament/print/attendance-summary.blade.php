@@ -7,95 +7,126 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
+            @page { size: landscape; margin: 0.5cm; }
             .no-print { display: none !important; }
             body { background: white; padding: 0; }
-            .report-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: none !important; }
-            table { border-collapse: collapse; width: 100%; border: 1px solid black; }
-            th, td { border: 1px solid black !important; padding: 6px !important; font-size: 10px !important; }
-            th { background-color: #f3f4f6 !important; color: black !important; font-weight: bold; text-transform: uppercase; }
+            .report-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: none !important; width: 100% !important; }
+            table { border-collapse: collapse; width: 100%; border: 1.5px solid black; }
+            th, td { border: 1px solid black !important; padding: 4px 2px !important; font-size: 9px !important; line-height: 1.1; }
+            th { background-color: #f0f0f0 !important; color: black !important; font-weight: bold; text-transform: uppercase; }
         }
-        .signature-space { height: 80px; }
+        .signature-space { height: 60px; }
+        table { border-collapse: collapse; }
+        th, td { border: 1px solid black; }
     </style>
 </head>
-<body class="bg-slate-100 p-4 md:p-10 antialiased font-sans">
-    <div class="report-container max-w-5xl mx-auto bg-white p-8 md:p-12 shadow-sm border border-slate-200 relative overflow-hidden text-black">
+<body class="bg-slate-50 p-4 md:p-6 antialiased font-sans">
+    <div class="report-container max-w-[297mm] mx-auto bg-white p-6 md:p-10 shadow-sm border border-slate-200 text-black">
         
         <!-- Professional KOP (Letterhead) -->
-        <div class="flex items-center justify-center gap-8 mb-2">
+        <div class="flex items-center justify-center gap-6 mb-2">
             <div class="flex-shrink-0">
-                <img src="{{ asset('assets/images/logo-pdam.png') }}" class="h-28 w-auto object-contain">
+                <img src="{{ asset('assets/images/logo-pdam.png') }}" class="h-20 w-auto object-contain">
             </div>
             <div class="text-center">
-                <h1 class="text-xl font-bold uppercase leading-tight">PERUSAHAAN UMUM DAERAH AIR MINUM</h1>
-                <h1 class="text-3xl font-black uppercase leading-none tracking-tighter">TIRTA PERWIRA</h1>
-                <h2 class="text-xl font-bold uppercase leading-tight tracking-wide">KABUPATEN PURBALINGGA</h2>
-                <p class="text-sm mt-2 italic">Jl. Let. Jend. S.Parman No. 62 Kedung Menjangan. Purbalingga (53316).</p>
+                <h1 class="text-lg font-bold uppercase leading-tight">PERUSAHAAN UMUM DAERAH AIR MINUM</h1>
+                <h1 class="text-2xl font-black uppercase leading-none tracking-tight">TIRTA PERWIRA</h1>
+                <h2 class="text-lg font-bold uppercase leading-tight tracking-wide">KABUPATEN PURBALINGGA</h2>
+                <p class="text-[10px] mt-1 italic">Jl. Let. Jend. S.Parman No. 62 Kedung Menjangan. Purbalingga (53316).</p>
             </div>
         </div>
 
         <!-- Heavy Divider Line -->
-        <div class="border-b-4 border-black mb-1"></div>
-        <div class="border-b border-black mb-8"></div>
+        <div class="border-b-[3px] border-black mb-0.5"></div>
+        <div class="border-b border-black mb-6"></div>
 
         <!-- Document Title -->
-        <div class="text-center mb-8">
-            <h3 class="text-lg font-bold uppercase decoration-1 underline underline-offset-4">LAPORAN ANALISA & PERSENTASE KEHADIRAN</h3>
-            <p class="text-sm mt-1">Periode: {{ \Carbon\Carbon::parse($startDate)->translatedFormat('d F Y') }} s/d {{ \Carbon\Carbon::parse($endDate)->translatedFormat('d F Y') }}</p>
+        <div class="text-center mb-6">
+            <h3 class="text-base font-bold uppercase decoration-1 underline underline-offset-4">LAPORAN ANALISA & PERSENTASE KEHADIRAN PEGAWAI</h3>
+            <p class="text-xs mt-1">Periode: {{ \Carbon\Carbon::parse($startDate)->translatedFormat('d F Y') }} s/d {{ \Carbon\Carbon::parse($endDate)->translatedFormat('d F Y') }}</p>
         </div>
 
         <!-- Summary Context -->
-        <div class="mb-6 grid grid-cols-2 gap-4 text-xs">
-            <div class="flex gap-2">
-                <span class="font-bold w-24">Pegawai</span>
-                <span>: {{ $singleEmployee ?: 'Semua Pegawai' }}</span>
+        <div class="mb-4 flex justify-between text-[10px]">
+            <div class="flex flex-col gap-1">
+                <div class="flex gap-1">
+                    <span class="font-bold w-32">Pegawai</span>
+                    <span>: {{ $singleEmployee ?: 'Semua Pegawai' }}</span>
+                </div>
+                <div class="flex gap-1">
+                    <span class="font-bold w-32">Total Hari Kalender</span>
+                    <span>: {{ \Carbon\Carbon::parse($startDate)->diffInDays(\Carbon\Carbon::parse($endDate)) + 1 }} Hari</span>
+                </div>
             </div>
-            <div class="flex gap-2 text-right justify-end">
-                <span class="font-bold w-24 text-right">Hari Kerja Aktif</span>
-                <span class="text-right font-bold">: {{ $totalWorkingDays }} Hari</span>
+            <div class="flex flex-col gap-1 text-right">
+                <div class="flex gap-1 justify-end">
+                    <span class="font-bold">Total Hari Kerja Aktif</span>
+                    <span class="font-bold">: {{ $totalWorkingDays }} Hari</span>
+                </div>
+                <div class="text-[9px] italic text-gray-500">* Persentase dihitung berdasarkan Hari Kerja Efektif (Hari Kerja - Izin/Cuti)</div>
             </div>
         </div>
 
         <!-- Attendance Summary Table -->
-        <div class="overflow-x-auto mb-10">
-            <table class="w-full text-left border-collapse border border-black text-center">
+        <div class="overflow-x-auto mb-8">
+            <table class="w-full text-center border-collapse">
                 <thead>
-                    <tr class="bg-gray-100 text-[10px] font-bold border-b-2 border-black">
-                        <th class="py-2 px-2 border border-black w-10 text-center" rowspan="2">NO</th>
-                        <th class="py-2 px-2 border border-black text-left" rowspan="2">PEGAWAI</th>
-                        <th class="py-2 px-2 border border-black text-center" colspan="4">REKAPITULASI (HARI)</th>
-                        <th class="py-2 px-2 border border-black text-center" colspan="2">KETEPATAN</th>
-                        <th class="py-2 px-2 border border-black text-center w-24" rowspan="2">% KEHADIRAN<br><span class="text-[8px] font-normal italic">(Di luar Izin/Cuti)</span></th>
+                    <tr class="bg-gray-100 text-[9px] font-bold">
+                        <th class="py-2 px-1 w-8" rowspan="2">NO</th>
+                        <th class="py-2 px-2 text-left" rowspan="2">NAMA PEGAWAI<br><span class="text-[7px] font-normal uppercase tracking-widest">( PIN )</span></th>
+                        <th class="py-2 px-1 w-16 bg-blue-50" rowspan="2">KERJA<br>EFEKTIF<br><span class="text-[7px] font-normal">(HARI)</span></th>
+                        <th class="py-2 px-1 border-b" colspan="2">1. KEHADIRAN</th>
+                        <th class="py-2 px-1 border-b" colspan="2">2. ABSEN / ALPA</th>
+                        <th class="py-2 px-1 border-b" colspan="2">3. TERLAMBAT</th>
+                        <th class="py-2 px-1 border-b" colspan="2">4. PULANG CEPAT</th>
+                        <th class="py-2 px-1 border-b" colspan="2">5. KETEPATAN</th>
                     </tr>
-                    <tr class="bg-gray-50 text-[9px] font-bold">
-                        <th class="py-1 px-2 border border-black text-center">HARI KERJA<br>EFEKTIF</th>
-                        <th class="py-1 px-2 border border-black text-center">HADIR</th>
-                        <th class="py-1 px-2 border border-black text-center text-amber-700">CUTI/IZIN</th>
-                        <th class="py-1 px-2 border border-black text-center text-red-700">ALPA</th>
-                        <th class="py-1 px-2 border border-black text-center text-emerald-700">TEPAT WAKTU</th>
-                        <th class="py-1 px-2 border border-black text-center text-orange-600">TERLAMBAT</th>
+                    <tr class="bg-gray-50 text-[8px] font-bold">
+                        <th class="py-1 w-12 border-l">JML</th>
+                        <th class="py-1 w-12 border-r bg-emerald-50 text-emerald-800">%</th>
+                        <th class="py-1 w-12">JML</th>
+                        <th class="py-1 w-12 border-r bg-red-50 text-red-800">%</th>
+                        <th class="py-1 w-12">JML</th>
+                        <th class="py-1 w-12 border-r bg-amber-50 text-amber-800">%</th>
+                        <th class="py-1 w-12">JML</th>
+                        <th class="py-1 w-12 border-r bg-orange-50 text-orange-800">%</th>
+                        <th class="py-1 w-12">JML</th>
+                        <th class="py-1 w-12 bg-indigo-50 text-indigo-800">%</th>
                     </tr>
                 </thead>
-                <tbody class="text-[10px]">
+                <tbody class="text-[9px]">
                     @forelse($summaries as $index => $summary)
-                    <tr class="border-b border-black">
-                        <td class="py-2 px-2 border-x border-black text-center">{{ $index + 1 }}</td>
-                        <td class="py-2 px-2 border-x border-black text-left">
-                            <span class="font-bold">{{ $summary->employee->name }}</span>
-                            <span class="block text-gray-400 text-[8px]">PIN: {{ $summary->employee->pin }}</span>
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-1.5 px-1">{{ $index + 1 }}</td>
+                        <td class="py-1.5 px-2 text-left">
+                            <div class="font-bold leading-tight">{{ $summary->employee->name }}</div>
+                            <div class="text-[7px] text-gray-400">PIN: {{ $summary->employee->pin }}</div>
                         </td>
-                        <td class="py-2 px-2 border-x border-black font-semibold">{{ $totalWorkingDays - $summary->leave }}</td>
-                        <td class="py-2 px-2 border-x border-black font-bold">{{ $summary->present }}</td>
-                        <td class="py-2 px-2 border-x border-black text-amber-700">{{ $summary->leave }}</td>
-                        <td class="py-2 px-2 border-x border-black font-bold text-red-700">{{ $summary->absent }}</td>
-                        <td class="py-2 px-2 border-x border-black text-emerald-700">{{ $summary->on_time }}</td>
-                        <td class="py-2 px-2 border-x border-black text-orange-600">{{ $summary->late }}</td>
-                        <td class="py-2 px-2 border-x border-black font-black text-center text-base {{ $summary->percentage < 80 ? 'text-red-600' : 'text-emerald-600' }}">
-                            {{ $summary->percentage }}%
-                        </td>
+                        <td class="py-1.5 px-1 font-bold bg-blue-50/30">{{ $summary->effective_working_days }}</td>
+                        
+                        <!-- 1. Hadir -->
+                        <td class="py-1.5 px-1">{{ $summary->present }}</td>
+                        <td class="py-1.5 px-1 font-bold bg-emerald-50/50 text-emerald-700">{{ $summary->presence_pct }}%</td>
+                        
+                        <!-- 2. Absen -->
+                        <td class="py-1.5 px-1">{{ $summary->absent }}</td>
+                        <td class="py-1.5 px-1 font-bold bg-red-50/50 text-red-700">{{ $summary->absent_pct }}%</td>
+                        
+                        <!-- 3. Terlambat -->
+                        <td class="py-1.5 px-1">{{ $summary->late }}</td>
+                        <td class="py-1.5 px-1 font-bold bg-amber-50/50 text-amber-700">{{ $summary->late_pct }}%</td>
+                        
+                        <!-- 4. Pulang Cepat -->
+                        <td class="py-1.5 px-1">{{ $summary->early }}</td>
+                        <td class="py-1.5 px-1 font-bold bg-orange-50/50 text-orange-700">{{ $summary->early_pct }}%</td>
+                        
+                        <!-- 5. Ketepatan -->
+                        <td class="py-1.5 px-1">{{ $summary->on_time }}</td>
+                        <td class="py-1.5 px-1 font-bold bg-indigo-50/50 text-indigo-700">{{ $summary->accuracy_pct }}%</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="py-10 text-center italic text-gray-400">Tidak ada pegawai yang ditemukan.</td>
+                        <td colspan="13" class="py-8 text-center italic text-gray-400">Data tidak ditemukan untuk periode ini.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -103,36 +134,43 @@
         </div>
 
         <!-- Summary Footer & Signature -->
-        <div class="flex justify-between items-start mt-12">
-            <div class="text-[10px] italic text-gray-400">
-                <p>Dokumen ini diterbitkan secara otomatis secara digital.</p>
-                <p>Formula Persentase: (Hadir / (Hari Kerja - Izin)) * 100%</p>
-                <p>Dicetak pada: {{ now()->translatedFormat('l, d F Y | H:i') }} WIB</p>
+        <div class="flex justify-between items-start mt-8">
+            <div class="text-[8px] italic text-gray-400 space-y-0.5">
+                <p>Keterangan:</p>
+                <ul class="list-disc pl-3">
+                    <li>Hadir: Absensi masuk (Fingerprint/Mobile)</li>
+                    <li>Absen: Tidak ada data absensi pada hari kerja aktif</li>
+                    <li>Terlambat: Absen masuk melewati batas waktu toleransi</li>
+                    <li>Pulang Cepat: Absen keluar sebelum waktu yang ditentukan dalam jadwal</li>
+                    <li>Ketepatan: Rasio absensi masuk tepat waktu terhadap hari kerja efektif</li>
+                </ul>
+                <p class="mt-2 text-[7px]">Dicetak pada: {{ now()->translatedFormat('l, d F Y | H:i:s') }} WIB</p>
             </div>
-            <div class="w-64 text-center">
-                <p class="text-xs mb-1">Purbalingga, {{ now()->translatedFormat('d F Y') }}</p>
-                <p class="text-xs font-bold uppercase mb-1">Mengetahui/Menyetujui,</p>
-                <p class="text-xs font-bold uppercase italic border-b border-black inline-block px-4">Pejabat Berwenang</p>
+            <div class="w-56 text-center">
+                <p class="text-[10px] mb-0.5">Purbalingga, {{ now()->translatedFormat('d F Y') }}</p>
+                <p class="text-[10px] font-bold uppercase mb-0.5">Mengetahui/Menyetujui,</p>
+                <p class="text-[10px] font-bold uppercase italic border-b border-black inline-block px-3">Pejabat Berwenang</p>
                 <div class="signature-space"></div>
-                <div class="border-b border-black w-48 mx-auto mb-1"></div>
-                <p class="text-[10px] text-gray-400 uppercase tracking-widest leading-none">NIP / Tanda Tangan</p>
+                <div class="border-b border-black w-40 mx-auto mb-0.5"></div>
+                <p class="text-[8px] text-gray-400 uppercase tracking-widest leading-none">NIP / Tanda Tangan</p>
             </div>
         </div>
 
         <!-- Floating Controls (No-Print) -->
-        <div class="fixed bottom-8 right-8 flex gap-3 no-print">
-            <button onclick="window.print()" class="bg-black text-white px-8 py-3 rounded shadow-2xl font-bold flex items-center gap-3 hover:bg-slate-800 transition transform hover:-translate-y-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                CETAK DOKUMEN
+        <div class="fixed bottom-6 right-6 flex gap-2 no-print">
+            <button onclick="window.print()" class="bg-black text-white px-6 py-2.5 rounded shadow-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition transform hover:-translate-y-0.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                CETAK PDF
             </button>
-            <button onclick="window.close()" class="bg-white text-slate-600 px-6 py-3 rounded shadow-xl font-bold border border-slate-200 hover:bg-slate-50 transition">
+            <button onclick="window.close()" class="bg-white text-slate-500 px-4 py-2.5 rounded shadow font-bold border border-slate-200 hover:bg-slate-50 transition">
                 TUTUP
             </button>
         </div>
     </div>
     <script>
         window.onload = function() {
-            window.print();
+            // Uncomment line below if you want automated print on load
+            // window.print();
         };
     </script>
 </body>
