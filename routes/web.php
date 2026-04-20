@@ -346,20 +346,24 @@ Route::middleware(['auth'])->group(function () {
                 $currentDate->addDay();
             }
 
+            $denom = max(1, $empTotalWorkingDays - $leaveDetails->count());
+            $performanceScore = $presentDetails->count() - $lateDetails->count() - $earlyDetails->count();
+            $presencePerformancePct = round((max(0, $performanceScore) / $denom) * 100, 1);
+
             $summaries->push((object)[
                 'employee' => $employee,
                 'total_working_days' => $empTotalWorkingDays,
                 'effective_working_days' => max(0, $empTotalWorkingDays - $leaveDetails->count()),
                 'present' => $presentDetails->count(),
-                'presence_pct' => round(($presentDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'presence_pct' => round(($presentDetails->count() / $denom) * 100, 1),
                 'absent' => $absentDetails->count(),
-                'absent_pct' => round(($absentDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'absent_pct' => round(($absentDetails->count() / $denom) * 100, 1),
                 'late' => $lateDetails->count(),
-                'late_pct' => round(($lateDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'late_pct' => round(($lateDetails->count() / $denom) * 100, 1),
                 'early' => $earlyDetails->count(),
-                'early_pct' => round(($earlyDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'early_pct' => round(($earlyDetails->count() / $denom) * 100, 1),
                 'on_time' => $onTimeDetails->count(),
-                'accuracy_pct' => round(($onTimeDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'accuracy_pct' => $presencePerformancePct, // This is the new Performance Pct
                 'leave' => $leaveDetails->count(),
                 // Detail Lists for Proof Tables
                 'present_list' => $presentDetails,

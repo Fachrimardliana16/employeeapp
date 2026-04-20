@@ -92,7 +92,7 @@
                         <th class="py-1 w-12 border-r bg-amber-50 text-amber-800">%</th>
                         <th class="py-1 w-12">JML</th>
                         <th class="py-1 w-12 border-r bg-orange-50 text-orange-800">%</th>
-                        <th class="py-1 w-12">JML</th>
+                        <th class="py-1 w-12 border-l">SKOR</th>
                         <th class="py-1 w-12 bg-indigo-50 text-indigo-800">%</th>
                     </tr>
                 </thead>
@@ -119,7 +119,7 @@
                         <td class="py-1.5 px-1 font-bold bg-amber-50/50 text-amber-700">{{ $summary->late_pct }}%</td>
                         <td class="py-1.5 px-1">{{ $summary->early }}</td>
                         <td class="py-1.5 px-1 font-bold bg-orange-50/50 text-orange-700">{{ $summary->early_pct }}%</td>
-                        <td class="py-1.5 px-1">{{ $summary->on_time }}</td>
+                        <td class="py-1.5 px-1">{{ $summary->present - $summary->late - $summary->early }}</td>
                         <td class="py-1.5 px-1 font-bold bg-indigo-50/50 text-indigo-700">{{ $summary->accuracy_pct }}%</td>
                     </tr>
                     @endforeach
@@ -133,9 +133,10 @@
                 <p>Keterangan:</p>
                 <ul class="list-disc pl-3">
                     <li>Hadir: Absensi masuk (Fingerprint/Mobile)</li>
-                    <li>Absen: Tidak ada data absensi pada hari kerja aktif</li>
-                    <li>Terlambat: Absen masuk melewati batas waktu toleransi</li>
+                    <li>Absen: Tidak ada data absensi pada hari kerja aktif / libur tidak terjadwal</li>
+                    <li>Terlambat: Absen masuk melewati batas waktu toleransi (Late Threshold)</li>
                     <li>Pulang Cepat: Absen keluar sebelum waktu yang ditentukan dalam jadwal</li>
+                    <li>Persentase Presensi: Diatas dihitung dengan formula [(Hadir - Terlambat - Pulang Cepat) / Kerja Efektif] x 100%</li>
                 </ul>
                 <p class="mt-2 text-[7px]">Dicetak pada: {{ now()->translatedFormat('l, d F Y | H:i:s') }} WIB</p>
             </div>
