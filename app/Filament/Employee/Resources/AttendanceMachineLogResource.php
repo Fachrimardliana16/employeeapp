@@ -21,9 +21,9 @@ class AttendanceMachineLogResource extends Resource
 
     protected static ?string $navigationGroup = 'Absensi & Kehadiran';
 
-    protected static ?string $modelLabel = 'Log Mesin Absensi';
+    protected static ?string $modelLabel = 'Log Mesin Presensi';
 
-    protected static ?string $pluralModelLabel = 'Log Mesin Absensi';
+    protected static ?string $pluralModelLabel = 'Log Mesin Presensi';
 
     public static function form(Form $form): Form
     {
@@ -149,6 +149,7 @@ class AttendanceMachineLogResource extends Resource
                                     ->label('Pegawai')
                                     ->options(\App\Models\Employee::pluck('name', 'id'))
                                     ->placeholder('Semua Pegawai')
+                                    ->multiple()
                                     ->searchable(),
                                 Forms\Components\Select::make('attendance_machine_id')
                                     ->label('Mesin Absensi')
@@ -189,11 +190,10 @@ class AttendanceMachineLogResource extends Resource
                                 ->with(['machine.officeLocation', 'employee'])
                                 ->when($data['from_date'], fn($q, $date) => $q->whereDate('timestamp', '>=', $date))
                                 ->when($data['to_date'], fn($q, $date) => $q->whereDate('timestamp', '<=', $date))
-                                ->when($data['employee_id'], function($q, $id) {
-                                    $employee = \App\Models\Employee::find($id);
-                                    if ($employee && $employee->pin) {
-                                        $q->where('pin', $employee->pin);
-                                    }
+                                ->when($data['employee_id'], function($q, $ids) {
+                                    $ids = is_array($ids) ? $ids : [$ids];
+                                    $pins = \App\Models\Employee::whereIn('id', $ids)->pluck('pin')->filter()->toArray();
+                                    if (!empty($pins)) $q->whereIn('pin', $pins);
                                 })
                                 ->when($data['attendance_machine_id'], fn($q, $id) => $q->where('attendance_machine_id', $id))
                                 ->orderBy('timestamp', 'desc');

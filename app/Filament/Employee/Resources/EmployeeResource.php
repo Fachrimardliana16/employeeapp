@@ -1845,7 +1845,7 @@ class EmployeeResource extends Resource
                                     Infolists\Components\Tabs\Tab::make('Riwayat Presensi')
                                         ->icon('heroicon-o-clock')
                                         ->schema([
-                                            Infolists\Components\Section::make('Log Mesin Absensi')
+                                            Infolists\Components\Section::make('Log Mesin Presensi')
                                                 ->description('15 Rekaman scan terakhir dari mesin absensi')
                                                 ->schema([
                                                     Infolists\Components\ViewEntry::make('attendance_data')

@@ -73,6 +73,6 @@ class SimulateMachineLog extends Command
 
         $this->line("Response: " . $response->body() . " (" . $response->status() . ")");
         
-        $this->info("Success! Check the 'Mesin Absensi' and 'Log Mesin Absensi' resources in the Employee Panel.");
+        $this->info("Success! Check the 'Mesin Absensi' and 'Log Mesin Presensi' resources in the Employee Panel.");
     }
 }

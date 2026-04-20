@@ -132,7 +132,7 @@
                         <td colspan="6" class="p-12 text-center text-gray-500 dark:text-gray-400 italic">
                             <div class="flex flex-col items-center gap-2">
                                 <x-filament::icon icon="heroicon-o-inbox" class="w-8 h-8 text-gray-300" />
-                                <span>Belum ada rekaman log mesin absensi.</span>
+                                <span>Belum ada rekaman Log Mesin Presensi.</span>
                             </div>
                         </td>
                     </tr>

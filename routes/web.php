@@ -108,9 +108,11 @@ Route::middleware(['auth'])->group(function () {
             $query->whereDate('attendance_time', '<=', $request->to_date);
         }
         if ($request->filled('employee_id')) {
-            $employee = \App\Models\Employee::find($request->employee_id);
-            if ($employee) {
-                $query->where('pin', $employee->pin);
+            $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
+            $employees = \App\Models\Employee::whereIn('id', $ids)->get();
+            $pins = $employees->pluck('pin')->filter()->toArray();
+            if (!empty($pins)) {
+                $query->whereIn('pin', $pins);
             }
         }
         if ($request->filled('office_location_id')) {
@@ -133,7 +135,8 @@ Route::middleware(['auth'])->group(function () {
                 });
 
             if ($request->filled('employee_id')) {
-                $permissionQuery->where('employee_id', $request->employee_id);
+                $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
+                $permissionQuery->whereIn('employee_id', $ids);
             }
 
             $permissions = $permissionQuery->get();
@@ -168,7 +171,20 @@ Route::middleware(['auth'])->group(function () {
             });
         }
         
-        $employeeName = $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : null;
+        if ($request->filled('employee_id')) {
+            $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
+            $selectedEmployees = \App\Models\Employee::whereIn('id', $ids)->get();
+            if ($selectedEmployees->count() === 1) {
+                $employeeName = $selectedEmployees->first()->name;
+            } elseif ($selectedEmployees->count() > 1) {
+                $employeeName = "Beberapa Pegawai (" . $selectedEmployees->count() . " Orang)";
+            } else {
+                $employeeName = "Beberapa Pegawai";
+            }
+        } else {
+            $employeeName = null;
+        }
+
         $locationName = $request->filled('office_location_id') ? \App\Models\MasterOfficeLocation::find($request->office_location_id)?->name : null;
 
         return view('filament.print.attendance-report', [
@@ -205,7 +221,8 @@ Route::middleware(['auth'])->group(function () {
         // 2. Fetch Employees
         $query = \App\Models\Employee::with(['position', 'employmentStatus', 'department', 'subDepartment']);
         if ($request->filled('employee_id')) {
-            $query->where('id', $request->employee_id);
+            $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
+            $query->whereIn('id', $ids);
         }
         $employees = $query->get();
 
@@ -374,7 +391,11 @@ Route::middleware(['auth'])->group(function () {
             'startDate' => $request->from_date,
             'endDate' => $request->to_date,
             'totalWorkingDays' => $summaries->max('total_working_days'), // Use max for display header context
-            'singleEmployee' => $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : false,
+            'singleEmployee' => $request->filled('employee_id') ? (
+                is_array($request->employee_id) 
+                    ? (count($request->employee_id) === 1 ? \App\Models\Employee::find($request->employee_id[0])?->name : "Beberapa Pegawai (" . count($request->employee_id) . " Orang)")
+                    : \App\Models\Employee::find($request->employee_id)?->name
+            ) : false,
         ]);
     })->name('attendance.summary.report');
 
@@ -410,8 +431,9 @@ Route::middleware(['auth'])->group(function () {
             ->when($request->from_date, fn($q, $date) => $q->whereDate('timestamp', '>=', $date))
             ->when($request->to_date, fn($q, $date) => $q->whereDate('timestamp', '<=', $date))
             ->when($request->employee_id, function($q, $id) {
-                $employee = \App\Models\Employee::find($id);
-                if ($employee && $employee->pin) $q->where('pin', $employee->pin);
+                $ids = is_array($id) ? $id : [$id];
+                $pins = \App\Models\Employee::whereIn('id', $ids)->pluck('pin')->filter()->toArray();
+                if (!empty($pins)) $q->whereIn('pin', $pins);
             })
             ->when($request->attendance_machine_id, fn($q, $id) => $q->where('attendance_machine_id', $id))
             ->orderBy('timestamp', 'asc'); // Use ASC to process properly for duplicate detection
@@ -458,7 +480,11 @@ Route::middleware(['auth'])->group(function () {
             'records' => $records->sortByDesc('timestamp'), // Re-sort for display
             'startDate' => $request->from_date,
             'endDate' => $request->to_date,
-            'singleEmployee' => $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : false,
+            'singleEmployee' => $request->filled('employee_id') ? (
+                is_array($request->employee_id) 
+                    ? (count($request->employee_id) === 1 ? \App\Models\Employee::find($request->employee_id[0])?->name : "Beberapa Pegawai (" . count($request->employee_id) . " Orang)")
+                    : \App\Models\Employee::find($request->employee_id)?->name
+            ) : false,
             'singleMachine' => $request->filled('attendance_machine_id') ? \App\Models\AttendanceMachine::find($request->attendance_machine_id)?->name : false,
         ]);
     })->name('attendance.logs.report.pdf');
