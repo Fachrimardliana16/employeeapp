@@ -456,7 +456,7 @@ class EmployeeResource extends Resource
                                                     ->options(function (Forms\Get $get) {
                                                         $deptId = $get('departments_id');
                                                         if (!$deptId) return [];
-                                                        return \App\Models\MasterSubDepartment::where('master_department_id', $deptId)->pluck('name', 'id');
+                                                        return \App\Models\MasterSubDepartment::where('departments_id', $deptId)->pluck('name', 'id');
                                                     })
                                                     ->searchable()
                                                     ->preload()
@@ -468,7 +468,8 @@ class EmployeeResource extends Resource
                                                     ->relationship('position', 'name')
                                                     ->searchable()
                                                     ->preload()
-                                                    ->required(),
+                                                    ->required()
+                                                    ->live(),
                                                 Forms\Components\Group::make([
                                                     Forms\Components\Select::make('basic_salary_id')
                                                         ->label('Golongan')
@@ -501,6 +502,84 @@ class EmployeeResource extends Resource
                                                             return 'Pilih Golongan dan MKG';
                                                         }),
                                                 ])->columns(3)->columnSpanFull(),
+
+                                                Forms\Components\Section::make('Estimasi Pendapatan & Potongan (Simulasi)')
+                                                    ->description('Berdasarkan Jabatan, Golongan, dan Aturan Global')
+                                                    ->icon('heroicon-o-banknotes')
+                                                    ->visible(fn (Forms\Get $get) => $get('employee_position_id') || $get('basic_salary_id'))
+                                                    ->schema([
+                                                        Forms\Components\Grid::make(2)
+                                                            ->schema([
+                                                                Forms\Components\Group::make([
+                                                                    Forms\Components\Placeholder::make('global_benefits_info')
+                                                                        ->label('Tunjangan Global (Otomatis)')
+                                                                        ->content('Keluarga (10%), BPJS Kes (4%), JHT (3.7%), Beras, Air. (Dihitung otomatis oleh sistem)'),
+                                                                    
+                                                                    Forms\Components\Placeholder::make('position_benefits_summary')
+                                                                        ->label('Tunjangan Jabatan (Fixed)')
+                                                                        ->content(function (Forms\Get $get) {
+                                                                            $posId = $get('employee_position_id');
+                                                                            if (!$posId) return '-';
+                                                                            $benefits = \App\Models\MasterEmployeePositionBenefit::where('employee_position_id', $posId)->get();
+                                                                            if ($benefits->isEmpty()) return 'Tidak ada tunjangan jabatan khusus';
+                                                                            
+                                                                            $list = $benefits->map(fn($b) => ($b->benefit->name ?? 'Tunjangan') . ': Rp ' . number_format($b->amount, 0, ',', '.'))->join('<br>');
+                                                                            return new \Illuminate\Support\HtmlString($list);
+                                                                        }),
+                                                                    
+                                                                    Forms\Components\Placeholder::make('grade_benefits_summary')
+                                                                        ->label('Tunjangan Golongan')
+                                                                        ->content(function (Forms\Get $get) {
+                                                                            $gradeId = $get('basic_salary_id');
+                                                                            if (!$gradeId) return '-';
+                                                                            $benefits = \App\Models\MasterEmployeeGradeBenefit::where('employee_grade_id', $gradeId)->get();
+                                                                            if ($benefits->isEmpty()) return 'Tidak ada tunjangan golongan khusus';
+                                                                            
+                                                                            $list = $benefits->map(fn($b) => ($b->benefit->name ?? 'Tunjangan') . ': Rp ' . number_format($b->amount, 0, ',', '.'))->join('<br>');
+                                                                            return new \Illuminate\Support\HtmlString($list);
+                                                                        }),
+                                                                ]),
+                                                                
+                                                                Forms\Components\Group::make([
+                                                                    Forms\Components\Placeholder::make('position_cuts_summary')
+                                                                        ->label('Potongan Jabatan (Mandatori)')
+                                                                        ->content(function (Forms\Get $get) {
+                                                                            $posId = $get('employee_position_id');
+                                                                            if (!$posId) return '-';
+                                                                            $cuts = \App\Models\MasterEmployeePositionSalaryCut::where('employee_position_id', $posId)->get();
+                                                                            if ($cuts->isEmpty()) return 'Tidak ada potongan jabatan khusus';
+                                                                            
+                                                                            $list = $cuts->map(fn($c) => ($c->salaryCut->name ?? 'Potongan') . ': Rp ' . number_format($c->amount, 0, ',', '.'))->join('<br>');
+                                                                            return new \Illuminate\Support\HtmlString($list);
+                                                                        }),
+
+                                                                    Forms\Components\Placeholder::make('total_estimation_gross')
+                                                                        ->label('Estimasi Bruto Terhitung')
+                                                                        ->content(function (Forms\Get $get) {
+                                                                            $posId = $get('employee_position_id');
+                                                                            $gradeId = $get('basic_salary_id');
+                                                                            $mkgId = $get('employee_service_grade_id');
+                                                                            
+                                                                            $base = 0;
+                                                                            if ($gradeId && $mkgId) {
+                                                                                $base = \App\Models\MasterEmployeeBasicSalary::where('employee_grade_id', $gradeId)
+                                                                                    ->where('employee_service_grade_id', $mkgId)
+                                                                                    ->value('amount') ?? 0;
+                                                                            }
+                                                                            
+                                                                            $posSum = $posId ? \App\Models\MasterEmployeePositionBenefit::where('employee_position_id', $posId)->sum('amount') : 0;
+                                                                            $gradeSum = $gradeId ? \App\Models\MasterEmployeeGradeBenefit::where('employee_grade_id', $gradeId)->sum('amount') : 0;
+                                                                            
+                                                                            // Also add family (approx 10%)
+                                                                            $family = $base * 0.1;
+                                                                            $beras = 150000;
+                                                                            $air = 101100;
+                                                                            
+                                                                            return 'Rp ' . number_format($base + $posSum + $gradeSum + $family + $beras + $air, 0, ',', '.') . ' (Termasuk estimasi global)';
+                                                                        })->extraAttributes(['class' => 'font-bold text-primary-600']),
+                                                                ]),
+                                                            ]),
+                                                    ])->columnSpanFull(),
                                                 Forms\Components\Select::make('employee_education_id')
                                                     ->label('Tingkat Pendidikan')
                                                     ->relationship('education', 'name')
@@ -1772,7 +1851,8 @@ class EmployeeResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\BenefitsRelationManager::class,
+            RelationManagers\SalaryCutsRelationManager::class,
         ];
     }
 
