@@ -168,14 +168,75 @@ class AdmsController extends Controller
             $data = explode("\t", $line);
             
             if (count($data) >= 2) {
+                $pin = $data[0];
+                $time = $data[1];
+                $type = $data[2] ?? '0'; // 0=In, 1=Out, etc.
+                $verify = $data[3] ?? '0';
+
+                // 1. Save to Raw Machine Logs
                 AttendanceMachineLog::create([
                     'attendance_machine_id' => $machine ? $machine->id : null,
                     'serial_number' => $sn,
-                    'pin' => $data[0],
-                    'timestamp' => $data[1],
-                    'type' => $data[2] ?? '0',
+                    'pin' => $pin,
+                    'timestamp' => $time,
+                    'type' => $type,
                     'raw_payload' => $line,
                 ]);
+
+                // 2. Synchronize to Employee Attendance Records
+                $employee = \App\Models\Employee::where('pin', $pin)->first();
+                if ($employee) {
+                    $attendanceTime = \Carbon\Carbon::parse($time);
+                    $dayName = strtolower($attendanceTime->format('l'));
+                    
+                    // Map machine type to system state
+                    $state = match($type) {
+                        '0' => 'check_in',
+                        '1' => 'check_out',
+                        '2' => 'break_out',
+                        '3' => 'break_in',
+                        '4' => 'ot_in',
+                        '5' => 'ot_out',
+                        default => 'check_in'
+                    };
+
+                    // Fetch Schedule for status calculation
+                    $schedule = \App\Models\AttendanceSchedule::where('is_active', true)
+                        ->where('day', $dayName)
+                        ->first();
+
+                    $status = 'on_time';
+                    if ($schedule) {
+                        if ($state === 'check_in' && $schedule->check_in_end) {
+                            $checkInTime = $attendanceTime->format('H:i:s');
+                            if ($checkInTime > $schedule->check_in_end) {
+                                $status = 'late';
+                            }
+                        } elseif ($state === 'check_out' && $schedule->check_out_start) {
+                            $checkOutTime = $attendanceTime->format('H:i:s');
+                            if ($checkOutTime < $schedule->check_out_start) {
+                                $status = 'early';
+                            }
+                        }
+                    }
+
+                    // Create or Update Main Attendance Record
+                    // We use updateOrCreate to prevent exact duplicate logs in the main table if machine re-sends
+                    \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                        [
+                            'pin' => $pin,
+                            'attendance_time' => $attendanceTime->toDateTimeString(),
+                            'state' => $state,
+                        ],
+                        [
+                            'employee_name' => $employee->name,
+                            'attendance_status' => $status,
+                            'verification' => $verify,
+                            'device' => $machine ? $machine->name : $sn,
+                            'office_location_id' => $machine ? $machine->master_office_location_id : null,
+                        ]
+                    );
+                }
             }
         }
     }
