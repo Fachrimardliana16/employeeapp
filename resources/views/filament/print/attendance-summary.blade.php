@@ -71,36 +71,25 @@
         <!-- Summary Table -->
         <div class="overflow-x-auto mb-8">
             <table class="w-full text-center border-collapse">
-                <!-- (Existing Header...) -->
                 <thead>
                     <tr class="bg-gray-100 text-[9px] font-bold">
-                        <th class="py-2 px-1 w-8" rowspan="2">NO</th>
-                        <th class="py-2 px-2 text-left" rowspan="2">NAMA PEGAWAI<br><span class="text-[7px] font-normal uppercase tracking-widest">( PIN )</span></th>
-                        <th class="py-2 px-1 w-16 bg-blue-50" rowspan="2">KERJA<br>EFEKTIF<br><span class="text-[7px] font-normal">(HARI)</span></th>
-                        <th class="py-2 px-1 border-b" colspan="2">1. KEHADIRAN</th>
-                        <th class="py-2 px-1 border-b" colspan="2">2. ABSEN / ALPA</th>
-                        <th class="py-2 px-1 border-b" colspan="2">3. TERLAMBAT</th>
-                        <th class="py-2 px-1 border-b" colspan="2">4. PULANG CEPAT</th>
-                        <th class="py-2 px-1 border-b" colspan="2">5. KETEPATAN</th>
+                        <th class="py-2 px-1 w-8 border" rowspan="2">NO</th>
+                        <th class="py-2 px-2 text-left border" rowspan="2">NAMA PEGAWAI</th>
+                        <th class="py-2 px-1 w-16 bg-blue-50 border" rowspan="2">KERJA<br>EFEKTIF</th>
+                        <th class="py-2 px-1 border" colspan="4">REKAPITULASI KEHADIRAN (JUMLAH HARI)</th>
                     </tr>
                     <tr class="bg-gray-50 text-[8px] font-bold">
-                        <th class="py-1 w-12 border-l">JML</th>
-                        <th class="py-1 w-12 border-r bg-emerald-50 text-emerald-800">%</th>
-                        <th class="py-1 w-12">JML</th>
-                        <th class="py-1 w-12 border-r bg-red-50 text-red-800">%</th>
-                        <th class="py-1 w-12">JML</th>
-                        <th class="py-1 w-12 border-r bg-amber-50 text-amber-800">%</th>
-                        <th class="py-1 w-12">JML</th>
-                        <th class="py-1 w-12 border-r bg-orange-50 text-orange-800">%</th>
-                        <th class="py-1 w-12 border-l">SKOR</th>
-                        <th class="py-1 w-12 bg-indigo-50 text-indigo-800">%</th>
+                        <th class="py-1 w-16 border">1. HADIR</th>
+                        <th class="py-1 w-16 border">2. ABSEN</th>
+                        <th class="py-1 w-16 border">3. TERLAMBAT</th>
+                        <th class="py-1 w-16 border text-orange-700">4. PULANG CEPAT</th>
                     </tr>
                 </thead>
                 <tbody class="text-[9px]">
                     @foreach($summaries as $index => $summary)
-                    <tr class="hover:bg-slate-50">
-                        <td class="py-1.5 px-1">{{ $index + 1 }}</td>
-                        <td class="py-1.5 px-2 text-left">
+                    <tr class="hover:bg-slate-50 border">
+                        <td class="py-1.5 px-1 border">{{ $index + 1 }}</td>
+                        <td class="py-1.5 px-2 text-left border">
                             <div class="font-bold leading-none text-slate-900">{{ $summary->employee->name }}</div>
                             <div class="text-[7px] text-slate-500 font-normal mt-1 uppercase tracking-tighter leading-tight">
                                 <span class="font-bold text-slate-700">PIN:</span> {{ $summary->employee->pin ?: '-' }} | 
@@ -110,17 +99,11 @@
                                 <span class="font-bold text-slate-700">SUB BAGIAN:</span> {{ $summary->employee->subDepartment->name ?? '-' }}
                             </div>
                         </td>
-                        <td class="py-1.5 px-1 bg-blue-50/30">{{ $summary->effective_working_days }}</td>
-                        <td class="py-1.5 px-1">{{ $summary->present }}</td>
-                        <td class="py-1.5 px-1 font-bold bg-emerald-50/50 text-emerald-700">{{ $summary->presence_pct }}%</td>
-                        <td class="py-1.5 px-1">{{ $summary->absent }}</td>
-                        <td class="py-1.5 px-1 font-bold bg-red-50/50 text-red-700">{{ $summary->absent_pct }}%</td>
-                        <td class="py-1.5 px-1">{{ $summary->late }}</td>
-                        <td class="py-1.5 px-1 font-bold bg-amber-50/50 text-amber-700">{{ $summary->late_pct }}%</td>
-                        <td class="py-1.5 px-1">{{ $summary->early }}</td>
-                        <td class="py-1.5 px-1 font-bold bg-orange-50/50 text-orange-700">{{ $summary->early_pct }}%</td>
-                        <td class="py-1.5 px-1">{{ $summary->present - $summary->late - $summary->early }}</td>
-                        <td class="py-1.5 px-1 font-bold bg-indigo-50/50 text-indigo-700">{{ $summary->accuracy_pct }}%</td>
+                        <td class="py-1.5 px-1 bg-blue-50/30 border">{{ $summary->effective_working_days }}</td>
+                        <td class="py-1.5 px-1 border">{{ $summary->present }}</td>
+                        <td class="py-1.5 px-1 border text-red-600 font-bold">{{ $summary->absent }}</td>
+                        <td class="py-1.5 px-1 border text-amber-600 font-bold">{{ $summary->late }}</td>
+                        <td class="py-1.5 px-1 border text-orange-600 font-bold">{{ $summary->early }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -136,7 +119,6 @@
                     <li>Absen: Tidak ada data absensi pada hari kerja aktif / libur tidak terjadwal</li>
                     <li>Terlambat: Absen masuk melewati batas waktu toleransi (Late Threshold)</li>
                     <li>Pulang Cepat: Absen keluar sebelum waktu yang ditentukan dalam jadwal</li>
-                    <li>Persentase Presensi: Diatas dihitung dengan formula [(Hadir - Terlambat - Pulang Cepat) / Kerja Efektif] x 100%</li>
                 </ul>
                 <p class="mt-2 text-[7px]">Dicetak pada: {{ now()->translatedFormat('l, d F Y | H:i:s') }} WIB</p>
             </div>
