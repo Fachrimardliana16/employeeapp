@@ -290,7 +290,7 @@ class AttendanceMachineLogResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\ViewAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -310,8 +310,6 @@ class AttendanceMachineLogResource extends Resource
     {
         return [
             'index' => Pages\ListAttendanceMachineLogs::route('/'),
-            'create' => Pages\CreateAttendanceMachineLog::route('/create'),
-            'edit' => Pages\EditAttendanceMachineLog::route('/{record}/edit'),
         ];
     }
 }
