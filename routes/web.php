@@ -203,7 +203,7 @@ Route::middleware(['auth'])->group(function () {
         ];
 
         // 2. Fetch Employees
-        $query = \App\Models\Employee::query();
+        $query = \App\Models\Employee::with(['position', 'employmentStatus', 'department', 'subDepartment']);
         if ($request->filled('employee_id')) {
             $query->where('id', $request->employee_id);
         }

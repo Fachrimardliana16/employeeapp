@@ -100,7 +100,16 @@
                     @foreach($summaries as $index => $summary)
                     <tr class="hover:bg-slate-50">
                         <td class="py-1.5 px-1">{{ $index + 1 }}</td>
-                        <td class="py-1.5 px-2 text-left font-bold">{{ $summary->employee->name }}</td>
+                        <td class="py-1.5 px-2 text-left">
+                            <div class="font-bold leading-none text-slate-900">{{ $summary->employee->name }}</div>
+                            <div class="text-[7px] text-slate-500 font-normal mt-1 uppercase tracking-tighter leading-tight">
+                                <span class="font-bold text-slate-700">PIN:</span> {{ $summary->employee->pin ?: '-' }} | 
+                                <span class="font-bold text-slate-700">JABATAN:</span> {{ $summary->employee->position->name ?? '-' }} | 
+                                <span class="font-bold text-slate-700">STATUS:</span> {{ $summary->employee->employmentStatus->name ?? '-' }} | 
+                                <span class="font-bold text-slate-700">BAGIAN:</span> {{ $summary->employee->department->name ?? '-' }} | 
+                                <span class="font-bold text-slate-700">SUB BAGIAN:</span> {{ $summary->employee->subDepartment->name ?? '-' }}
+                            </div>
+                        </td>
                         <td class="py-1.5 px-1 bg-blue-50/30">{{ $summary->effective_working_days }}</td>
                         <td class="py-1.5 px-1">{{ $summary->present }}</td>
                         <td class="py-1.5 px-1 font-bold bg-emerald-50/50 text-emerald-700">{{ $summary->presence_pct }}%</td>
