@@ -29,4 +29,14 @@ class MasterEmployeePosition extends Model
     {
         return $this->hasMany(Employee::class, 'employee_position_id');
     }
+
+    public function benefits(): HasMany
+    {
+        return $this->hasMany(MasterEmployeePositionBenefit::class, 'employee_position_id');
+    }
+
+    public function salaryCuts(): HasMany
+    {
+        return $this->hasMany(MasterEmployeePositionSalaryCut::class, 'employee_position_id');
+    }
 }

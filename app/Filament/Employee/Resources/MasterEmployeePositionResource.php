@@ -130,7 +130,8 @@ class MasterEmployeePositionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\BenefitsRelationManager::class,
+            RelationManagers\SalaryCutsRelationManager::class,
         ];
     }
 

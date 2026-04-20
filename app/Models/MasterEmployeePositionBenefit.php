@@ -5,18 +5,19 @@ namespace App\Models;
 use App\Traits\HasUserTracking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
-class EmployeeBenefit extends Model
+class MasterEmployeePositionBenefit extends Model
 {
-    use HasUserTracking, SoftDeletes;
+    use HasUserTracking;
+
+    protected $table = 'master_employee_position_benefit';
 
     protected $fillable = [
-        'employee_id',
-        'benefit_name',
+        'employee_position_id',
+        'benefit_id',
         'amount',
+        'desc',
         'is_active',
-        'description',
         'users_id',
     ];
 
@@ -25,9 +26,14 @@ class EmployeeBenefit extends Model
         'is_active' => 'boolean',
     ];
 
-    public function employee(): BelongsTo
+    public function position(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'employee_id');
+        return $this->belongsTo(MasterEmployeePosition::class, 'employee_position_id');
+    }
+
+    public function benefit(): BelongsTo
+    {
+        return $this->belongsTo(MasterEmployeeBenefit::class, 'benefit_id');
     }
 
     public function user(): BelongsTo

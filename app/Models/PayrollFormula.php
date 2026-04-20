@@ -52,7 +52,7 @@ class PayrollFormula extends Model
             $q->where('applies_to', 'all')
                 ->orWhere(function ($q2) use ($employee) {
                     $q2->where('applies_to', 'status')
-                        ->where('applies_to_value', $employee->employment_status);
+                        ->where('applies_to_value', $employee->employmentStatus?->name);
                 })
                 ->orWhere(function ($q3) use ($employee) {
                     $q3->where('applies_to', 'grade')

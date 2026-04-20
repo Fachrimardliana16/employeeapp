@@ -19,6 +19,78 @@ class PayrollService
      */
     public function calculatePayroll(Employee $employee, Carbon $period, int $userId): EmployeePayroll
     {
+        $payrollData = $this->getPayrollData($employee, $period);
+
+        // Create or update payroll record
+        return DB::transaction(function () use ($employee, $period, $payrollData, $userId) {
+            $payroll = EmployeePayroll::updateOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'payroll_period' => $period->format('Y-m-d'),
+                ],
+                [
+                    'base_salary' => $payrollData['base_salary'],
+                    'total_allowance' => $payrollData['total_allowance'],
+                    'total_deduction' => $payrollData['total_deduction'],
+                    'total_bonus' => $payrollData['total_bonus'],
+                    'gross_salary' => $payrollData['gross_salary'],
+                    'net_salary' => $payrollData['net_salary'],
+                    'work_days' => $payrollData['attendance_data']['work_days'],
+                    'present_days' => $payrollData['attendance_data']['present_days'],
+                    'late_count' => $payrollData['attendance_data']['late_count'],
+                    'absent_count' => $payrollData['attendance_data']['absent_count'],
+                    'overtime_hours' => $payrollData['attendance_data']['overtime_hours'],
+                    'payment_status' => 'calculated',
+                    'users_id' => $userId,
+                ]
+            );
+
+            // Delete existing details
+            $payroll->details()->delete();
+
+            // Create detail records
+            foreach ($payrollData['allowances'] as $allowance) {
+                EmployeePayrollDetail::create([
+                    'employee_payroll_id' => $payroll->id,
+                    'payroll_component_id' => $allowance['component_id'] ?? null,
+                    'component_name' => $allowance['name'],
+                    'component_type' => 'income',
+                    'amount' => $allowance['amount'],
+                    'calculation_note' => $allowance['note'] ?? null,
+                ]);
+            }
+
+            foreach ($payrollData['bonuses'] as $bonus) {
+                EmployeePayrollDetail::create([
+                    'employee_payroll_id' => $payroll->id,
+                    'payroll_component_id' => $bonus['component_id'] ?? null,
+                    'component_name' => $bonus['name'],
+                    'component_type' => 'bonus',
+                    'amount' => $bonus['amount'],
+                    'calculation_note' => $bonus['note'] ?? null,
+                ]);
+            }
+
+            foreach ($payrollData['deductions'] as $deduction) {
+                EmployeePayrollDetail::create([
+                    'employee_payroll_id' => $payroll->id,
+                    'payroll_component_id' => $deduction['component_id'] ?? null,
+                    'component_name' => $deduction['name'],
+                    'component_type' => 'deduction',
+                    'amount' => $deduction['amount'],
+                    'calculation_note' => $deduction['note'] ?? null,
+                ]);
+            }
+
+            return $payroll->fresh(['details']);
+        });
+    }
+
+    /**
+     * Get payroll data without saving (for simulation/preview)
+     */
+    public function getPayrollData(Employee $employee, Carbon $period): array
+    {
         $startOfMonth = $period->copy()->startOfMonth();
         $endOfMonth = $period->copy()->endOfMonth();
 
@@ -32,98 +104,67 @@ class PayrollService
         $baseSalary = $this->calculateBaseSalary($employee, $formula, $attendanceData);
 
         // Calculate allowances (tunjangan)
-        $allowances = $this->calculateAllowances($employee, $baseSalary);
+        $allowances = $this->calculateAllowances($employee, $baseSalary, $formula);
 
         // Calculate bonuses
         $bonuses = $this->calculateBonuses($employee);
 
         // Calculate deductions (potongan)
-        $deductions = $this->calculateDeductions($employee, $baseSalary, $attendanceData);
+        $deductions = $this->calculateDeductions($employee, $baseSalary, $attendanceData, $formula);
 
         // Calculate totals
         $totalAllowance = $allowances->sum('amount');
         $totalBonus = $bonuses->sum('amount');
         $totalDeduction = $deductions->sum('amount');
+        
+        // Initial gross and net
         $grossSalary = $baseSalary + $totalAllowance + $totalBonus;
         $netSalary = $grossSalary - $totalDeduction;
 
-        // Create or update payroll record
-        return DB::transaction(function () use (
-            $employee,
-            $period,
-            $baseSalary,
-            $totalAllowance,
-            $totalDeduction,
-            $totalBonus,
-            $grossSalary,
-            $netSalary,
-            $attendanceData,
-            $allowances,
-            $bonuses,
-            $deductions,
-            $userId
-        ) {
-            $payroll = EmployeePayroll::updateOrCreate(
-                [
-                    'employee_id' => $employee->id,
-                    'payroll_period' => $period->format('Y-m-d'),
-                ],
-                [
-                    'base_salary' => $baseSalary,
-                    'total_allowance' => $totalAllowance,
-                    'total_deduction' => $totalDeduction,
-                    'total_bonus' => $totalBonus,
-                    'gross_salary' => $grossSalary,
-                    'net_salary' => $netSalary,
-                    'work_days' => $attendanceData['work_days'],
-                    'present_days' => $attendanceData['present_days'],
-                    'late_count' => $attendanceData['late_count'],
-                    'absent_count' => $attendanceData['absent_count'],
-                    'overtime_hours' => $attendanceData['overtime_hours'],
-                    'payment_status' => 'calculated',
-                    'users_id' => $userId,
-                ]
-            );
-
-            // Delete existing details
-            $payroll->details()->delete();
-
-            // Create detail records
-            foreach ($allowances as $allowance) {
-                EmployeePayrollDetail::create([
-                    'employee_payroll_id' => $payroll->id,
-                    'payroll_component_id' => $allowance['component_id'],
-                    'component_name' => $allowance['name'],
-                    'component_type' => 'income',
-                    'amount' => $allowance['amount'],
-                    'calculation_note' => $allowance['note'] ?? null,
+        // Apply Rounding if necessary
+        $roundingAllowed = $formula ? in_array('ROUNDING', $formula->formula_components ?? []) : true;
+        if ($roundingAllowed) {
+            $roundingAmount = $this->calculateRounding($grossSalary, $netSalary);
+            if ($roundingAmount != 0) {
+                $allowances->push([
+                    'component_id' => PayrollComponent::where('component_code', 'ROUNDING')->value('id'),
+                    'name' => 'Pembulatan',
+                    'amount' => $roundingAmount,
+                    'note' => 'Pembulatan otomatis',
                 ]);
+                $totalAllowance += $roundingAmount;
+                $grossSalary += $roundingAmount;
+                $netSalary += $roundingAmount;
             }
+        }
 
-            foreach ($bonuses as $bonus) {
-                EmployeePayrollDetail::create([
-                    'employee_payroll_id' => $payroll->id,
-                    'payroll_component_id' => $bonus['component_id'],
-                    'component_name' => $bonus['name'],
-                    'component_type' => 'bonus',
-                    'amount' => $bonus['amount'],
-                    'calculation_note' => $bonus['note'] ?? null,
-                ]);
-            }
+        return [
+            'base_salary' => $baseSalary,
+            'total_allowance' => $totalAllowance,
+            'total_deduction' => $totalDeduction,
+            'total_bonus' => $totalBonus,
+            'gross_salary' => $grossSalary,
+            'net_salary' => $netSalary,
+            'allowances' => $allowances->toArray(),
+            'deductions' => $deductions->toArray(),
+            'bonuses' => $bonuses->toArray(),
+            'attendance_data' => $attendanceData,
+            'formula' => $formula,
+        ];
+    }
 
-            foreach ($deductions as $deduction) {
-                EmployeePayrollDetail::create([
-                    'employee_payroll_id' => $payroll->id,
-                    'payroll_component_id' => $deduction['component_id'] ?? null,
-                    'component_name' => $deduction['name'],
-                    'component_type' => 'deduction',
-                    'amount' => $deduction['amount'],
-                    'calculation_note' => $deduction['note'] ?? null,
-                ]);
-            }
-
-            return $payroll->fresh(['details']);
-        });
+    /**
+     * Calculate rounding amount to match standard PDAM slip logic
+     */
+    protected function calculateRounding(float $gross, float $net): float
+    {
+        // Many systems round to nearest 10 or 50. 
+        // Based on the slip, a '50' is added to income.
+        // If the net salary ends in a non-zero, let's add a rounding component.
+        if ($net % 10 != 0) {
+            return 50; 
+        }
+        return 0;
     }
 
     /**
@@ -142,36 +183,63 @@ class PayrollService
      */
     protected function calculateBaseSalary(Employee $employee, ?PayrollFormula $formula, array $attendanceData): float
     {
-        $employmentStatus = $employee->employee_status; // THL, Kontrak, PNS, dll
+        $employmentStatus = $employee->employmentStatus?->name ?? 'Pegawai Tetap';
+        $statusUpper = strtoupper($employmentStatus);
 
-        // Get base salary from grade
-        $gradeSalary = $employee->grade?->base_salary ?? 0;
-
-        // For THL (daily workers), calculate based on working days
-        if (strtoupper($employmentStatus) === 'THL') {
-            $dailyRate = $gradeSalary / 30; // assuming 30 days per month
-            return $dailyRate * $attendanceData['present_days'];
+        // For THL and Intern, prioritize the non-permanent salary amount
+        if (str_contains($statusUpper, 'HARIAN') || str_contains($statusUpper, 'THL') || str_contains($statusUpper, 'MAGANG')) {
+            $baseAmount = $employee->nonPermanentSalary?->amount ?? 0;
+            
+            // THL is daily
+            if (str_contains($statusUpper, 'HARIAN') || str_contains($statusUpper, 'THL')) {
+                return $baseAmount * $attendanceData['present_days'];
+            }
+            
+            // Intern is monthly
+            return $baseAmount;
         }
 
-        // For Probation/Calon Pegawai (CAPEG), apply 80% multiplier
-        if (in_array(strtoupper($employmentStatus), ['CAPEG', 'PROBATION', 'CALON PEGAWAI'])) {
-            $multiplier = $formula?->percentage_multiplier ?? 0.80;
-            return $gradeSalary * $multiplier;
+        // For others, use the standard Grade/MKG lookup
+        $standardSalary = $employee->basic_salary_amount ?? 0;
+
+        // Use multiplier from formula if available
+        $multiplier = $formula ? (float)$formula->percentage_multiplier : 1.0;
+
+        // Special case for CPNS if multiplier not set in formula record manually
+        if (!$formula && (str_contains($statusUpper, 'CALON') || str_contains($statusUpper, 'CPNS') || str_contains($statusUpper, 'PROBATION'))) {
+            $multiplier = 0.80;
         }
 
-        // For Contract and Permanent (based on UMR or grade salary)
-        return $gradeSalary;
+        return $standardSalary * $multiplier;
     }
 
     /**
      * Calculate allowances
      */
-    protected function calculateAllowances(Employee $employee, float $baseSalary): \Illuminate\Support\Collection
+    protected function calculateAllowances(Employee $employee, float $baseSalary, ?PayrollFormula $formula = null): \Illuminate\Support\Collection
     {
         $allowances = collect();
 
+        // Get allowed components from formula
+        $allowedCodes = $formula->formula_components ?? [];
+        
         // Get all active income components
-        $components = PayrollComponent::active()->byType('income')->get();
+        $query = PayrollComponent::active()
+            ->byType('income')
+            ->where('component_code', '!=', 'ROUNDING');
+            
+        // If formula exists, only use listed components
+        if ($formula) {
+            $query->whereIn('component_code', $allowedCodes);
+        }
+
+        $components = $query->get();
+
+        $employmentStatus = $employee->employmentStatus?->name ?? 'Pegawai Tetap';
+        $statusUpper = strtoupper($employmentStatus);
+
+        // Check for multiplier from formula
+        $multiplier = $formula ? (float)$formula->percentage_multiplier : 1.0;
 
         foreach ($components as $component) {
             $amount = 0;
@@ -186,32 +254,61 @@ class PayrollService
                     break;
 
                 case 'formula':
-                    // Evaluate formula dynamically
                     $amount = $this->evaluateFormula($component->formula, $employee, $baseSalary);
                     break;
             }
 
-            if ($amount > 0) {
+            // Apply multiplier (e.g. 80% for CPNS)
+            $finalAmount = $amount * $multiplier;
+
+            if ($finalAmount > 0) {
                 $allowances->push([
                     'component_id' => $component->id,
                     'name' => $component->component_name,
-                    'amount' => $amount,
-                    'note' => "Metode: {$component->calculation_method}",
+                    'amount' => $finalAmount,
+                    'note' => $multiplier < 1.0 ? "Metode: {$component->calculation_method} (Multiplier: {$multiplier})" : "Metode: {$component->calculation_method}",
                 ]);
             }
         }
 
-        // Add position-based allowance from grade benefits
+        // Add position-based allowance from MasterEmployeePositionBenefit
+        if ($employee->position) {
+            $positionBenefits = $employee->position->benefits()->where('is_active', true)->get();
+            foreach ($positionBenefits as $posBenefit) {
+                $allowances->push([
+                    'component_id' => null,
+                    'name' => $posBenefit->benefit?->name ?? 'Tunjangan Jabatan',
+                    'amount' => $posBenefit->amount ?? 0,
+                    'note' => 'Berdasarkan jabatan',
+                ]);
+            }
+        }
+
+        // Add grade-based allowance from MasterEmployeeGradeBenefit
         if ($employee->grade) {
-            $gradeBenefits = $employee->grade->benefits ?? collect();
+            $gradeBenefits = $employee->grade->benefits()->where('is_active', true)->get();
             foreach ($gradeBenefits as $benefit) {
                 $allowances->push([
                     'component_id' => null,
-                    'name' => $benefit->benefit_name ?? 'Tunjangan Pangkat',
-                    'amount' => $benefit->benefit_amount ?? 0,
+                    'name' => $benefit->benefit?->name ?? 'Tunjangan Pangkat',
+                    'amount' => $benefit->amount ?? 0,
                     'note' => 'Berdasarkan golongan/pangkat',
                 ]);
             }
+        }
+
+        // Add employee-specific benefits
+        $individualBenefits = \App\Models\EmployeeBenefit::where('employee_id', $employee->id)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($individualBenefits as $indBenefit) {
+            $allowances->push([
+                'component_id' => null,
+                'name' => $indBenefit->benefit_name,
+                'amount' => $indBenefit->amount,
+                'note' => "Tunjangan khusus - {$indBenefit->description}",
+            ]);
         }
 
         return $allowances;
@@ -246,12 +343,22 @@ class PayrollService
     /**
      * Calculate deductions
      */
-    protected function calculateDeductions(Employee $employee, float $baseSalary, array $attendanceData): \Illuminate\Support\Collection
+    protected function calculateDeductions(Employee $employee, float $baseSalary, array $attendanceData, ?PayrollFormula $formula = null): \Illuminate\Support\Collection
     {
         $deductions = collect();
 
+        // Get allowed components from formula
+        $allowedCodes = $formula->formula_components ?? [];
+
         // Get all active deduction components
-        $components = PayrollComponent::active()->byType('deduction')->get();
+        $query = PayrollComponent::active()->byType('deduction');
+        
+        // If formula exists, filter deductions too
+        if ($formula) {
+            $query->whereIn('component_code', $allowedCodes);
+        }
+
+        $components = $query->get();
 
         foreach ($components as $component) {
             $amount = 0;
@@ -280,19 +387,41 @@ class PayrollService
             }
         }
 
-        // Add employee-specific salary cuts
+        // Add position-based salary cuts
+        if ($employee->position) {
+            $positionCuts = $employee->position->salaryCuts()->where('is_active', true)->get();
+            foreach ($positionCuts as $posCut) {
+                $deductions->push([
+                    'component_id' => null,
+                    'name' => $posCut->salaryCut?->name ?? 'Potongan Jabatan',
+                    'amount' => $posCut->amount ?? 0,
+                    'note' => 'Berdasarkan jabatan',
+                ]);
+            }
+        }
+
+        // Add grade-based salary cuts
+        if ($employee->grade) {
+            $gradeCuts = $employee->grade->salaryCuts()->where('is_active', true)->get();
+            foreach ($gradeCuts as $grCut) {
+                $deductions->push([
+                    'component_id' => null,
+                    'name' => $grCut->salaryCut?->name ?? 'Potongan Golongan',
+                    'amount' => $grCut->amount ?? 0,
+                    'note' => 'Berdasarkan golongan/pangkat',
+                ]);
+            }
+        }
+
+        // Add employee-specific salary cuts (Loans, etc.)
         $salaryCuts = EmployeeSalaryCut::where('employee_id', $employee->id)
             ->active()
             ->get();
 
         foreach ($salaryCuts as $cut) {
-            $amount = 0;
-
-            if ($cut->calculation_type === 'fixed') {
-                $amount = $cut->amount;
-            } else { // percentage
-                $amount = $baseSalary * ($cut->amount / 100);
-            }
+            $amount = $cut->calculation_type === 'fixed' 
+                ? $cut->amount 
+                : $baseSalary * ($cut->amount / 100);
 
             if ($amount > 0) {
                 $deductions->push([
@@ -301,28 +430,32 @@ class PayrollService
                     'amount' => $amount,
                     'note' => "Potongan khusus - {$cut->description}",
                 ]);
-
-                // Update paid months for temporary cuts
-                if ($cut->cut_type === 'temporary') {
-                    $cut->increment('paid_months');
-                    if ($cut->isCompleted()) {
-                        $cut->update(['is_active' => false]);
-                    }
-                }
             }
         }
 
         // Add absence-based deductions
-        if ($attendanceData['absent_count'] > 0) {
-            $dailyRate = $baseSalary / $attendanceData['work_days'];
-            $absentDeduction = $dailyRate * $attendanceData['absent_count'];
+        if ($attendanceData['absent_count'] > 0 || $attendanceData['late_count'] > 0) {
+            $absentComponent = PayrollComponent::where('component_code', 'POT_ABSEN')->first();
+            if ($absentComponent && $attendanceData['absent_count'] > 0) {
+                $amount = $this->evaluateFormula($absentComponent->formula, $employee, $baseSalary, $attendanceData);
+                $deductions->push([
+                    'component_id' => $absentComponent->id,
+                    'name' => $absentComponent->component_name,
+                    'amount' => $amount,
+                    'note' => "{$attendanceData['absent_count']} hari tidak hadir",
+                ]);
+            }
 
-            $deductions->push([
-                'component_id' => null,
-                'name' => 'Potongan Absen',
-                'amount' => $absentDeduction,
-                'note' => "{$attendanceData['absent_count']} hari tidak hadir",
-            ]);
+            $lateComponent = PayrollComponent::where('component_code', 'POT_LATE')->first();
+            if ($lateComponent && $attendanceData['late_count'] > 0) {
+                $amount = $lateComponent->default_amount * $attendanceData['late_count'];
+                $deductions->push([
+                    'component_id' => $lateComponent->id,
+                    'name' => $lateComponent->component_name,
+                    'amount' => $amount,
+                    'note' => "{$attendanceData['late_count']} kali terlambat",
+                ]);
+            }
         }
 
         return $deductions;
@@ -335,14 +468,14 @@ class PayrollService
     {
         $workDays = $this->countWorkDays($startDate, $endDate);
 
-        $attendances = EmployeeAttendanceRecord::where('employee_id', $employee->id)
-            ->whereBetween('attendance_date', [$startDate, $endDate])
+        $attendances = EmployeeAttendanceRecord::where('pin', (string)$employee->pin)
+            ->whereBetween('attendance_time', [$startDate->startOfDay(), $endDate->endOfDay()])
             ->get();
 
-        $presentDays = $attendances->where('attendance_type', 'check_in')->count();
-        $lateCount = $attendances->where('is_late', true)->count();
+        $presentDays = $attendances->whereIn('state', ['in', 'check_in'])->count();
+        $lateCount = $attendances->where('attendance_status', 'late')->count();
         $absentCount = $workDays - $presentDays;
-        $overtimeHours = $attendances->sum('overtime_hours') ?? 0;
+        $overtimeHours = 0; // Not available in basic schema, could be extended later
 
         return [
             'work_days' => $workDays,
@@ -374,16 +507,21 @@ class PayrollService
     /**
      * Evaluate formula dynamically
      */
-    protected function evaluateFormula(string $formula, Employee $employee, float $baseSalary): float
+    protected function evaluateFormula(string $formula, Employee $employee, float $baseSalary, array $attendanceData = []): float
     {
-        // Simple formula evaluation
-        // Support variables: {base_salary}, {grade_salary}, {position_allowance}
-        $formula = str_replace('{base_salary}', $baseSalary, $formula);
-        $formula = str_replace('{grade_salary}', $employee->grade?->base_salary ?? 0, $formula);
+        // Support variables: {base_salary}, {grade_salary}, {family_count}, {absent_count}, {late_count}
+        $formula = str_replace('{base_salary}', (string)$baseSalary, $formula);
+        $formula = str_replace('{grade_salary}', (string)($employee->grade?->base_salary ?? 0), $formula);
+        $formula = str_replace('{family_count}', (string)$employee->families()->count(), $formula);
+        $formula = str_replace('{absent_count}', (string)($attendanceData['absent_count'] ?? 0), $formula);
+        $formula = str_replace('{late_count}', (string)($attendanceData['late_count'] ?? 0), $formula);
 
         try {
-            // Evaluate the formula safely (you might want to use a proper expression evaluator)
-            return eval("return $formula;");
+            // Simple numeric expression evaluation
+            $formula = preg_replace('/[^0-9\+\-\*\/\.\(\)]/', '', $formula);
+            if (empty($formula)) return 0;
+            
+            return (float)eval("return $formula;");
         } catch (\Throwable $e) {
             return 0;
         }

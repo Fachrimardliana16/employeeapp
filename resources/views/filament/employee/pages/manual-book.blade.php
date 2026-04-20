@@ -34,7 +34,34 @@
         <x-filament::section collapsible>
             <x-slot name="heading">💰 Kompensasi & Tunjangan</x-slot>
 
-            <div class="space-y-4">
+            <div class="space-y-6">
+                <div class="p-4 bg-primary-50 dark:bg-primary-900/10 rounded-xl border border-primary-200">
+                    <h4 class="font-bold text-lg text-primary-900 dark:text-primary-100 flex items-center gap-2">
+                        <x-filament::icon icon="heroicon-o-calculator" class="w-5 h-5"/>
+                        Memahami 3 Lapisan Payroll (Hierarki)
+                    </h4>
+                    <p class="text-sm mt-2 text-gray-700 dark:text-gray-300">
+                        Sistem penggajian kita menggunakan 3 lapisan data agar fleksibel dan otomatis:
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div class="p-3 bg-white dark:bg-gray-800 rounded border-l-4 border-gray-400">
+                            <span class="text-xs font-bold text-gray-500 uppercase">1. Global (Otomatis)</span>
+                            <p class="text-[11px] mt-1 italic text-gray-500">Berlaku untuk semua (Rumus)</p>
+                            <p class="text-xs mt-2">Dihitung otomatis lewat rumus sistem. Contoh: BPJS (4%/1%), Tunjangan Keluarga, IWP.</p>
+                        </div>
+                        <div class="p-3 bg-white dark:bg-gray-800 rounded border-l-4 border-blue-400">
+                            <span class="text-xs font-bold text-blue-500 uppercase">2. Jabatan (Master)</span>
+                            <p class="text-[11px] mt-1 italic text-blue-400">Berlaku per Jabatan (Fixed)</p>
+                            <p class="text-xs mt-2">Nominal tetap yang melekat pada jabatan. Contoh: TKK, Tunjangan Jabatan, DAPENMA.</p>
+                        </div>
+                        <div class="p-3 bg-white dark:bg-gray-800 rounded border-l-4 border-purple-400">
+                            <span class="text-xs font-bold text-purple-500 uppercase">3. Pribadi (Khusus)</span>
+                            <p class="text-[11px] mt-1 italic text-purple-400">Hanya untuk orang tertentu</p>
+                            <p class="text-xs mt-2">Ditetapkan khusus di profil pegawai. Contoh: Hutang Bank, Cicilan Koperasi, Rekening Air.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <h4 class="font-bold text-lg">1. Gaji & Payroll</h4>
                 <p><strong>Fungsi:</strong> Kelola data gaji karyawan dan history perubahan gaji.</p>
                 <ul class="list-disc ml-6">

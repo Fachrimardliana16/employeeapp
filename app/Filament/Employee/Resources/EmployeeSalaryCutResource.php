@@ -18,14 +18,18 @@ class EmployeeSalaryCutResource extends Resource
     protected static ?string $model = EmployeeSalaryCut::class;
     protected static ?string $navigationIcon = 'heroicon-o-minus-circle';
     protected static ?string $navigationGroup = 'Kompensasi & Tunjangan';
-    protected static ?string $navigationLabel = 'Potongan Gaji';
+    protected static ?string $navigationLabel = 'Pinjaman & Potongan Pribadi';
+    protected static ?string $modelLabel = 'Potongan/Pinjaman';
+    protected static ?string $pluralModelLabel = 'Pinjaman & Potongan Pribadi';
     protected static ?int $navigationSort = 404;
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Informasi Potongan Gaji')
+                Forms\Components\Section::make('Informasi Pinjaman / Potongan')
+                    ->description('Kelola detail pemotongan gaji rutin atau cicilan pinjaman.')
+                    ->columns(2)
                     ->schema([
                         Forms\Components\Select::make('employee_id')
                             ->label('Pegawai')
@@ -34,44 +38,71 @@ class EmployeeSalaryCutResource extends Resource
                             ->searchable()
                             ->preload(),
                         Forms\Components\TextInput::make('cut_name')
-                            ->label('Nama Potongan')
+                            ->label('Nama Potongan / Pinjaman')
                             ->required()
                             ->maxLength(255)
-                            ->placeholder('Contoh: Potongan BPJS'),
-                        Forms\Components\TextInput::make('cut_type')
-                            ->label('Jenis Potongan')
+                            ->placeholder('Contoh: Hutang Bank Mandiri, Tabungan Koperasi'),
+                        
+                        Forms\Components\Select::make('cut_type')
+                            ->label('Tipe Potongan')
+                            ->options([
+                                'permanent' => 'Tetap (Rutin Tiap Bulan)',
+                                'temporary' => 'Sementara (Cicilan/Pinjaman)',
+                            ])
                             ->required()
-                            ->placeholder('Contoh: BPJS'),
-                        Forms\Components\TextInput::make('calculation_type')
-                            ->label('Tipe Perhitungan')
+                            ->live()
+                            ->native(false),
+                        
+                        Forms\Components\Select::make('calculation_type')
+                            ->label('Jenis Perhitungan')
+                            ->options([
+                                'fixed' => 'Nominal Tetap',
+                                'percentage' => 'Persentase Gaji Pokok',
+                            ])
                             ->required()
-                            ->placeholder('Contoh: Persentase/Nominal'),
+                            ->default('fixed')
+                            ->native(false),
+
                         Forms\Components\TextInput::make('amount')
-                            ->label('Jumlah')
-                            ->required()
+                            ->label('Nilai / Nominal')
                             ->numeric()
-                            ->prefix('Rp')
-                            ->default(0),
+                            ->required()
+                            ->prefix(fn (Forms\Get $get) => $get('calculation_type') === 'percentage' ? '%' : 'Rp'),
+
                         Forms\Components\DatePicker::make('start_date')
-                            ->label('Tanggal Mulai')
+                            ->label('Tanggal Mulai Berlaku')
+                            ->default(now())
                             ->required(),
+
                         Forms\Components\DatePicker::make('end_date')
-                            ->label('Tanggal Berakhir'),
-                        Forms\Components\TextInput::make('installment_months')
-                            ->label('Jumlah Cicilan (Bulan)')
-                            ->numeric(),
-                        Forms\Components\TextInput::make('paid_months')
-                            ->label('Angsuran Dibayar (Bulan)')
-                            ->required()
-                            ->numeric()
-                            ->default(0),
+                            ->label('Tanggal Berakhir (Opsional)')
+                            ->helperText('Kosongkan jika berlaku selamanya'),
+
+                        Forms\Components\Grid::make(2)
+                            ->visible(fn (Forms\Get $get) => $get('cut_type') === 'temporary')
+                            ->schema([
+                                Forms\Components\TextInput::make('installment_months')
+                                    ->label('Total Tenor (Bulan)')
+                                    ->numeric()
+                                    ->default(12)
+                                    ->required(fn (Forms\Get $get) => $get('cut_type') === 'temporary'),
+                                Forms\Components\TextInput::make('paid_months')
+                                    ->label('Sudah Dibayar (Bulan)')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->required(),
+                            ]),
+
                         Forms\Components\Toggle::make('is_active')
-                            ->label('Aktif')
-                            ->default(true),
-                        Forms\Components\Textarea::make('description')
-                            ->label('Keterangan')
+                            ->label('Status Aktif')
+                            ->helperText('Hanya potongan aktif yang akan dihitung saat payroll bulanan.')
+                            ->default(true)
                             ->columnSpanFull(),
-                    ])->columns(2),
+
+                        Forms\Components\Textarea::make('description')
+                            ->label('Keterangan Tambahan')
+                            ->columnSpanFull(),
+                    ]),
                 Forms\Components\Hidden::make('users_id')
                     ->default(fn() => auth()->id()),
             ]);
@@ -87,60 +118,70 @@ class EmployeeSalaryCutResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('cut_name')
                     ->label('Nama Potongan')
+                    ->description(fn (EmployeeSalaryCut $record) => $record->description)
                     ->searchable(),
                 Tables\Columns\TextColumn::make('cut_type')
-                    ->label('Jenis'),
-                Tables\Columns\TextColumn::make('calculation_type')
-                    ->label('Tipe Hitung'),
+                    ->label('Tipe')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'permanent' => 'info',
+                        'temporary' => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'permanent' => 'Tetap',
+                        'temporary' => 'Cicilan',
+                        default => $state,
+                    }),
                 Tables\Columns\TextColumn::make('amount')
-                    ->label('Jumlah')
-                    ->money('IDR')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('start_date')
-                    ->label('Tgl Mulai')
-                    ->date('d/m/Y')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('end_date')
-                    ->label('Tgl Berakhir')
-                    ->date('d/m/Y')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('installment_months')
-                    ->label('Tenor')
-                    ->numeric()
+                    ->label('Nominal / Persen')
+                    ->formatStateUsing(function ($state, $record) {
+                        return $record->calculation_type === 'percentage' 
+                            ? $state . ' %' 
+                            : 'Rp ' . number_format($state, 0, ',', '.');
+                    })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('paid_months')
-                    ->label('Dibayar')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Progress Cicilan')
+                    ->formatStateUsing(function ($state, EmployeeSalaryCut $record) {
+                        if ($record->cut_type === 'permanent') return 'Rutin';
+                        return "{$state} / {$record->installment_months} Bln";
+                    })
+                    ->color(function ($state, EmployeeSalaryCut $record) {
+                        if ($record->cut_type === 'permanent') return 'gray';
+                        return $record->isCompleted() ? 'success' : 'warning';
+                    }),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Aktif')
-                    ->boolean(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d/m/Y H:i')
+                    ->label('Status')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('start_date')
+                    ->label('Mulai')
+                    ->date('M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('cut_type')
+                    ->label('Tipe Potongan')
+                    ->options([
+                        'permanent' => 'Tetap',
+                        'temporary' => 'Cicilan',
+                    ]),
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Status Aktif'),
+                    ->label('Hanya Aktif'),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make()->label('Lihat'),
-                    Tables\Actions\EditAction::make()->label('Edit'),
-                    Tables\Actions\DeleteAction::make()->label('Hapus'),
-                ])
-                    ->label('Aksi')
-                    ->icon('heroicon-m-ellipsis-vertical')
-                    ->size('sm')
-                    ->color('gray')
-                    ->button(),
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                ]),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ])->label('Hapus yang Dipilih'),
+                ]),
             ]);
     }
 

@@ -316,6 +316,16 @@ class Employee extends Model
         return $this->hasMany(EmployeePermission::class, 'employee_id');
     }
 
+    public function benefits(): HasMany
+    {
+        return $this->hasMany(EmployeeBenefit::class, 'employee_id');
+    }
+
+    public function salaryCuts(): HasMany
+    {
+        return $this->hasMany(EmployeeSalaryCut::class, 'employee_id');
+    }
+
     /**
      * Get the job application associated with this employee's email.
      */
