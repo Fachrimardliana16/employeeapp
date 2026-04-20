@@ -68,8 +68,10 @@
         </div>
 
         <!-- Attendance Summary Table -->
+        <!-- Summary Table -->
         <div class="overflow-x-auto mb-8">
             <table class="w-full text-center border-collapse">
+                <!-- (Existing Header...) -->
                 <thead>
                     <tr class="bg-gray-100 text-[9px] font-bold">
                         <th class="py-2 px-1 w-8" rowspan="2">NO</th>
@@ -95,46 +97,136 @@
                     </tr>
                 </thead>
                 <tbody class="text-[9px]">
-                    @forelse($summaries as $index => $summary)
+                    @foreach($summaries as $index => $summary)
                     <tr class="hover:bg-slate-50">
                         <td class="py-1.5 px-1">{{ $index + 1 }}</td>
-                        <td class="py-1.5 px-2 text-left">
-                            <div class="font-bold leading-tight">{{ $summary->employee->name }}</div>
-                            <div class="text-[7px] text-gray-400">PIN: {{ $summary->employee->pin }}</div>
-                        </td>
-                        <td class="py-1.5 px-1 font-bold bg-blue-50/30">{{ $summary->effective_working_days }}</td>
-                        
-                        <!-- 1. Hadir -->
+                        <td class="py-1.5 px-2 text-left font-bold">{{ $summary->employee->name }}</td>
+                        <td class="py-1.5 px-1 bg-blue-50/30">{{ $summary->effective_working_days }}</td>
                         <td class="py-1.5 px-1">{{ $summary->present }}</td>
                         <td class="py-1.5 px-1 font-bold bg-emerald-50/50 text-emerald-700">{{ $summary->presence_pct }}%</td>
-                        
-                        <!-- 2. Absen -->
                         <td class="py-1.5 px-1">{{ $summary->absent }}</td>
                         <td class="py-1.5 px-1 font-bold bg-red-50/50 text-red-700">{{ $summary->absent_pct }}%</td>
-                        
-                        <!-- 3. Terlambat -->
                         <td class="py-1.5 px-1">{{ $summary->late }}</td>
                         <td class="py-1.5 px-1 font-bold bg-amber-50/50 text-amber-700">{{ $summary->late_pct }}%</td>
-                        
-                        <!-- 4. Pulang Cepat -->
                         <td class="py-1.5 px-1">{{ $summary->early }}</td>
                         <td class="py-1.5 px-1 font-bold bg-orange-50/50 text-orange-700">{{ $summary->early_pct }}%</td>
-                        
-                        <!-- 5. Ketepatan -->
                         <td class="py-1.5 px-1">{{ $summary->on_time }}</td>
                         <td class="py-1.5 px-1 font-bold bg-indigo-50/50 text-indigo-700">{{ $summary->accuracy_pct }}%</td>
                     </tr>
-                    @empty
-                    <tr>
-                        <td colspan="13" class="py-8 text-center italic text-gray-400">Data tidak ditemukan untuk periode ini.</td>
-                    </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
 
+        <!-- Per Employee Proof Sections -->
+        @foreach($summaries as $summary)
+        <div class="page-break mt-12 pt-8 border-t-2 border-slate-200" style="page-break-before: always;">
+            <div class="mb-4">
+                <h4 class="text-sm font-bold uppercase text-slate-800">BUKTI RINCIAN KEHADIRAN: <span class="text-blue-700">{{ $summary->employee->name }}</span> ({{ $summary->employee->pin }})</h4>
+                <p class="text-[9px] text-gray-500">Periode: {{ \Carbon\Carbon::parse($startDate)->format('d/m/Y') }} - {{ \Carbon\Carbon::parse($endDate)->format('d/m/Y') }}</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 items-start">
+                <!-- 1. Tabel Kehadiran & Ketepatan -->
+                <div class="space-y-4">
+                    <div>
+                        <h5 class="text-[9px] font-bold mb-1 uppercase bg-emerald-100 px-2 py-0.5 inline-block rounded">✓ Daftar Hadir & Ketepatan Absensi</h5>
+                        <table class="w-full text-[8px]">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="py-1 px-1">Hari/Tanggal</th>
+                                    <th class="py-1 px-1">Jam Masuk</th>
+                                    <th class="py-1 px-1">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($summary->present_list as $item)
+                                @php $isLate = $summary->late_list->contains('date', $item['date']); @endphp
+                                <tr>
+                                    <td class="py-1 px-1">{{ $item['day'] }}, {{ date('d/m/y', strtotime($item['date'])) }}</td>
+                                    <td class="py-1 px-1 font-mono">{{ $item['time'] }}</td>
+                                    <td class="py-1 px-1 text-center font-bold {{ $isLate ? 'text-red-600' : 'text-emerald-600' }}">
+                                        {{ $isLate ? 'TERLAMBAT' : 'TEPAT WAKTU' }}
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="3" class="py-2 text-center italic text-gray-400">Tidak ada rekaman hadir.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2. Tabel Alpa & Pulang Cepat -->
+                <div class="space-y-4">
+                    <div>
+                        <h5 class="text-[9px] font-bold mb-1 uppercase bg-red-100 px-2 py-0.5 inline-block rounded">✗ Daftar Alpa / Tidak Absen Masuk</h5>
+                        <table class="w-full text-[8px]">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-1 px-1">Hari/Tanggal</th>
+                                    <th class="py-1 px-1 text-red-600">Terhitung Alpa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($summary->absent_list as $item)
+                                <tr>
+                                    <td class="py-1 px-1 font-bold">{{ $item['day'] }}, {{ date('d/m/y', strtotime($item['date'])) }}</td>
+                                    <td class="py-1 px-1 italic">Tidak ada data scan</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="2" class="py-2 text-center text-emerald-600">Sempurna (Tidak ada Alpa)</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h5 class="text-[9px] font-bold mb-1 uppercase bg-orange-100 px-2 py-0.5 inline-block rounded">! Rincian Pulang Cepat</h5>
+                        <table class="w-full text-[8px]">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-1 px-1">Tanggal</th>
+                                    <th class="py-1 px-1">Jam Scan</th>
+                                    <th class="py-1 px-1">Batas Jadwal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($summary->early_list as $item)
+                                <tr>
+                                    <td class="py-1 px-1">{{ date('d/m/y', strtotime($item['date'])) }}</td>
+                                    <td class="py-1 px-1 font-bold text-orange-600">{{ $item['time'] }}</td>
+                                    <td class="py-1 px-1 italic">{{ $item['limit'] }}</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="3" class="py-2 text-center text-gray-400">Nihil</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h5 class="text-[9px] font-bold mb-1 uppercase bg-blue-50 px-2 py-0.5 inline-block rounded">ℹ Keterangan Izin/Cuti</h5>
+                        <table class="w-full text-[8px]">
+                            <tbody>
+                                @forelse($summary->leave_list as $item)
+                                <tr>
+                                    <td class="py-1 px-1 italic bg-blue-50/30 font-bold">{{ $item['day'] }}, {{ date('d/m/y', strtotime($item['date'])) }}</td>
+                                    <td class="py-1 px-1 bg-blue-50/30">Izin/Cuti Approved</td>
+                                </tr>
+                                @empty
+                                <tr><td class="py-1 text-center text-gray-300">Tidak ada izin/cuti dalam periode ini</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endforeach
+
         <!-- Summary Footer & Signature -->
-        <div class="flex justify-between items-start mt-8">
+        <div class="flex justify-between items-start mt-8" style="page-break-inside: avoid;">
             <div class="text-[8px] italic text-gray-400 space-y-0.5">
                 <p>Keterangan:</p>
                 <ul class="list-disc pl-3">
@@ -142,7 +234,6 @@
                     <li>Absen: Tidak ada data absensi pada hari kerja aktif</li>
                     <li>Terlambat: Absen masuk melewati batas waktu toleransi</li>
                     <li>Pulang Cepat: Absen keluar sebelum waktu yang ditentukan dalam jadwal</li>
-                    <li>Ketepatan: Rasio absensi masuk tepat waktu terhadap hari kerja efektif</li>
                 </ul>
                 <p class="mt-2 text-[7px]">Dicetak pada: {{ now()->translatedFormat('l, d F Y | H:i:s') }} WIB</p>
             </div>

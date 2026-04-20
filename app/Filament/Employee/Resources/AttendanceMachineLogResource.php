@@ -213,16 +213,24 @@ class AttendanceMachineLogResource extends Resource
                             $sheet = $spreadsheet->getActiveSheet();
                             
                             // Header
-                            $headers = ['Waktu', 'Mesin', 'Lokasi', 'PIN', 'Nama Pegawai', 'Tipe'];
+                            $dayMap = [
+                                'monday' => 'Senin', 'tuesday' => 'Selasa', 'wednesday' => 'Rabu',
+                                'thursday' => 'Kamis', 'friday' => 'Jumat', 'saturday' => 'Sabtu', 'sunday' => 'Minggu',
+                            ];
+
+                            $headers = ['Hari', 'Waktu', 'Mesin', 'Lokasi', 'PIN', 'Nama Pegawai', 'Tipe'];
                             foreach ($headers as $key => $title) {
                                 $col = chr(65 + $key);
                                 $sheet->setCellValue($col . '1', $title);
                             }
                             
-                            $sheet->getStyle('A1:F1')->getFont()->setBold(true);
+                            $sheet->getStyle('A1:G1')->getFont()->setBold(true);
                             
                             $row = 2;
                             foreach ($records as $record) {
+                                $dayEng = strtolower($record->timestamp->format('l'));
+                                $dayInd = $dayMap[$dayEng] ?? $dayEng;
+
                                 $typeLabel = match ($record->type) {
                                     '0' => 'Masuk', '1' => 'Keluar',
                                     '2' => 'Break Out', '3' => 'Break In',
@@ -230,16 +238,17 @@ class AttendanceMachineLogResource extends Resource
                                     default => "Type " . $record->type,
                                 };
                                 
-                                $sheet->setCellValue('A' . $row, $record->timestamp->format('d/m/Y H:i:s'));
-                                $sheet->setCellValue('B' . $row, $record->machine?->name);
-                                $sheet->setCellValue('C' . $row, $record->machine?->officeLocation?->name);
-                                $sheet->setCellValue('D' . $row, $record->pin);
-                                $sheet->setCellValue('E' . $row, $record->employee?->name ?? 'Tidak Terdaftar');
-                                $sheet->setCellValue('F' . $row, $typeLabel);
+                                $sheet->setCellValue('A' . $row, $dayInd);
+                                $sheet->setCellValue('B' . $row, $record->timestamp->format('d/m/Y H:i:s'));
+                                $sheet->setCellValue('C' . $row, $record->machine?->name);
+                                $sheet->setCellValue('D' . $row, $record->machine?->officeLocation?->name);
+                                $sheet->setCellValue('E' . $row, $record->pin);
+                                $sheet->setCellValue('F' . $row, $record->employee?->name ?? 'Tidak Terdaftar');
+                                $sheet->setCellValue('G' . $row, $typeLabel);
                                 $row++;
                             }
                             
-                            foreach (range('A', 'F') as $col) {
+                            foreach (range('A', 'G') as $col) {
                                 $sheet->getColumnDimension($col)->setAutoSize(true);
                             }
                             

@@ -216,21 +216,30 @@ Route::middleware(['auth'])->group(function () {
 
         $summaries = collect();
 
-        foreach ($employees as $employee) {
-            $empSpecialSchedules = $specialSchedules->get($employee->id, collect())->keyBy(function($item) {
-                return $item->date->toDateString();
-            });
+            // --- LOGIKA BARU: DETAIL BUKTI ---
+            
+            $presentDetails = collect();
+            $absentDetails = collect();
+            $lateDetails = collect();
+            $earlyDetails = collect();
+            $onTimeDetails = collect();
+            $leaveDetails = collect();
 
-            // Calculate Working Days for THIS employee
-            $empTotalWorkingDays = 0;
+            // 1. Gather all actual logs for present dates
+            $allLogs = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
+                ->whereBetween('timestamp', [$fromDate, $toDate])
+                ->get()
+                ->groupBy(fn($item) => $item->timestamp->toDateString());
+
+            // 2. Iterate Calendar to find Absences & Details
             $currentDate = $fromDate->copy();
             while ($currentDate <= $toDate) {
                 $dateStr = $currentDate->toDateString();
                 $dayEng = strtolower($currentDate->format('l'));
                 $dayInd = $dayMap[$dayEng] ?? $dayEng;
                 
+                // Identify if it's a working day
                 $isWork = false;
-                
                 if ($empSpecialSchedules->has($dateStr)) {
                     $isWork = $empSpecialSchedules->get($dateStr)->is_working;
                 } else {
@@ -238,130 +247,102 @@ Route::middleware(['auth'])->group(function () {
                 }
 
                 if ($isWork) {
-                    $empTotalWorkingDays++;
+                    // Check if employee has approved leave on this day
+                    $hasLeave = \App\Models\EmployeePermission::where('employee_id', $employee->id)
+                        ->where('approval_status', 'approved')
+                        ->where('start_permission_date', '<=', $dateStr)
+                        ->where('end_permission_date', '>=', $dateStr)
+                        ->exists();
+
+                    if ($hasLeave) {
+                        $leaveDetails->push(['date' => $dateStr, 'day' => $dayInd]);
+                    } else {
+                        // Check presence logs
+                        if ($allLogs->has($dateStr)) {
+                            $dayLogs = $allLogs->get($dateStr);
+                            $inLog = $dayLogs->whereIn('type', ['0', '3', '4'])->sortBy('timestamp')->first(); // First In
+                            $outLog = $dayLogs->where('type', '1')->sortByDesc('timestamp')->first(); // Last Out
+
+                            if ($inLog) {
+                                $presentDetails->push([
+                                    'date' => $dateStr,
+                                    'day' => $dayInd,
+                                    'time' => $inLog->timestamp->format('H:i:s'),
+                                    'machine' => $inLog->machine?->name ?? 'Mesin'
+                                ]);
+
+                                // Check Lateness
+                                $schedule = $allSchedules->get($dayInd)?->first();
+                                if ($schedule && $schedule->check_in_end) {
+                                    if ($inLog->timestamp->format('H:i:s') > $schedule->check_in_end) {
+                                        $lateDetails->push([
+                                            'date' => $dateStr,
+                                            'day' => $dayInd,
+                                            'time' => $inLog->timestamp->format('H:i:s'),
+                                            'limit' => $schedule->check_in_end
+                                        ]);
+                                    } else {
+                                        $onTimeDetails->push([
+                                            'date' => $dateStr,
+                                            'day' => $dayInd,
+                                            'time' => $inLog->timestamp->format('H:i:s')
+                                        ]);
+                                    }
+                                } else {
+                                    $onTimeDetails->push(['date' => $dateStr, 'day' => $dayInd, 'time' => $inLog->timestamp->format('H:i:s')]);
+                                }
+                            }
+
+                            if ($outLog) {
+                                // Check Early Leave
+                                $schedule = $allSchedules->get($dayInd)?->first();
+                                if ($schedule && $schedule->check_out_start) {
+                                    if ($outLog->timestamp->format('H:i:s') < $schedule->check_out_start) {
+                                        $earlyDetails->push([
+                                            'date' => $dateStr,
+                                            'day' => $dayInd,
+                                            'time' => $outLog->timestamp->format('H:i:s'),
+                                            'limit' => $schedule->check_out_start
+                                        ]);
+                                    }
+                                }
+                            }
+
+                            if (!$inLog && !$outLog) {
+                                // Scanned but maybe just break/other? technically absent if no In/Out, 
+                                // but we count as present if ANY working activity log exists for simplicity
+                                $absentDetails->push(['date' => $dateStr, 'day' => $dayInd]);
+                            }
+                        } else {
+                            $absentDetails->push(['date' => $dateStr, 'day' => $dayInd]);
+                        }
+                    }
                 }
                 $currentDate->addDay();
             }
 
-            // --- LOGIKA BARU: QUERY LANGSUNG DARI LOG MESIN ---
-            
-            // 1. Presence: Unique dates where type is 0 (In), 3 (Break In), or 4 (OT In)
-            $presentDaysCount = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
-                ->whereBetween('timestamp', [$fromDate, $toDate])
-                ->whereIn('type', ['0', '3', '4'])
-                ->selectRaw('DATE(timestamp) as date')
-                ->groupBy('date')
-                ->get()
-                ->count();
-                
-            // 2. Lateness & Accuracy
-            $lateCount = 0;
-            $onTimeCount = 0;
-            $checkinLogs = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
-                ->whereBetween('timestamp', [$fromDate, $toDate])
-                ->where('type', '0') // Primary Check In
-                ->get()
-                ->groupBy(fn($item) => $item->timestamp->toDateString());
-
-            foreach ($checkinLogs as $dateStr => $logs) {
-                $firstLog = $logs->sortBy('timestamp')->first(); // First scan of the day
-                $dayEng = strtolower($firstLog->timestamp->format('l'));
-                $dayInd = $dayMap[$dayEng] ?? $dayEng;
-                
-                $schedule = $allSchedules->get($dayInd)?->first();
-                if ($schedule && $schedule->check_in_end) {
-                    if ($firstLog->timestamp->format('H:i:s') > $schedule->check_in_end) {
-                        $lateCount++;
-                    } else {
-                        $onTimeCount++;
-                    }
-                } else {
-                    $onTimeCount++; // Assume on time if no schedule found
-                }
-            }
-
-            // 3. Early Leave (Pulang Cepat)
-            $earlyLeaveCount = 0;
-            $checkoutLogs = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
-                ->whereBetween('timestamp', [$fromDate, $toDate])
-                ->where('type', '1') // Primary Check Out
-                ->get()
-                ->groupBy(fn($item) => $item->timestamp->toDateString());
-            
-            foreach ($checkoutLogs as $dateStr => $logs) {
-                $lastLog = $logs->sortByDesc('timestamp')->first(); // Last scan of the day
-                $dayEng = strtolower($lastLog->timestamp->format('l'));
-                $dayInd = $dayMap[$dayEng] ?? $dayEng;
-                
-                $schedule = $allSchedules->get($dayInd)?->first();
-                if ($schedule && $schedule->check_out_start) {
-                    if ($lastLog->timestamp->format('H:i:s') < $schedule->check_out_start) {
-                        $earlyLeaveCount++;
-                    }
-                }
-            }
-
-            // Permissions / Leave
-            $leaveQuery = \App\Models\EmployeePermission::where('employee_id', $employee->id)
-                ->where('approval_status', 'approved')
-                ->where(function($q) use ($fromDate, $toDate) {
-                    $q->whereBetween('start_permission_date', [$fromDate, $toDate])
-                      ->orWhereBetween('end_permission_date', [$fromDate, $toDate])
-                      ->orWhere(function($subQ) use ($fromDate, $toDate) {
-                          $subQ->where('start_permission_date', '<=', $fromDate)
-                               ->where('end_permission_date', '>=', $toDate);
-                      });
-                })->get();
-                
-            $leaveDays = 0;
-            foreach ($leaveQuery as $leave) {
-                $lStart = \Carbon\Carbon::parse($leave->start_permission_date)->max($fromDate);
-                $lEnd = \Carbon\Carbon::parse($leave->end_permission_date)->min($toDate);
-                $period = \Carbon\CarbonPeriod::create($lStart, $lEnd);
-                foreach ($period as $date) {
-                    $dateStr = $date->toDateString();
-                    $dayEng = strtolower($date->format('l'));
-                    $dayInd = $dayMap[$dayEng] ?? $dayEng;
-                    
-                    $isWork = false;
-                    if ($empSpecialSchedules->has($dateStr)) {
-                        $isWork = $empSpecialSchedules->get($dateStr)->is_working;
-                    } else {
-                        $isWork = in_array($dayInd, $activeDayNames);
-                    }
-
-                    if ($isWork) {
-                        $leaveDays++;
-                    }
-                }
-            }
-
-            $effectiveWorkingDays = max(0, $empTotalWorkingDays - $leaveDays);
-            $absentCount = max(0, $effectiveWorkingDays - $presentDaysCount);
-            
-            // Calculate Percentages
-            $denom = $effectiveWorkingDays ?: 1;
-            $presencePct = round(($presentDaysCount / $denom) * 100, 1);
-            $absentPct = round(($absentCount / $denom) * 100, 1);
-            $latePct = round(($lateCount / $denom) * 100, 1);
-            $earlyPct = round(($earlyLeaveCount / $denom) * 100, 1);
-            $accuracyPct = round(($onTimeCount / $denom) * 100, 1);
-
             $summaries->push((object)[
                 'employee' => $employee,
                 'total_working_days' => $empTotalWorkingDays,
-                'effective_working_days' => $effectiveWorkingDays,
-                'present' => $presentDaysCount,
-                'presence_pct' => $presencePct,
-                'absent' => $absentCount,
-                'absent_pct' => $absentPct,
-                'late' => $lateCount,
-                'late_pct' => $latePct,
-                'early' => $earlyLeaveCount,
-                'early_pct' => $earlyPct,
-                'on_time' => $onTimeCount,
-                'accuracy_pct' => $accuracyPct,
-                'leave' => $leaveDays,
+                'effective_working_days' => max(0, $empTotalWorkingDays - $leaveDetails->count()),
+                'present' => $presentDetails->count(),
+                'presence_pct' => round(($presentDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'absent' => $absentDetails->count(),
+                'absent_pct' => round(($absentDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'late' => $lateDetails->count(),
+                'late_pct' => round(($lateDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'early' => $earlyDetails->count(),
+                'early_pct' => round(($earlyDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'on_time' => $onTimeDetails->count(),
+                'accuracy_pct' => round(($onTimeDetails->count() / (max(1, $empTotalWorkingDays - $leaveDetails->count()))) * 100, 1),
+                'leave' => $leaveDetails->count(),
+                // Detail Lists for Proof Tables
+                'present_list' => $presentDetails,
+                'absent_list' => $absentDetails,
+                'late_list' => $lateDetails,
+                'early_list' => $earlyDetails,
+                'on_time_list' => $onTimeDetails,
+                'leave_list' => $leaveDetails,
             ]);
         }
 
