@@ -16,22 +16,28 @@ class AdmsController extends Controller
     public function cdata(Request $request)
     {
         $sn = $request->query('SN');
+        Log::debug("ADMS cdata Request", ['SN' => $sn, 'IP' => $request->ip(), 'Method' => $request->method()]);
         
         if (!$sn) {
             return response("SN NOT FOUND", 400);
         }
 
-        // Identify or register machine if it doesn't exist?
-        // For security, maybe only allowed pre-registered SNs.
-        // But for this initial phase, we'll auto-update last_heard_at.
         $machine = AttendanceMachine::where('serial_number', $sn)->first();
         
         if (!$machine) {
+            // Find a valid office location ID dynamically
+            $locationId = \App\Models\MasterOfficeLocation::first()?->id;
+            
+            if (!$locationId) {
+                Log::error("ADMS Error: No office locations found in database. Cannot auto-register machine.");
+                return response("LOCATION ERROR", 500);
+            }
+
             // Auto-register unknown machine
             $machine = AttendanceMachine::create([
                 'serial_number' => $sn,
                 'name' => 'Auto Registered: ' . $sn,
-                'master_office_location_id' => 1, // Default to first location
+                'master_office_location_id' => $locationId,
                 'status' => 'online',
                 'ip_address' => $request->ip(),
                 'last_heard_at' => now(),
@@ -68,18 +74,22 @@ class AdmsController extends Controller
     public function getrequest(Request $request)
     {
         $sn = $request->query('SN');
+        Log::debug("ADMS getrequest Heartbeat", ['SN' => $sn, 'IP' => $request->ip()]);
         
         if ($sn) {
             $machine = AttendanceMachine::where('serial_number', $sn)->first();
             if (!$machine) {
-                AttendanceMachine::create([
-                    'serial_number' => $sn,
-                    'name' => 'Auto Registered: ' . $sn,
-                    'master_office_location_id' => 1,
-                    'status' => 'online',
-                    'ip_address' => $request->ip(),
-                    'last_heard_at' => now(),
-                ]);
+                $locationId = \App\Models\MasterOfficeLocation::first()?->id;
+                if ($locationId) {
+                    AttendanceMachine::create([
+                        'serial_number' => $sn,
+                        'name' => 'Auto Registered: ' . $sn,
+                        'master_office_location_id' => $locationId,
+                        'status' => 'online',
+                        'ip_address' => $request->ip(),
+                        'last_heard_at' => now(),
+                    ]);
+                }
             } else {
                 $machine->update([
                     'last_heard_at' => now(),
