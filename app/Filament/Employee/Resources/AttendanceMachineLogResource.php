@@ -253,7 +253,6 @@ class AttendanceMachineLogResource extends Resource
                     }),
                 Tables\Actions\Action::make('sync_to_attendance')
                     ->label('Sinkronkan Data ke Kehadiran')
-                    ->description('Menyinkronkan data log mesin ke tabel rekaman kehadiran (untuk laporan analisa).')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
                     ->requiresConfirmation()
