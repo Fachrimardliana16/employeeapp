@@ -216,6 +216,24 @@ Route::middleware(['auth'])->group(function () {
 
         $summaries = collect();
 
+        foreach ($employees as $employee) {
+            $empSpecialSchedules = $specialSchedules->get($employee->id, collect())->keyBy(function($item) {
+                return $item->date->toDateString();
+            });
+
+            // Calculate Working Days count for summary context
+            $empTotalWorkingDays = 0;
+            $checkDate = $fromDate->copy();
+            while ($checkDate <= $toDate) {
+                $dayInd = $dayMap[strtolower($checkDate->format('l'))] ?? strtolower($checkDate->format('l'));
+                if ($empSpecialSchedules->has($checkDate->toDateString())) {
+                    if ($empSpecialSchedules->get($checkDate->toDateString())->is_working) $empTotalWorkingDays++;
+                } elseif (in_array($dayInd, $activeDayNames)) {
+                    $empTotalWorkingDays++;
+                }
+                $checkDate->addDay();
+            }
+
             // --- LOGIKA BARU: DETAIL BUKTI ---
             
             $presentDetails = collect();
