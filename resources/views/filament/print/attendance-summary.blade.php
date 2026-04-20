@@ -127,35 +127,8 @@
             </div>
 
             <div class="grid grid-cols-2 gap-4 items-start">
-                <!-- 1. Tabel Kehadiran & Ketepatan -->
+                <!-- 1. Tabel Keterlambatan -->
                 <div class="space-y-4">
-                    <div>
-                        <h5 class="text-[9px] font-bold mb-1 uppercase bg-emerald-100 px-2 py-0.5 inline-block rounded">✓ Daftar Hadir & Ketepatan Absensi</h5>
-                        <table class="w-full text-[8px]">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th class="py-1 px-1">Hari/Tanggal</th>
-                                    <th class="py-1 px-1">Jam Masuk</th>
-                                    <th class="py-1 px-1">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($summary->present_list as $item)
-                                @php $isLate = $summary->late_list->contains('date', $item['date']); @endphp
-                                <tr>
-                                    <td class="py-1 px-1">{{ $item['day'] }}, {{ date('d/m/y', strtotime($item['date'])) }}</td>
-                                    <td class="py-1 px-1 font-mono">{{ $item['time'] }}</td>
-                                    <td class="py-1 px-1 text-center font-bold {{ $isLate ? 'text-red-600' : 'text-emerald-600' }}">
-                                        {{ $isLate ? 'TERLAMBAT' : 'TEPAT WAKTU' }}
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr><td colspan="3" class="py-2 text-center italic text-gray-400">Tidak ada rekaman hadir.</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
                     <div>
                         <h5 class="text-[9px] font-bold mb-1 uppercase bg-amber-100 px-2 py-0.5 inline-block rounded">⚠ Rincian Keterlambatan</h5>
                         <table class="w-full text-[8px]">
