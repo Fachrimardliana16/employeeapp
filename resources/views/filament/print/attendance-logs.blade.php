@@ -72,27 +72,18 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gray-100 text-[10px] font-bold">
-                        <th class="py-2 px-1 text-center w-10">NO</th>
-                        <th class="py-2 px-2 w-20">HARI</th>
-                        <th class="py-2 px-2">WAKTU ABSENSI</th>
-                        <th class="py-2 px-2">PEGAWAI</th>
-                        <th class="py-2 px-2 text-center w-20">PIN</th>
-                        <th class="py-2 px-2">MESIN / LOKASI</th>
-                        <th class="py-2 px-2 text-center w-24">TIPE LOG</th>
+                        <th class="px-2 py-1 border border-slate-300 w-12">NO</th>
+                        <th class="px-2 py-1 border border-slate-300">TANGGAL</th>
+                        <th class="px-2 py-1 border border-slate-300">HARI</th>
+                        <th class="px-2 py-1 border border-slate-300">PIN</th>
+                        <th class="px-2 py-1 border border-slate-300 text-left">NAMA PEGAWAI</th>
+                        <th class="px-2 py-1 border border-slate-300">JAM</th>
+                        <th class="px-2 py-1 border border-slate-300">TIPE LOG</th>
+                        <th class="px-2 py-1 border border-slate-300">LOKASI/MESIN</th>
+                        <th class="px-2 py-1 border border-slate-300">KET.</th>
                     </tr>
                 </thead>
                 <tbody class="text-[10px]">
-                    @forelse($records as $index => $record)
-                    <tr class="hover:bg-slate-50 border-b">
-                        <td class="py-2 px-1 text-center">{{ $index + 1 }}</td>
-                        <td class="py-2 px-2 font-bold">{{ $record->timestamp->translatedFormat('l') }}</td>
-                        <td class="py-2 px-2 font-mono text-[9px]">{{ $record->timestamp->translatedFormat('d/m/Y H:i:s') }}</td>
-                        <td class="py-2 px-2">
-                            <div class="font-bold">{{ $record->employee?->name ?? 'TIDAK TERDAFTAR' }}</div>
-                        </td>
-                        <td class="py-2 px-2 text-center font-mono">{{ $record->pin }}</td>
-                        <td class="py-2 px-2">
-                            <div class="leading-tight">{{ $record->machine?->name ?? 'MESIN TIDAK DIKETAHUI' }}</div>
                             <div class="text-[8px] text-gray-400 capitalize">{{ $record->machine?->officeLocation?->name ?? '-' }}</div>
                         </td>
                         <td class="py-2 px-2 text-center">

@@ -406,23 +406,56 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/career-schedule-report', [\App\Http\Controllers\ReportController::class, 'careerSchedule'])->name('report.career-schedule');
 
     Route::get('/attendance-logs-report-pdf', function (\Illuminate\Http\Request $request) {
-        $query = \App\Models\AttendanceMachineLog::query()
-            ->with(['machine.officeLocation', 'employee'])
+        $query = \App\Models\AttendanceMachineLog::with(['machine.officeLocation', 'employee'])
             ->when($request->from_date, fn($q, $date) => $q->whereDate('timestamp', '>=', $date))
             ->when($request->to_date, fn($q, $date) => $q->whereDate('timestamp', '<=', $date))
             ->when($request->employee_id, function($q, $id) {
                 $employee = \App\Models\Employee::find($id);
-                if ($employee && $employee->pin) {
-                    $q->where('pin', $employee->pin);
-                }
+                if ($employee && $employee->pin) $q->where('pin', $employee->pin);
             })
             ->when($request->attendance_machine_id, fn($q, $id) => $q->where('attendance_machine_id', $id))
-            ->orderBy('timestamp', 'desc');
+            ->orderBy('timestamp', 'asc'); // Use ASC to process properly for duplicate detection
 
         $records = $query->get();
 
+        $dayMap = [
+            'monday' => 'SENIN', 'tuesday' => 'SELASA', 'wednesday' => 'RABU',
+            'thursday' => 'KAMIS', 'friday' => 'JUMAT', 'saturday' => 'SABTU', 'sunday' => 'MINGGU',
+        ];
+
+        // 1. Identify Duplicates
+        $grouped = $records->groupBy(function($item) {
+            return $item->timestamp->toDateString() . '_' . $item->pin . '_' . $item->type;
+        });
+
+        foreach ($grouped as $group) {
+            if ($group->count() > 1) {
+                // Determine primary based on type
+                $type = $group->first()->type;
+                if (in_array((string)$type, ['0', '3', '4'])) {
+                    $primaryId = $group->sortBy('timestamp')->first()->id;
+                } elseif ((string)$type === '1') {
+                    $primaryId = $group->sortByDesc('timestamp')->first()->id;
+                } else {
+                    $primaryId = $group->sortBy('timestamp')->first()->id;
+                }
+
+                foreach ($group as $log) {
+                    $log->is_record_duplicate = ($log->id !== $primaryId);
+                }
+            } else {
+                $group->first()->is_record_duplicate = false;
+            }
+        }
+
+        // Add Indonesian Day
+        $records->each(function($log) use ($dayMap) {
+            $dayEng = strtolower($log->timestamp->format('l'));
+            $log->hari_indonesia = $dayMap[$dayEng] ?? $dayEng;
+        });
+
         return view('filament.print.attendance-logs', [
-            'records' => $records,
+            'records' => $records->sortByDesc('timestamp'), // Re-sort for display
             'startDate' => $request->from_date,
             'endDate' => $request->to_date,
             'singleEmployee' => $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : false,
