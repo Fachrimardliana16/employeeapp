@@ -191,6 +191,17 @@ Route::middleware(['auth'])->group(function () {
         
         $activeDayNames = $allSchedules->keys()->toArray();
         
+        // Day translation for Indonesian DB compatibility
+        $dayMap = [
+            'monday' => 'senin',
+            'tuesday' => 'selasa',
+            'wednesday' => 'rabu',
+            'thursday' => 'kamis',
+            'friday' => 'jumat',
+            'saturday' => 'sabtu',
+            'sunday' => 'minggu',
+        ];
+
         // 2. Fetch Employees
         $query = \App\Models\Employee::query();
         if ($request->filled('employee_id')) {
@@ -215,12 +226,15 @@ Route::middleware(['auth'])->group(function () {
             $currentDate = $fromDate->copy();
             while ($currentDate <= $toDate) {
                 $dateStr = $currentDate->toDateString();
+                $dayEng = strtolower($currentDate->format('l'));
+                $dayInd = $dayMap[$dayEng] ?? $dayEng;
+                
                 $isWork = false;
                 
                 if ($empSpecialSchedules->has($dateStr)) {
                     $isWork = $empSpecialSchedules->get($dateStr)->is_working;
                 } else {
-                    $isWork = in_array(strtolower($currentDate->format('l')), $activeDayNames);
+                    $isWork = in_array($dayInd, $activeDayNames);
                 }
 
                 if ($isWork) {
@@ -287,11 +301,14 @@ Route::middleware(['auth'])->group(function () {
                 $period = \Carbon\CarbonPeriod::create($lStart, $lEnd);
                 foreach ($period as $date) {
                     $dateStr = $date->toDateString();
+                    $dayEng = strtolower($date->format('l'));
+                    $dayInd = $dayMap[$dayEng] ?? $dayEng;
+                    
                     $isWork = false;
                     if ($empSpecialSchedules->has($dateStr)) {
                         $isWork = $empSpecialSchedules->get($dateStr)->is_working;
                     } else {
-                        $isWork = in_array(strtolower($date->format('l')), $activeDayNames);
+                        $isWork = in_array($dayInd, $activeDayNames);
                     }
 
                     if ($isWork) {

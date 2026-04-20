@@ -251,6 +251,77 @@ class AttendanceMachineLogResource extends Resource
                             return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
                         }
                     }),
+                Tables\Actions\Action::make('sync_to_attendance')
+                    ->label('Sinkronkan Data ke Kehadiran')
+                    ->description('Menyinkronkan data log mesin ke tabel rekaman kehadiran (untuk laporan analisa).')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sinkronkan Data Log Mesin')
+                    ->modalDescription('Apakah Anda yakin ingin menyinkronkan data dari log mesin absensi ke tabel rekam kehadiran? Ini akan memproses data yang belum masuk ke laporan analisa.')
+                    ->modalSubmitActionLabel('Mulai Sinkronisasi')
+                    ->action(function () {
+                        $logs = AttendanceMachineLog::all();
+                        $count = 0;
+                        
+                        // Fetch schedules and day map for status calculation
+                        $allSchedules = \App\Models\AttendanceSchedule::where('is_active', true)->get()->groupBy(fn($item) => strtolower($item->day));
+                        $dayMap = [
+                            'monday' => 'senin', 'tuesday' => 'selasa', 'wednesday' => 'rabu',
+                            'thursday' => 'kamis', 'friday' => 'jumat', 'saturday' => 'sabtu', 'sunday' => 'minggu',
+                        ];
+
+                        foreach ($logs as $log) {
+                            $employee = \App\Models\Employee::where('pin', $log->pin)->first();
+                            if ($employee) {
+                                $attendanceTime = \Carbon\Carbon::parse($log->timestamp);
+                                $dayEng = strtolower($attendanceTime->format('l'));
+                                $dayInd = $dayMap[$dayEng] ?? $dayEng;
+
+                                $state = match($log->type) {
+                                    '0' => 'check_in', '1' => 'check_out',
+                                    '2' => 'break_out', '3' => 'break_in',
+                                    '4' => 'ot_in', '5' => 'ot_out',
+                                    default => 'check_in'
+                                };
+
+                                $schedule = $allSchedules->get($dayInd)?->first();
+                                $status = 'on_time';
+                                if ($schedule) {
+                                    if ($state === 'check_in' && $schedule->check_in_end) {
+                                        if ($attendanceTime->format('H:i:s') > $schedule->check_in_end) {
+                                            $status = 'late';
+                                        }
+                                    } elseif ($state === 'check_out' && $schedule->check_out_start) {
+                                        if ($attendanceTime->format('H:i:s') < $schedule->check_out_start) {
+                                            $status = 'early';
+                                        }
+                                    }
+                                }
+
+                                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                                    [
+                                        'pin' => $log->pin,
+                                        'attendance_time' => $attendanceTime->toDateTimeString(),
+                                        'state' => $state,
+                                    ],
+                                    [
+                                        'employee_name' => $employee->name,
+                                        'attendance_status' => $status,
+                                        'device' => $log->machine?->name ?? 'Machine ' . $log->serial_number,
+                                        'office_location_id' => $log->machine?->master_office_location_id,
+                                    ]
+                                );
+                                $count++;
+                            }
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Sinkronisasi Selesai')
+                            ->body("Berhasil memproses {$count} data log absensi ke tabel rekaman kehadiran.")
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
