@@ -291,13 +291,20 @@ Route::middleware(['auth'])->group(function () {
 
                                 // Check Lateness
                                 $schedule = $allSchedules->get($dayInd);
-                                if ($schedule && $schedule->check_in_end) {
-                                    if ($inLog->timestamp->format('H:i:s') > $schedule->check_in_end) {
+                                if ($schedule) {
+                                    $limit = $schedule->late_threshold ?: $schedule->check_in_end;
+                                    
+                                    if ($limit && $inLog->timestamp->format('H:i:s') > $limit) {
+                                        $startTime = \Carbon\Carbon::parse($limit);
+                                        $endTime = \Carbon\Carbon::parse($inLog->timestamp->format('H:i:s'));
+                                        $diffInMinutes = $endTime->diffInMinutes($startTime);
+
                                         $lateDetails->push([
                                             'date' => $dateStr,
                                             'day' => $dayInd,
                                             'time' => $inLog->timestamp->format('H:i:s'),
-                                            'limit' => $schedule->check_in_end
+                                            'limit' => $limit,
+                                            'duration' => $diffInMinutes
                                         ]);
                                     } else {
                                         $onTimeDetails->push([

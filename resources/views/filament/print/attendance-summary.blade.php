@@ -155,6 +155,32 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <div>
+                        <h5 class="text-[9px] font-bold mb-1 uppercase bg-amber-100 px-2 py-0.5 inline-block rounded">⚠ Rincian Keterlambatan</h5>
+                        <table class="w-full text-[8px]">
+                            <thead class="bg-slate-50">
+                                <tr class="text-amber-800">
+                                    <th class="py-1 px-1">Tanggal</th>
+                                    <th class="py-1 px-1">Jam Scan</th>
+                                    <th class="py-1 px-1">Batas Telat</th>
+                                    <th class="py-1 px-1">Durasi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($summary->late_list as $item)
+                                <tr>
+                                    <td class="py-1 px-1">{{ date('d/m/y', strtotime($item['date'])) }}</td>
+                                    <td class="py-1 px-1 font-mono font-bold">{{ $item['time'] }}</td>
+                                    <td class="py-1 px-1 italic text-gray-500">{{ $item['limit'] }}</td>
+                                    <td class="py-1 px-1 text-right text-red-600 font-bold">{{ $item['duration'] }} Menit</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="4" class="py-2 text-center text-emerald-600 italic">Disiplin (Tidak ada Keterlambatan)</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- 2. Tabel Alpa & Pulang Cepat -->
