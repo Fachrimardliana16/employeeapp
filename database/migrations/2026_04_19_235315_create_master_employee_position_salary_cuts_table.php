@@ -13,8 +13,10 @@ return new class extends Migration
     {
         Schema::create('master_employee_position_salary_cuts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_position_id')->constrained('master_employee_positions')->onDelete('cascade');
-            $table->foreignId('salary_cuts_id')->constrained('master_employee_salary_cuts')->onDelete('cascade');
+            $table->unsignedBigInteger('employee_position_id');
+            $table->foreign('employee_position_id', 'pos_salary_cuts_position_fk')->references('id')->on('master_employee_positions')->onDelete('cascade');
+            $table->unsignedBigInteger('salary_cuts_id');
+            $table->foreign('salary_cuts_id', 'pos_salary_cuts_cut_fk')->references('id')->on('master_employee_salary_cuts')->onDelete('cascade');
             $table->decimal('amount', 15, 2);
             $table->text('desc')->nullable();
             $table->boolean('is_active')->default(true);
