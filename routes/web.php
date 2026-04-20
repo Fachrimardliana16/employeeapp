@@ -243,40 +243,59 @@ Route::middleware(['auth'])->group(function () {
                 $currentDate->addDay();
             }
 
-            // Count unique check-in days
-            $presentDaysCount = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
-                ->whereBetween('attendance_time', [$fromDate, $toDate])
-                ->whereIn('state', ['check_in', 'in', 'dl_in', 'ot_in'])
-                ->selectRaw('DATE(attendance_time) as date')
+            // --- LOGIKA BARU: QUERY LANGSUNG DARI LOG MESIN ---
+            
+            // 1. Presence: Unique dates where type is 0 (In), 3 (Break In), or 4 (OT In)
+            $presentDaysCount = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
+                ->whereBetween('timestamp', [$fromDate, $toDate])
+                ->whereIn('type', ['0', '3', '4'])
+                ->selectRaw('DATE(timestamp) as date')
                 ->groupBy('date')
                 ->get()
                 ->count();
                 
-            $lateCount = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
-                ->whereBetween('attendance_time', [$fromDate, $toDate])
-                ->whereIn('state', ['check_in', 'in', 'dl_in', 'ot_in'])
-                ->where('attendance_status', 'late')
-                ->count();
+            // 2. Lateness & Accuracy
+            $lateCount = 0;
+            $onTimeCount = 0;
+            $checkinLogs = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
+                ->whereBetween('timestamp', [$fromDate, $toDate])
+                ->where('type', '0') // Primary Check In
+                ->get()
+                ->groupBy(fn($item) => $item->timestamp->toDateString());
 
-            $onTimeCount = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
-                ->whereBetween('attendance_time', [$fromDate, $toDate])
-                ->whereIn('state', ['check_in', 'in', 'dl_in', 'ot_in'])
-                ->whereIn('attendance_status', ['on_time', 'early'])
-                ->count();
+            foreach ($checkinLogs as $dateStr => $logs) {
+                $firstLog = $logs->sortBy('timestamp')->first(); // First scan of the day
+                $dayEng = strtolower($firstLog->timestamp->format('l'));
+                $dayInd = $dayMap[$dayEng] ?? $dayEng;
+                
+                $schedule = $allSchedules->get($dayInd)?->first();
+                if ($schedule && $schedule->check_in_end) {
+                    if ($firstLog->timestamp->format('H:i:s') > $schedule->check_in_end) {
+                        $lateCount++;
+                    } else {
+                        $onTimeCount++;
+                    }
+                } else {
+                    $onTimeCount++; // Assume on time if no schedule found
+                }
+            }
 
-            // Calculate Early Leave (Pulang Cepat)
+            // 3. Early Leave (Pulang Cepat)
             $earlyLeaveCount = 0;
-            $checkoutRecords = \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin)
-                ->whereBetween('attendance_time', [$fromDate, $toDate])
-                ->whereIn('state', ['check_out', 'out', 'dl_out', 'ot_out'])
-                ->get();
+            $checkoutLogs = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
+                ->whereBetween('timestamp', [$fromDate, $toDate])
+                ->where('type', '1') // Primary Check Out
+                ->get()
+                ->groupBy(fn($item) => $item->timestamp->toDateString());
             
-            foreach ($checkoutRecords as $record) {
-                $dayName = strtolower($record->attendance_time->format('l'));
-                $schedule = $allSchedules->get($dayName);
+            foreach ($checkoutLogs as $dateStr => $logs) {
+                $lastLog = $logs->sortByDesc('timestamp')->first(); // Last scan of the day
+                $dayEng = strtolower($lastLog->timestamp->format('l'));
+                $dayInd = $dayMap[$dayEng] ?? $dayEng;
+                
+                $schedule = $allSchedules->get($dayInd)?->first();
                 if ($schedule && $schedule->check_out_start) {
-                    $checkoutTime = $record->attendance_time->format('H:i:s');
-                    if ($checkoutTime < $schedule->check_out_start) {
+                    if ($lastLog->timestamp->format('H:i:s') < $schedule->check_out_start) {
                         $earlyLeaveCount++;
                     }
                 }
