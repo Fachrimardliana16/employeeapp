@@ -290,7 +290,7 @@ Route::middleware(['auth'])->group(function () {
                                 ]);
 
                                 // Check Lateness
-                                $schedule = $allSchedules->get($dayInd)?->first();
+                                $schedule = $allSchedules->get($dayInd);
                                 if ($schedule && $schedule->check_in_end) {
                                     if ($inLog->timestamp->format('H:i:s') > $schedule->check_in_end) {
                                         $lateDetails->push([
@@ -313,7 +313,7 @@ Route::middleware(['auth'])->group(function () {
 
                             if ($outLog) {
                                 // Check Early Leave
-                                $schedule = $allSchedules->get($dayInd)?->first();
+                                $schedule = $allSchedules->get($dayInd);
                                 if ($schedule && $schedule->check_out_start) {
                                     if ($outLog->timestamp->format('H:i:s') < $schedule->check_out_start) {
                                         $earlyDetails->push([
