@@ -214,28 +214,55 @@ class AttendanceMachineLogResource extends Resource
                             
                             // Header
                             $dayMap = [
-                                'monday' => 'Senin', 'tuesday' => 'Selasa', 'wednesday' => 'Rabu',
-                                'thursday' => 'Kamis', 'friday' => 'Jumat', 'saturday' => 'Sabtu', 'sunday' => 'Minggu',
+                                'monday' => 'SENIN', 'tuesday' => 'SELASA', 'wednesday' => 'RABU',
+                                'thursday' => 'KAMIS', 'friday' => 'JUMAT', 'saturday' => 'SABTU', 'sunday' => 'MINGGU',
                             ];
 
-                            $headers = ['Hari', 'Waktu', 'Mesin', 'Lokasi', 'PIN', 'Nama Pegawai', 'Tipe'];
+                            // 1. Process Records for Duplicates (ASC order for logical processing)
+                            $records = $records->sortBy('timestamp');
+                            $grouped = $records->groupBy(function($item) {
+                                return $item->timestamp->toDateString() . '_' . $item->pin . '_' . $item->type;
+                            });
+
+                            foreach ($grouped as $group) {
+                                if ($group->count() > 1) {
+                                    $type = (string)$group->first()->type;
+                                    if (in_array($type, ['0', '3', '4'])) {
+                                        $primaryId = $group->sortBy('timestamp')->first()->id;
+                                    } elseif ($type === '1') {
+                                        $primaryId = $group->sortByDesc('timestamp')->first()->id;
+                                    } else {
+                                        $primaryId = $group->sortBy('timestamp')->first()->id;
+                                    }
+                                    foreach ($group as $log) {
+                                        $log->is_record_duplicate = ($log->id !== $primaryId);
+                                    }
+                                } else {
+                                    $group->first()->is_record_duplicate = false;
+                                }
+                            }
+
+                            // Re-sort to DESC for export display
+                            $sortedRecords = $records->sortByDesc('timestamp');
+
+                            $headers = ['Hari', 'Waktu', 'Mesin', 'Lokasi', 'PIN', 'Nama Pegawai', 'Tipe', 'Keterangan'];
                             foreach ($headers as $key => $title) {
                                 $col = chr(65 + $key);
                                 $sheet->setCellValue($col . '1', $title);
                             }
                             
-                            $sheet->getStyle('A1:G1')->getFont()->setBold(true);
+                            $sheet->getStyle('A1:H1')->getFont()->setBold(true);
                             
                             $row = 2;
-                            foreach ($records as $record) {
+                            foreach ($sortedRecords as $record) {
                                 $dayEng = strtolower($record->timestamp->format('l'));
                                 $dayInd = $dayMap[$dayEng] ?? $dayEng;
 
                                 $typeLabel = match ($record->type) {
-                                    '0' => 'Masuk', '1' => 'Keluar',
-                                    '2' => 'Break Out', '3' => 'Break In',
-                                    '4' => 'Overtime In', '5' => 'Overtime Out',
-                                    default => "Type " . $record->type,
+                                    '0' => 'MASUK', '1' => 'KELUAR',
+                                    '2' => 'ISTIRAHAT KELUAR', '3' => 'ISTIRAHAT MASUK',
+                                    '4' => 'LEMBUR MASUK', '5' => 'LEMBUR KELUAR',
+                                    default => "TYPE " . $record->type,
                                 };
                                 
                                 $sheet->setCellValue('A' . $row, $dayInd);
@@ -245,10 +272,11 @@ class AttendanceMachineLogResource extends Resource
                                 $sheet->setCellValue('E' . $row, $record->pin);
                                 $sheet->setCellValue('F' . $row, $record->employee?->name ?? 'Tidak Terdaftar');
                                 $sheet->setCellValue('G' . $row, $typeLabel);
+                                $sheet->setCellValue('H' . $row, $record->is_record_duplicate ? 'DUPLIKAT' : '-');
                                 $row++;
                             }
                             
-                            foreach (range('A', 'G') as $col) {
+                            foreach (range('A', 'H') as $col) {
                                 $sheet->getColumnDimension($col)->setAutoSize(true);
                             }
                             
