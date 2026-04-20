@@ -57,23 +57,16 @@ class AdmsController extends Controller
             $table = $request->query('table');
             $content = $request->getContent();
 
-            Log::info("ADMS POST Data Received", [
-                'SN' => $sn,
-                'table' => $table,
-                'query_string' => $request->getQueryString(),
-                'content_length' => strlen($content),
-                'content_preview' => substr($content, 0, 500),
-            ]);
-
             if ($table === 'ATTLOG') {
+                Log::info("ADMS ATTLOG Data Received", [
+                    'SN' => $sn,
+                    'content_length' => strlen($content),
+                    'content_preview' => substr($content, 0, 200),
+                ]);
                 $this->parseAttendanceLogs($machine, $sn, $content);
-            } else {
-                // Try parsing as ATTLOG anyway if content looks like attendance data
-                if (str_contains($content, "\t") && preg_match('/\d{4}-\d{2}-\d{2}/', $content)) {
-                    Log::info("ADMS: No table param, but content looks like ATTLOG. Parsing anyway.");
-                    $this->parseAttendanceLogs($machine, $sn, $content);
-                }
             }
+            // OPERLOG = operation logs (menu access, settings changes) - ignore silently
+            // Other tables (FIRST, etc.) - ignore silently
 
             return response("OK");
         }
