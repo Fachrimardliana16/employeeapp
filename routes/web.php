@@ -281,7 +281,7 @@ Route::middleware(['auth'])->group(function () {
                             $inLog = $dayLogs->whereIn('type', ['0', '3', '4'])->sortBy('timestamp')->first(); // First In
                             $outLog = $dayLogs->where('type', '1')->sortByDesc('timestamp')->first(); // Last Out
 
-                            if ($inLog) {
+                            if ($inLog && $outLog) {
                                 $presentDetails->push([
                                     'date' => $dateStr,
                                     'day' => $dayInd,
@@ -313,29 +313,23 @@ Route::middleware(['auth'])->group(function () {
                                             'time' => $inLog->timestamp->format('H:i:s')
                                         ]);
                                     }
+
+                                    // Check Early Leave
+                                    if ($schedule->check_out_start) {
+                                        if ($outLog->timestamp->format('H:i:s') < $schedule->check_out_start) {
+                                            $earlyDetails->push([
+                                                'date' => $dateStr,
+                                                'day' => $dayInd,
+                                                'time' => $outLog->timestamp->format('H:i:s'),
+                                                'limit' => $schedule->check_out_start
+                                            ]);
+                                        }
+                                    }
                                 } else {
                                     $onTimeDetails->push(['date' => $dateStr, 'day' => $dayInd, 'time' => $inLog->timestamp->format('H:i:s')]);
                                 }
-                            }
-
-                            if ($outLog) {
-                                // Check Early Leave
-                                $schedule = $allSchedules->get($dayInd);
-                                if ($schedule && $schedule->check_out_start) {
-                                    if ($outLog->timestamp->format('H:i:s') < $schedule->check_out_start) {
-                                        $earlyDetails->push([
-                                            'date' => $dateStr,
-                                            'day' => $dayInd,
-                                            'time' => $outLog->timestamp->format('H:i:s'),
-                                            'limit' => $schedule->check_out_start
-                                        ]);
-                                    }
-                                }
-                            }
-
-                            if (!$inLog && !$outLog) {
-                                // Scanned but maybe just break/other? technically absent if no In/Out, 
-                                // but we count as present if ANY working activity log exists for simplicity
+                            } else {
+                                // Missing In or Out = Absent
                                 $absentDetails->push(['date' => $dateStr, 'day' => $dayInd]);
                             }
                         } else {

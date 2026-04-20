@@ -115,7 +115,7 @@
             <div class="text-[8px] italic text-gray-400 space-y-0.5">
                 <p>Keterangan:</p>
                 <ul class="list-disc pl-3">
-                    <li>Hadir: Absensi masuk (Fingerprint/Mobile)</li>
+                    <li>Hadir: Wajib memiliki data scan MASUK dan KELUAR lengkap</li>
                     <li>Absen: Tidak ada data absensi pada hari kerja aktif / libur tidak terjadwal</li>
                     <li>Terlambat: Absen masuk melewati batas waktu toleransi (Late Threshold)</li>
                     <li>Pulang Cepat: Absen keluar sebelum waktu yang ditentukan dalam jadwal</li>
