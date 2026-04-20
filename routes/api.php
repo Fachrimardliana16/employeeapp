@@ -12,6 +12,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 });
 
-// ADMS Protocol Routes
-Route::any('/iclock/cdata', [\App\Http\Controllers\AdmsController::class, 'cdata']);
-Route::get('/iclock/getrequest', [\App\Http\Controllers\AdmsController::class, 'getrequest']);
+// ADMS Protocol Routes removed to avoid /api prefix (moved to web.php)

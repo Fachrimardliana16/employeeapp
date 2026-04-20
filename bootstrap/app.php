@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.role' => \App\Http\Middleware\CheckUserRole::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'iclock/*',
+        ]);
+
         $middleware->redirectGuestsTo(function ($request) {
             if ($request->is('mobile/*') || $request->is('mobile')) {
                 return route('mobile.login');

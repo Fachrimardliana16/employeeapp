@@ -310,3 +310,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/career-movement-report', [\App\Http\Controllers\ReportController::class, 'careerMovement'])->name('report.career-movement');
     Route::get('/career-schedule-report', [\App\Http\Controllers\ReportController::class, 'careerSchedule'])->name('report.career-schedule');
 });
+
+// ADMS (Attendance Machine) Routes - Root Level
+Route::any('/iclock/cdata', [\App\Http\Controllers\AdmsController::class, 'cdata']);
+Route::get('/iclock/getrequest', [\App\Http\Controllers\AdmsController::class, 'getrequest']);

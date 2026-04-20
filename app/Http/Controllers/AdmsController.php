@@ -26,7 +26,18 @@ class AdmsController extends Controller
         // But for this initial phase, we'll auto-update last_heard_at.
         $machine = AttendanceMachine::where('serial_number', $sn)->first();
         
-        if ($machine) {
+        if (!$machine) {
+            // Auto-register unknown machine
+            $machine = AttendanceMachine::create([
+                'serial_number' => $sn,
+                'name' => 'Auto Registered: ' . $sn,
+                'master_office_location_id' => 1, // Default to first location
+                'status' => 'online',
+                'ip_address' => $request->ip(),
+                'last_heard_at' => now(),
+            ]);
+            Log::info("Auto-registered new attendance machine: " . $sn);
+        } else {
             $machine->update([
                 'last_heard_at' => now(),
                 'ip_address' => $request->ip(),
@@ -59,11 +70,23 @@ class AdmsController extends Controller
         $sn = $request->query('SN');
         
         if ($sn) {
-            AttendanceMachine::where('serial_number', $sn)->update([
-                'last_heard_at' => now(),
-                'ip_address' => $request->ip(),
-                'status' => 'online',
-            ]);
+            $machine = AttendanceMachine::where('serial_number', $sn)->first();
+            if (!$machine) {
+                AttendanceMachine::create([
+                    'serial_number' => $sn,
+                    'name' => 'Auto Registered: ' . $sn,
+                    'master_office_location_id' => 1,
+                    'status' => 'online',
+                    'ip_address' => $request->ip(),
+                    'last_heard_at' => now(),
+                ]);
+            } else {
+                $machine->update([
+                    'last_heard_at' => now(),
+                    'ip_address' => $request->ip(),
+                    'status' => 'online',
+                ]);
+            }
         }
 
         // For now, no commands to send to the machine
