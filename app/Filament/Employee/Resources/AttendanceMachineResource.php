@@ -87,6 +87,26 @@ class AttendanceMachineResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\Action::make('sync_logs')
+                    ->label('Tarik Data')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Tarik Log Absensi')
+                    ->modalDescription('Perintah akan dikirim ke mesin. Mesin akan mulai mengirim log absensi pada koneksi heartbeat berikutnya.')
+                    ->action(function (AttendanceMachine $record) {
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => 'DATA QUERY ATTLOG',
+                            'status' => 'pending',
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perintah Terkirim')
+                            ->body('Perintah penarikan data telah dijadwalkan untuk mesin ' . $record->name)
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

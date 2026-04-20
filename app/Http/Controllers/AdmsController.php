@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceMachine;
 use App\Models\AttendanceMachineLog;
+use App\Models\AttendanceMachineCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -81,7 +82,7 @@ class AdmsController extends Controller
             if (!$machine) {
                 $locationId = \App\Models\MasterOfficeLocation::first()?->id;
                 if ($locationId) {
-                    AttendanceMachine::create([
+                    $machine = AttendanceMachine::create([
                         'serial_number' => $sn,
                         'name' => 'Auto Registered: ' . $sn,
                         'master_office_location_id' => $locationId,
@@ -97,9 +98,51 @@ class AdmsController extends Controller
                     'status' => 'online',
                 ]);
             }
+
+            // Check for pending commands
+            if ($machine) {
+                $pendingCommand = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
+                    ->where('status', 'pending')
+                    ->orderBy('created_at', 'asc')
+                    ->first();
+
+                if ($pendingCommand) {
+                    $pendingCommand->update([
+                        'status' => 'sent',
+                        'sent_at' => now(),
+                    ]);
+
+                    // Return command in ZKTeco format: C:ID:COMMAND
+                    return response("C:{$pendingCommand->id}:{$pendingCommand->command}");
+                }
+            }
         }
 
-        // For now, no commands to send to the machine
+        return response("OK");
+    }
+
+    /**
+     * Handle the response/feedback of a command from the machine.
+     * URL: /iclock/devicecmd
+     */
+    public function devicecmd(Request $request)
+    {
+        $sn = $request->query('SN');
+        $id = $request->query('ID');
+        
+        Log::debug("ADMS devicecmd Feedback", ['SN' => $sn, 'ID' => $id, 'Return' => $request->getContent()]);
+
+        if ($id) {
+            $command = AttendanceMachineCommand::find($id);
+            if ($command) {
+                $command->update([
+                    'status' => 'completed',
+                    'completed_at' => now(),
+                    'response_payload' => $request->getContent()
+                ]);
+            }
+        }
+
         return response("OK");
     }
 

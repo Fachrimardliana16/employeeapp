@@ -314,3 +314,4 @@ Route::middleware(['auth'])->group(function () {
 // ADMS (Attendance Machine) Routes - Root Level
 Route::any('/iclock/cdata', [\App\Http\Controllers\AdmsController::class, 'cdata']);
 Route::get('/iclock/getrequest', [\App\Http\Controllers\AdmsController::class, 'getrequest']);
+Route::any('/iclock/devicecmd', [\App\Http\Controllers\AdmsController::class, 'devicecmd']);
