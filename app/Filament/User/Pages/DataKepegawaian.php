@@ -43,6 +43,7 @@ class DataKepegawaian extends Page implements HasInfolists
             'families.masterFamily',
             'employeeAgreements.masterAgreement',
             'attendanceRecords',
+            'attendanceMachineLogs.machine.officeLocation',
             'employeePermissions.permission',
             'mutations.oldPosition',
             'mutations.newPosition',

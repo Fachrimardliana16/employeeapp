@@ -291,6 +291,11 @@ class Employee extends Model
         return $this->hasMany(EmployeeAttendanceRecord::class, 'pin', 'pin');
     }
 
+    public function attendanceMachineLogs(): HasMany
+    {
+        return $this->hasMany(AttendanceMachineLog::class, 'pin', 'pin');
+    }
+
     public function trainings(): HasMany
     {
         return $this->hasMany(EmployeeTraining::class, 'employee_id');
