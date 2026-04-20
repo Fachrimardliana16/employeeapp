@@ -12,7 +12,7 @@
             body { background: white; padding: 0; }
             .report-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: none !important; width: 100% !important; }
             table { border-collapse: collapse; width: 100%; border: 1.5px solid black; }
-            th, td { border: 1px solid black !important; padding: 4px 6px !important; font-size: 10px !important; line-height: 1.2; }
+            th, td { border: 1px solid black !important; padding: 4px 6px !important; font-size: 9px !important; line-height: 1.2; }
             th { background-color: #f0f0f0 !important; color: black !important; font-weight: bold; text-transform: uppercase; }
         }
         .signature-space { height: 60px; }
@@ -71,46 +71,54 @@
         <div class="overflow-x-auto mb-8">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="bg-gray-100 text-[10px] font-bold">
-                        <th class="px-2 py-1 border border-slate-300 w-12">NO</th>
-                        <th class="px-2 py-1 border border-slate-300">TANGGAL</th>
-                        <th class="px-2 py-1 border border-slate-300">HARI</th>
-                        <th class="px-2 py-1 border border-slate-300">PIN</th>
-                        <th class="px-2 py-1 border border-slate-300 text-left">NAMA PEGAWAI</th>
-                        <th class="px-2 py-1 border border-slate-300">JAM</th>
-                        <th class="px-2 py-1 border border-slate-300">TIPE LOG</th>
-                        <th class="px-2 py-1 border border-slate-300">LOKASI/MESIN</th>
-                        <th class="px-2 py-1 border border-slate-300">KET.</th>
+                    <tr class="bg-gray-100 text-[9px] font-bold">
+                        <th class="px-2 py-1.5 border border-slate-400 w-10 text-center">NO</th>
+                        <th class="px-2 py-1.5 border border-slate-400 w-20 text-center">TANGGAL</th>
+                        <th class="px-2 py-1.5 border border-slate-400 w-16 text-center">HARI</th>
+                        <th class="px-2 py-1.5 border border-slate-400 w-12 text-center">PIN</th>
+                        <th class="px-2 py-1.5 border border-slate-400 text-left">NAMA PEGAWAI</th>
+                        <th class="px-2 py-1.5 border border-slate-400 w-16 text-center">JAM</th>
+                        <th class="px-2 py-1.5 border border-slate-400 w-24 text-center">TIPE LOG</th>
+                        <th class="px-2 py-1.5 border border-slate-400 text-center">LOKASI/MESIN</th>
+                        <th class="px-2 py-1.5 border border-slate-400 w-16 text-center">KET.</th>
                     </tr>
                 </thead>
-                <tbody class="text-[10px]">
-                            <div class="text-[8px] text-gray-400 capitalize">{{ $record->machine?->officeLocation?->name ?? '-' }}</div>
-                        </td>
-                        <td class="py-2 px-2 text-center">
+                <tbody class="text-[9px]">
+                    @forelse($records as $index => $log)
+                    <tr class="{{ $log->is_record_duplicate ? 'bg-slate-50 italic text-slate-400' : '' }}">
+                        <td class="px-2 py-1.5 text-center border border-slate-300">{{ $index + 1 }}</td>
+                        <td class="px-2 py-1.5 text-center border border-slate-300 font-mono">{{ $log->timestamp->format('d/m/Y') }}</td>
+                        <td class="px-2 py-1.5 text-center border border-slate-300 font-bold uppercase tracking-tighter">{{ $log->hari_indonesia }}</td>
+                        <td class="px-2 py-1.5 text-center border border-slate-300 font-mono">{{ $log->pin }}</td>
+                        <td class="px-2 py-1.5 text-left border border-slate-300 font-bold uppercase">{{ $log->employee->name ?? 'TIDAK TERDAFTAR' }}</td>
+                        <td class="px-2 py-1.5 text-center border border-slate-300 font-bold font-mono">{{ $log->timestamp->format('H:i:s') }}</td>
+                        <td class="px-2 py-1.5 text-center border border-slate-300">
                             @php
-                                $typeLabel = match ($record->type) {
-                                    '0' => 'Masuk',
-                                    '1' => 'Keluar',
-                                    '2' => 'Break Out',
-                                    '3' => 'Break In',
-                                    '4' => 'Overtime In',
-                                    '5' => 'Overtime Out',
-                                    default => 'Tipe ' . $record->type,
-                                };
-                                $colorClass = match ($record->type) {
-                                    '0', '3', '4' => 'text-emerald-700 font-bold',
-                                    '1', '2', '5' => 'text-red-700 font-bold',
-                                    default => 'text-gray-600',
+                                $types = ['0' => 'MASUK', '1' => 'KELUAR', '2' => 'ISTIRAHAT KELUAR', '3' => 'ISTIRAHAT MASUK', '4' => 'LEMBUR MASUK', '5' => 'LEMBUR KELUAR'];
+                                $typeName = $types[$log->type] ?? 'LAINNYA';
+                                $color = match((string)$log->type) {
+                                    '0','3','4' => 'text-emerald-700',
+                                    '1','2','5' => 'text-red-700',
+                                    default => 'text-slate-600'
                                 };
                             @endphp
-                            <span class="{{ $colorClass }} uppercase text-[8px] border border-current px-1 rounded-sm">
-                                {{ $typeLabel }}
-                            </span>
+                            <span class="{{ $log->is_record_duplicate ? '' : $color }} font-black text-[8px]">{{ $typeName }}</span>
+                        </td>
+                        <td class="px-2 py-1.5 text-center border border-slate-300">
+                            <div class="leading-tight">{{ $log->machine?->name ?? '-' }}</div>
+                            <div class="text-[7px] text-gray-400">{{ $log->machine?->officeLocation?->name ?? '-' }}</div>
+                        </td>
+                        <td class="px-2 py-1.5 text-center border border-slate-300">
+                            @if($log->is_record_duplicate)
+                                <span class="bg-amber-100 text-amber-800 text-[7px] px-1 rounded font-bold border border-amber-200">DUPLIKAT</span>
+                            @else
+                                <span class="text-emerald-600 text-[10px]">●</span>
+                            @endif
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="py-8 text-center italic text-gray-400">Tidak ada data log absensi yang ditemukan untuk kriteria ini.</td>
+                        <td colspan="9" class="py-10 text-center italic text-gray-400 border">Sistem tidak menemukan data log absensi untuk filter ini.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -122,18 +130,18 @@
             <div class="text-[9px] italic text-gray-400">
                 <p>Keterangan:</p>
                 <ul class="list-disc pl-3">
-                    <li>Data di atas adalah rekaman mentah (Raw Log) dari mesin absensi.</li>
-                    <li>Waktu yang ditampilkan adalah waktu saat jari/kartu ditempelkan ke mesin.</li>
+                    <li><b>Data Mentah</b>: Merupakan rekaman log asli dari mesin tanpa modifikasi.</li>
+                    <li><b>Duplikat</b>: Ditandai jika sistem menemukan scan berulang untuk tipe yang sama oleh pegawai yang sama di hari tersebut.</li>
+                    <li>Sistem hanya menggunakan scan pertama (untuk masuk) dan scan terakhir (untuk pulang) dalam hitungan laporan analisa.</li>
                 </ul>
-                <p class="mt-4 text-[8px]">Dicetak oleh: {{ auth()->user()->name }} | {{ now()->translatedFormat('d/m/Y H:i:s') }}</p>
+                <p class="mt-4 text-[8px]">Dicetak oleh: {{ auth()->user()->name }} | {{ now()->translatedFormat('d/m/Y H:i:s') }} WIB</p>
             </div>
             <div class="w-56 text-center">
                 <p class="text-[10px] mb-0.5">Purbalingga, {{ now()->translatedFormat('d F Y') }}</p>
                 <p class="text-[10px] font-bold uppercase mb-0.5">Mengetahui/Menyetujui,</p>
-                <p class="text-[10px] font-bold uppercase italic border-b border-black inline-block px-3">Pejabat Berwenang</p>
                 <div class="signature-space"></div>
-                <div class="border-b border-black w-40 mx-auto mb-0.5"></div>
-                <p class="text-[8px] text-gray-400 uppercase tracking-widest leading-none">NIP / Tanda Tangan</p>
+                <div class="border-b border-black w-44 mx-auto mb-1"></div>
+                <p class="text-[9px] font-bold uppercase tracking-widest leading-none">Pejabat Berwenang</p>
             </div>
         </div>
 
@@ -148,10 +156,5 @@
             </button>
         </div>
     </div>
-    <script>
-        window.onload = function() {
-            // window.print();
-        };
-    </script>
 </body>
 </html>
