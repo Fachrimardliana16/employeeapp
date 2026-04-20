@@ -8,107 +8,149 @@
     $logs = $getRecord()->attendanceMachineLogs->sortByDesc('timestamp')->take(15);
 @endphp
 
-<div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-    <table class="w-full text-[11px] text-left border-collapse">
-        <thead>
-            <tr class="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold uppercase tracking-wider">
-                <th class="px-3 py-3 border-b text-center">Hari & Tanggal</th>
-                <th class="px-3 py-3 border-b text-center">Jam</th>
-                <th class="px-3 py-3 border-b text-center">Tipe Log</th>
-                <th class="px-3 py-3 border-b text-center">Status</th>
-                <th class="px-3 py-3 border-b text-center">Validasi</th>
-                <th class="px-3 py-3 border-b">Lokasi / Mesin</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-            @forelse($logs as $log)
-                @php
-                    $date = $log->timestamp;
-                    $dayEng = strtolower($date->format('l'));
-                    $dayInd = $dayMap[$dayEng] ?? $dayEng;
-                    $schedule = $schedules->get(strtolower($dayInd))?->first();
-                    
-                    $time = $date->format('H:i:s');
-                    $status = '-';
-                    $statusColor = 'text-gray-500';
-
-                    // Performance Status Logic
-                    if (in_array((string)$log->type, ['0', '3', '4'])) {
-                        $limit = $schedule?->late_threshold ?: $schedule?->check_in_end;
-                        $status = ($limit && $time > $limit) ? 'TERLAMBAT' : 'TEPAT WAKTU';
-                        $statusColor = ($status === 'TERLAMBAT') ? 'text-red-600 bg-red-50' : 'text-emerald-700 bg-emerald-50';
-                    } elseif ((string)$log->type === '1') {
-                        $status = ($schedule?->check_out_start && $time < $schedule->check_out_start) ? 'PULANG CEPAT' : 'TEPAT WAKTU';
-                        $statusColor = ($status === 'PULANG CEPAT') ? 'text-amber-600 bg-amber-50' : 'text-emerald-700 bg-emerald-50';
-                    }
-
-                    // Duplicate Logic (Scoped to this employee/day/type)
-                    $dayLogs = $getRecord()->attendanceMachineLogs
-                        ->whereBetween('timestamp', [$date->copy()->startOfDay(), $date->copy()->endOfDay()])
-                        ->where('type', $log->type)
-                        ->sortBy('timestamp');
-                    
-                    $isValid = true;
-                    if ($dayLogs->count() > 1) {
-                        if (in_array((string)$log->type, ['0', '3', '4'])) {
-                            $isValid = ($log->id === $dayLogs->first()->id);
-                        } elseif ((string)$log->type === '1') {
-                            $isValid = ($log->id === $dayLogs->last()->id);
-                        } else {
-                            $isValid = ($log->id === $dayLogs->first()->id);
-                        }
-                    }
-                @endphp
-                <tr class="{{ !$isValid ? 'bg-gray-50 italic text-gray-400' : 'hover:bg-gray-50' }}">
-                    <td class="px-3 py-2.5 text-center font-medium">
-                        <span class="font-bold text-gray-900">{{ $dayInd }}</span>, {{ $date->format('d/m/Y') }}
-                    </td>
-                    <td class="px-3 py-2.5 text-center font-mono font-bold text-gray-700">
-                        {{ $time }}
-                    </td>
-                    <td class="px-3 py-2.5 text-center">
-                        @php
-                            $types = ['0' => 'MASUK', '1' => 'KELUAR', '2' => 'ISTIRAHAT OUT', '3' => 'ISTIRAHAT IN', '4' => 'LEMBUR IN', '5' => 'LEMBUR OUT'];
-                            $typeName = $types[$log->type] ?? 'LAINNYA';
-                            $typeColor = in_array((string)$log->type, ['0', '3', '4']) ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-red-700 border-red-200 bg-red-50';
-                        @endphp
-                        <span class="px-2 py-0.5 rounded border {{ $typeColor }} font-bold text-[9px]">
-                            {{ $typeName }}
-                        </span>
-                    </td>
-                    <td class="px-3 py-2.5 text-center">
-                        @if($status !== '-')
-                            <span class="px-2 py-0.5 rounded font-black text-[9px] {{ $statusColor }}">
-                                {{ $status }}
-                            </span>
-                        @else
-                            <span class="text-gray-300">-</span>
-                        @endif
-                    </td>
-                    <td class="px-3 py-2.5 text-center">
-                        @if(!$isValid)
-                            <span class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-bold text-[8px]">DUPLIKAT</span>
-                        @else
-                            <span class="text-emerald-500 font-bold">●</span>
-                        @endif
-                    </td>
-                    <td class="px-3 py-2.5">
-                        <div class="font-medium text-gray-900">{{ $log->machine?->name ?? '-' }}</div>
-                        <div class="text-[9px] text-gray-400">{{ $log->machine?->officeLocation?->name ?? '-' }}</div>
-                    </td>
-                </tr>
-            @empty
+<div class="overflow-hidden rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10 mt-2 shadow-sm bg-white dark:bg-gray-900">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left divide-y table-auto border-collapse divide-gray-200 dark:divide-white/5">
+            <thead class="bg-gray-50/50 dark:bg-white/5">
                 <tr>
-                    <td colspan="6" class="p-8 text-center text-gray-400 italic">Belum ada rekaman log mesin absensi.</td>
+                    <th class="px-4 py-3.5 text-sm font-semibold text-gray-900 dark:text-white">Hari & Tanggal</th>
+                    <th class="px-4 py-3.5 text-sm font-semibold text-gray-900 dark:text-white">Waktu</th>
+                    <th class="px-4 py-3.5 text-sm font-semibold text-gray-900 dark:text-white">Tipe Log</th>
+                    <th class="px-4 py-3.5 text-sm font-semibold text-gray-900 dark:text-white">Status Performa</th>
+                    <th class="px-4 py-3.5 text-sm font-semibold text-gray-900 dark:text-white text-center">Ket.</th>
+                    <th class="px-4 py-3.5 text-sm font-semibold text-gray-900 dark:text-white">Lokasi / Mesin</th>
                 </tr>
-            @endforelse
-        </tbody>
-    </table>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-white/5">
+                @forelse($logs as $log)
+                    @php
+                        $date = $log->timestamp;
+                        $dayEng = strtolower($date->format('l'));
+                        $dayInd = $dayMap[$dayEng] ?? $dayEng;
+                        $schedule = $schedules->get(strtolower($dayInd))?->first();
+                        
+                        $time = $date->format('H:i:s');
+                        $statusLabel = null;
+                        $statusColor = 'gray';
+                        $statusIcon = 'heroicon-m-minus-small';
+
+                        // Performance Status Logic
+                        if (in_array((string)$log->type, ['0', '3', '4'])) {
+                            $limit = $schedule?->late_threshold ?: $schedule?->check_in_end;
+                            if ($limit && $time > $limit) {
+                                $statusLabel = 'Terlambat';
+                                $statusColor = 'danger';
+                                $statusIcon = 'heroicon-m-clock';
+                            } else {
+                                $statusLabel = 'Tepat Waktu';
+                                $statusColor = 'success';
+                                $statusIcon = 'heroicon-m-check-badge';
+                            }
+                        } elseif ((string)$log->type === '1') {
+                            if ($schedule?->check_out_start && $time < $schedule->check_out_start) {
+                                $statusLabel = 'Pulang Cepat';
+                                $statusColor = 'warning';
+                                $statusIcon = 'heroicon-m-exclamation-triangle';
+                            } else {
+                                $statusLabel = 'Tepat Waktu';
+                                $statusColor = 'success';
+                                $statusIcon = 'heroicon-m-check-badge';
+                            }
+                        }
+
+                        // Duplicate Logic
+                        $dayLogs = $getRecord()->attendanceMachineLogs
+                            ->whereBetween('timestamp', [$date->copy()->startOfDay(), $date->copy()->endOfDay()])
+                            ->where('type', $log->type)
+                            ->sortBy('timestamp');
+                        
+                        $isValid = true;
+                        if ($dayLogs->count() > 1) {
+                            if (in_array((string)$log->type, ['0', '3', '4'])) {
+                                $isValid = ($log->id === $dayLogs->first()->id);
+                            } elseif ((string)$log->type === '1') {
+                                $isValid = ($log->id === $dayLogs->last()->id);
+                            } else {
+                                $isValid = ($log->id === $dayLogs->first()->id);
+                            }
+                        }
+
+                        // Type Helper
+                        $types = [
+                            '0' => ['name' => 'MASUK', 'color' => 'success', 'icon' => 'heroicon-m-arrow-right-start-on-rectangle'],
+                            '1' => ['name' => 'KELUAR', 'color' => 'danger', 'icon' => 'heroicon-m-arrow-left-start-on-rectangle'],
+                            '2' => ['name' => 'ISTIRAHAT OUT', 'color' => 'warning', 'icon' => 'heroicon-m-arrow-up-on-square'],
+                            '3' => ['name' => 'ISTIRAHAT IN', 'color' => 'success', 'icon' => 'heroicon-m-arrow-down-on-square'],
+                            '4' => ['name' => 'LEMBUR IN', 'color' => 'info', 'icon' => 'heroicon-m-bolt'],
+                            '5' => ['name' => 'LEMBUR OUT', 'color' => 'danger', 'icon' => 'heroicon-m-bolt-slash'],
+                        ];
+                        $typeData = $types[$log->type] ?? ['name' => 'LAINNYA', 'color' => 'gray', 'icon' => 'heroicon-m-question-mark-circle'];
+                    @endphp
+                    <tr @class([
+                        'hover:bg-gray-50 dark:hover:bg-white/5 transition duration-75',
+                        'bg-gray-50/30' => !$isValid,
+                    ])>
+                        <td class="px-4 py-4 text-sm align-top">
+                            <div class="font-bold text-gray-900 dark:text-white uppercase">{{ $dayInd }}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $date->format('d/m/Y') }}</div>
+                        </td>
+                        <td class="px-4 py-4 text-sm font-mono font-bold text-gray-700 dark:text-gray-300 align-top">
+                            {{ $time }}
+                        </td>
+                        <td class="px-4 py-4 text-sm align-top">
+                            <x-filament::badge :color="$typeData['color']" :icon="$typeData['icon']" size="sm">
+                                {{ $typeData['name'] }}
+                            </x-filament::badge>
+                        </td>
+                        <td class="px-4 py-4 text-sm align-top">
+                            @if($statusLabel)
+                                <x-filament::badge :color="$statusColor" :icon="$statusIcon" size="sm">
+                                    {{ $statusLabel }}
+                                </x-filament::badge>
+                            @else
+                                <span class="text-gray-300 dark:text-gray-600">-</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-4 text-sm text-center align-top">
+                            @if(!$isValid)
+                                <x-filament::badge color="gray" size="sm">
+                                    DUPLIKAT
+                                </x-filament::badge>
+                            @else
+                                <div class="flex justify-center">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                </div>
+                            @endif
+                        </td>
+                        <td class="px-4 py-4 text-sm align-top">
+                            <div class="font-medium text-gray-900 dark:text-white">{{ $log->machine?->name ?? '-' }}</div>
+                            <div class="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">{{ $log->machine?->officeLocation?->name ?? '-' }}</div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="6" class="p-12 text-center text-gray-500 dark:text-gray-400 italic">
+                            <div class="flex flex-col items-center gap-2">
+                                <x-filament::icon icon="heroicon-o-inbox" class="w-8 h-8 text-gray-300" />
+                                <span>Belum ada rekaman log mesin absensi.</span>
+                            </div>
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 </div>
 
-<div class="mt-2 text-right">
-    <a href="{{ route('filament.user.resources.my-attendances.index') }}" class="text-[10px] font-bold text-primary-600 hover:underline flex items-center justify-end gap-1">
-        Lihat Selengkapnya
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-    </a>
+<div class="mt-4 flex justify-end">
+    <x-filament::button
+        href="{{ route('filament.user.resources.my-attendances.index') }}"
+        tag="a"
+        color="gray"
+        size="xs"
+        icon="heroicon-m-arrow-right"
+        icon-position="after"
+    >
+        Lihat Riwayat Lengkap
+    </x-filament::button>
 </div>

@@ -1841,6 +1841,18 @@ class EmployeeResource extends Resource
                                                         ->hiddenLabel(),
                                                 ])->compact(),
                                         ]),
+                                    
+                                    Infolists\Components\Tabs\Tab::make('Riwayat Presensi')
+                                        ->icon('heroicon-o-clock')
+                                        ->schema([
+                                            Infolists\Components\Section::make('Log Mesin Absensi')
+                                                ->description('15 Rekaman scan terakhir dari mesin absensi')
+                                                ->schema([
+                                                    Infolists\Components\ViewEntry::make('attendance_data')
+                                                        ->view('filament.components.attendance-history-table')
+                                                        ->hiddenLabel(),
+                                                ])->compact(),
+                                        ]),
                                 ])
                                 ->persistTabInQueryString(),
                         ])->columnSpan(2),
@@ -1866,7 +1878,7 @@ class EmployeeResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit']);
+            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit', 'attendanceMachineLogs.machine.officeLocation']);
     }
 
     public static function getPages(): array
