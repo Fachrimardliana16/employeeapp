@@ -11,6 +11,10 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use App\Models\MasterEmployeeStatusEmployment;
+use App\Models\MasterEmployeeGrade;
+use App\Models\MasterEmployeePosition;
+use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
 
 class PayrollFormulaResource extends Resource
 {
@@ -65,12 +69,19 @@ class PayrollFormulaResource extends Resource
                             $state === 'all' ? $set('applies_to_value', null) : null
                         ),
 
-                    Forms\Components\TextInput::make('applies_to_value')
-                        ->label('Nilai')
-                        ->maxLength(255)
-                        ->placeholder('Contoh: CAPEG, THL, Grade 5, dll')
-                        ->hidden(fn(Forms\Get $get) => $get('applies_to') === 'all')
-                        ->helperText('Isi dengan nilai status/grade/jabatan yang sesuai'),
+                    Forms\Components\Select::make('applies_to_value')
+                        ->label('Nilai Spesifik')
+                        ->required()
+                        ->searchable()
+                        ->preload()
+                        ->options(fn(Forms\Get $get) => match ($get('applies_to')) {
+                            'status' => MasterEmployeeStatusEmployment::pluck('name', 'name'),
+                            'grade' => MasterEmployeeGrade::pluck('name', 'name'),
+                            'position' => MasterEmployeePosition::pluck('name', 'name'),
+                            default => [],
+                        })
+                        ->hidden(fn(Forms\Get $get) => $get('applies_to') === 'all' || !$get('applies_to'))
+                        ->helperText('Pilih nilai yang sesuai dengan filter di atas'),
 
                     Forms\Components\TextInput::make('percentage_multiplier')
                         ->label('Persentase Multiplier')
@@ -204,6 +215,13 @@ class PayrollFormulaResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ])->label('Hapus yang Dipilih'),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ActivitylogRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

@@ -76,7 +76,6 @@ class ActivityLogResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
-                    Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])
                 ->label('Aksi')
                 ->icon('heroicon-m-ellipsis-vertical')
@@ -85,10 +84,7 @@ class ActivityLogResource extends Resource
                 ->button(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->label('Hapus yang Dipilih'),
-                ])->label('Hapus yang Dipilih'),
+                // Delete actions removed to preserve audit trail
             ]);
     }
 

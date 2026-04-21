@@ -15,7 +15,7 @@ class ViewActivityLog extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            // Delete action removed
         ];
     }
 
@@ -23,29 +23,37 @@ class ViewActivityLog extends ViewRecord
     {
         return $infolist
             ->schema([
-                Infolists\Components\Section::make('Activity Details')
+                Infolists\Components\Section::make('Informasi Aktivitas')
+                    ->icon('heroicon-o-information-circle')
                     ->schema([
                         Infolists\Components\TextEntry::make('log_name')
-                            ->label('Log Name')
-                            ->badge(),
+                            ->label('Nama Log')
+                            ->badge()
+                            ->color('info'),
                         Infolists\Components\TextEntry::make('description')
-                            ->label('Description'),
+                            ->label('Deskripsi'),
                         Infolists\Components\TextEntry::make('subject_type')
-                            ->label('Subject Type'),
+                            ->label('Tipe Subjek')
+                            ->color('gray'),
                         Infolists\Components\TextEntry::make('subject_id')
-                            ->label('Subject ID'),
+                            ->label('ID Subjek')
+                            ->color('gray'),
                         Infolists\Components\TextEntry::make('causer.name')
-                            ->label('User'),
+                            ->label('Pelaku (User)')
+                            ->icon('heroicon-m-user')
+                            ->weight('bold'),
                         Infolists\Components\TextEntry::make('created_at')
-                            ->label('Date')
-                            ->dateTime(),
+                            ->label('Waktu Kejadian')
+                            ->dateTime('d F Y, H:i:s')
+                            ->icon('heroicon-m-clock'),
                     ])->columns(2),
-                Infolists\Components\Section::make('Properties')
+                Infolists\Components\Section::make('Detail Perubahan Data')
+                    ->description('Perbandingan nilai lama dan nilai baru yang tercatat.')
+                    ->icon('heroicon-o-arrow-path')
                     ->schema([
-                        Infolists\Components\TextEntry::make('properties')
-                            ->label('Properties')
-                            ->formatStateUsing(fn ($state) => json_encode($state, JSON_PRETTY_PRINT))
-                            ->html()
+                        Infolists\Components\ViewEntry::make('properties')
+                            ->label('')
+                            ->view('filament.admin.activity-log.properties-view')
                             ->columnSpanFull(),
                     ]),
             ]);

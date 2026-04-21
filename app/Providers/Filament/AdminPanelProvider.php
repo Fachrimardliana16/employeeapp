@@ -44,6 +44,9 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 // Default widgets removed
             ])
+            ->plugins([
+                \Rmsramos\Activitylog\ActivitylogPlugin::make(),
+            ])
             ->userMenuItems([
                 MenuItem::make()
                     ->label('Panel Kepagawaian')

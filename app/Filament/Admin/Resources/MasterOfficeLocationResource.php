@@ -5,6 +5,8 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\MasterOfficeLocationResource\Pages;
 use App\Filament\Admin\Resources\MasterOfficeLocationResource\RelationManagers;
 use App\Models\MasterOfficeLocation;
+use Dotswan\MapPicker\Fields\Map;
+use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -116,6 +118,23 @@ class MasterOfficeLocationResource extends Resource
                                     ->suffix('meter')
                                     ->helperText('Jarak maksimal untuk absen (10-1000 meter)'),
                             ]),
+
+                        Map::make('location')
+                            ->label('Pilih Lokasi di Peta')
+                            ->columnSpanFull()
+                            ->defaultLocation(-6.200000, 106.816666)
+                            ->afterStateHydrated(function ($set, $record) {
+                                if ($record) {
+                                    $set('location', ['lat' => $record->latitude, 'lng' => $record->longitude]);
+                                }
+                            })
+                            ->afterStateUpdated(function ($set, $state) {
+                                if (is_array($state)) {
+                                    $set('latitude', $state['lat']);
+                                    $set('longitude', $state['lng']);
+                                }
+                            })
+                            ->dehydrated(false),
 
                         Forms\Components\Placeholder::make('map_helper')
                             ->label('Cara Mendapatkan Koordinat')
@@ -247,7 +266,7 @@ class MasterOfficeLocationResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            // ActivitylogRelationManager::class,
         ];
     }
 

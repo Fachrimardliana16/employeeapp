@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class AttendanceSchedule extends Model
 {
+    use \Spatie\Activitylog\Traits\LogsActivity;
+
     protected $fillable = [
         'day',
         'check_in_start',
@@ -19,4 +21,12 @@ class AttendanceSchedule extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
+    {
+        return \Spatie\Activitylog\LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 }

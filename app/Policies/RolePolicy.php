@@ -27,11 +27,17 @@ class RolePolicy
 
     public function update(User $user, Role $model): bool
     {
+        if ($model->name === 'superadmin') {
+            return false;
+        }
         return $user->hasPermissionTo('update_role');
     }
 
     public function delete(User $user, Role $model): bool
     {
+        if ($model->name === 'superadmin') {
+            return false;
+        }
         return $user->hasPermissionTo('delete_role');
     }
 }

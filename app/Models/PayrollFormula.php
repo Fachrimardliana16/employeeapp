@@ -5,8 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\LogsActivityTrait;
+
 class PayrollFormula extends Model
 {
+    use SoftDeletes, LogsActivityTrait;
+
     protected $fillable = [
         'formula_name',
         'formula_code',

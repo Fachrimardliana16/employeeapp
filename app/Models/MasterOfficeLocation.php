@@ -9,7 +9,7 @@ use App\Traits\HasUserTracking;
 
 class MasterOfficeLocation extends Model
 {
-    use SoftDeletes, HasUserTracking;
+    use SoftDeletes, HasUserTracking, \Spatie\Activitylog\Traits\LogsActivity;
 
     protected $fillable = [
         'name',
@@ -121,5 +121,13 @@ class MasterOfficeLocation extends Model
             'location' => $closestLocation,
             'distance' => $minDistance,
         ];
+    }
+
+    public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
+    {
+        return \Spatie\Activitylog\LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

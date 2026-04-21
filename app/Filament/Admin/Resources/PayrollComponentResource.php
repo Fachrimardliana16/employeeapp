@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
 
 class PayrollComponentResource extends Resource
 {
@@ -44,7 +45,7 @@ class PayrollComponentResource extends Resource
                         ->label('Tipe Komponen')
                         ->required()
                         ->options([
-                            'allowance' => 'Tunjangan',
+                            'income' => 'Tunjangan (Pendapatan)',
                             'deduction' => 'Potongan',
                             'bonus' => 'Bonus',
                         ])
@@ -153,7 +154,8 @@ class PayrollComponentResource extends Resource
                     default => 'gray',
                 })
                 ->formatStateUsing(fn(string $state): string => match ($state) {
-                    'allowance' => 'Tunjangan',
+                    'income' => 'Tunjangan',
+                    'allowance' => 'Tunjangan', // fallback
                     'deduction' => 'Potongan',
                     'bonus' => 'Bonus',
                     default => $state,
@@ -189,7 +191,7 @@ class PayrollComponentResource extends Resource
                 Tables\Filters\SelectFilter::make('component_type')
                     ->label('Tipe')
                     ->options([
-                        'allowance' => 'Tunjangan',
+                        'income' => 'Tunjangan',
                         'deduction' => 'Potongan',
                         'bonus' => 'Bonus',
                     ]),
@@ -217,6 +219,13 @@ class PayrollComponentResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ])->label('Hapus yang Dipilih'),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ActivitylogRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

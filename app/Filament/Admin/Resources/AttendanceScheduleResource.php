@@ -9,6 +9,9 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Get;
+use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
+use Closure;
 
 class AttendanceScheduleResource extends Resource
 {
@@ -47,7 +50,19 @@ class AttendanceScheduleResource extends Resource
                             ->label('Batas Telat')
                             ->required()
                             ->seconds(true)
-                            ->helperText('Waktu dimana karyawan mulai dianggap terlambat.'),
+                            ->helperText('Waktu dimana karyawan mulai dianggap terlambat.')
+                            ->rules([
+                                fn(Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    $checkInStart = $get('check_in_start');
+                                    $checkInEnd = $get('check_in_end');
+
+                                    if (!$checkInStart || !$checkInEnd) return;
+
+                                    if ($value < $checkInStart || $value > $checkInEnd) {
+                                        $fail("Batas telat harus berada di antara jam masuk ({$checkInStart} - {$checkInEnd}).");
+                                    }
+                                },
+                            ]),
 
                         Forms\Components\Grid::make(4)
                             ->schema([
@@ -111,6 +126,13 @@ class AttendanceScheduleResource extends Resource
             ])
             ->bulkActions([])
             ->paginated(false);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            // ActivitylogRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

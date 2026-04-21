@@ -26,7 +26,9 @@
                     <li><strong>Admin Panel:</strong> Filament v3.3.35</li>
                     <li><strong>Database:</strong> MySQL with foreign key constraints</li>
                     <li><strong>Authentication:</strong> Laravel Sanctum</li>
-                    <li><strong>Authorization:</strong> Spatie Laravel Permission 6.21.0</li>
+                    <li><strong>Authorization:</strong> Spatie Laravel Permission 6.10.1</li>
+                    <li><strong>Audit Trail:</strong> Spatie Laravel Activitylog 4.9.1</li>
+                    <li><strong>Map Engine:</strong> Leaflet.js with Dotswan Map Picker</li>
                     <li><strong>PDF Generation:</strong> DomPDF</li>
                     <li><strong>File Storage:</strong> Laravel Storage (local/cloud)</li>
                 </ul>
@@ -54,7 +56,8 @@ app/Filament/
                     <li><strong>Observer Pattern:</strong> Auto-populate user_id, employee_id on create</li>
                     <li><strong>Resource Pattern:</strong> Filament resources for CRUD operations</li>
                     <li><strong>Approval Workflow:</strong> Pending → Approved/Rejected with notes</li>
-                    <li><strong>Soft Deletes:</strong> Most models use SoftDeletes trait</li>
+                    <li><strong>Soft Deletes:</strong> Core models (Employee, Payroll, Master Data) use SoftDeletes</li>
+                    <li><strong>Audit Immutability:</strong> Activity logs are permanent and cannot be deleted</li>
                 </ul>
             </div>
         </x-filament::section>
@@ -130,12 +133,12 @@ app/Filament/
                             <tr>
                                 <td class="px-4 py-2 font-mono">payroll_formulas</td>
                                 <td class="px-4 py-2">Calculation formulas by status/grade/position</td>
-                                <td class="px-4 py-2">formula_code, applies_to_type, applies_to_value, formula_components (JSON), percentage_multiplier</td>
+                                <td class="px-4 py-2">formula_code, applies_to (status/grade/position), applies_to_value (dynamic select), formula_components (JSON), softDeletes</td>
                             </tr>
                             <tr>
                                 <td class="px-4 py-2 font-mono">payroll_components</td>
                                 <td class="px-4 py-2">Allowances, deductions, bonuses</td>
-                                <td class="px-4 py-2">component_code, component_name, component_type, calculation_method, amount/percentage, is_taxable</td>
+                                <td class="px-4 py-2">component_code, name, type (income/deduction/bonus), calculation_method, amount/percentage, softDeletes</td>
                             </tr>
                             <tr>
                                 <td class="px-4 py-2 font-mono">employee_payrolls</td>
@@ -164,6 +167,7 @@ app/Filament/
                     <li><code>master_employee_grade_benefits</code> - Benefits per grade</li>
                     <li><code>master_employee_basic_salaries</code> - Base salary ranges</li>
                     <li><code>master_standar_harga_satuans</code> - Standard cost units for business travel (SHS)</li>
+                    <li><code>master_office_locations</code> - Office coordinates with interactive Leaflet Map & Radius</li>
                 </ul>
 
                 <h4 class="font-bold text-lg mt-6">Key Relationships</h4>
@@ -402,6 +406,8 @@ FileUpload::make('file_path')
                     <li>Validate all user inputs</li>
                     <li>Sanitize file uploads (check MIME type)</li>
                     <li>Use CSRF protection (automatic in Filament)</li>
+                    <li><strong>Security:</strong> Protected `superadmin` role (immutable)</li>
+                    <li><strong>Audit Trail:</strong> Global activity logging with no-deletion policy</li>
                     <li>Never expose sensitive data in API responses</li>
                     <li>Use Auth::id() instead of auth()->id() for consistency</li>
                 </ul>

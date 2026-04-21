@@ -6,8 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\LogsActivityTrait;
+
 class PayrollComponent extends Model
 {
+    use SoftDeletes, LogsActivityTrait;
+
     protected $fillable = [
         'component_name',
         'component_code',
@@ -63,5 +68,13 @@ class PayrollComponent extends Model
     public function scopeByType($query, string $type)
     {
         return $query->where('component_type', $type);
+    }
+
+    public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
+    {
+        return \Spatie\Activitylog\LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }
