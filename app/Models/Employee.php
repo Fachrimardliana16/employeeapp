@@ -441,6 +441,7 @@ class Employee extends Model
             'dapenma_status',
             'employee_education_id',
             'probation_appointment_date',
+            'pin',
             // retirement, username, length_service dihilangkan karena otomatis
         ];
 
@@ -474,6 +475,7 @@ class Employee extends Model
             'dapenma_status' => 'Status Dapenma',
             'employee_education_id' => 'Education Level',
             'probation_appointment_date' => 'Probation Appointment Date',
+            'pin' => 'PIN Absensi',
             // retirement, username, length_service dihilangkan karena otomatis
         ];
 
@@ -507,7 +509,8 @@ class Employee extends Model
             'dapenma_phdp',
             'dapenma_status',
             'employee_education_id',
-            'probation_appointment_date'
+            'probation_appointment_date',
+            'pin'
             // retirement, username, length_service dihilangkan karena otomatis
         ];
 

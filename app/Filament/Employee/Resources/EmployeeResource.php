@@ -654,8 +654,9 @@ class EmployeeResource extends Resource
                     ->circular()
                     ->disk('public'),
                 Tables\Columns\TextColumn::make('nippam')
-                    ->label('NIPPAM')
-                    ->searchable(),
+                    ->label('NIPPAM / PIN')
+                    ->description(fn (Employee $record): string => $record->pin ? "PIN: {$record->pin}" : "PIN: -")
+                    ->searchable(['nippam', 'pin']),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
                     ->searchable()
@@ -906,7 +907,7 @@ class EmployeeResource extends Resource
                             
                             // Instruction Row
                             fputcsv($file, [
-                                'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'Otomatis', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
+                                'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'NIPPAM (Otomatis jika kosong)', 'PIN Absensi (Wajib untuk mesin)', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
                                 'Email Pribadi', 'Email Kantor', 'Hanya Angka', '16 Digit', '16 Digit', 'NPWP',
                                 'No Rek', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
                                 'Kelas 1/2/3', 'DPLK', 'DPLK', 'No Dapenma', 'Hanya Angka',
@@ -924,7 +925,7 @@ class EmployeeResource extends Resource
                             $dept = \App\Models\MasterDepartment::first();
 
                             fputcsv($file, [
-                                '', 'NIP-202404-0001', 'Budi Santoso', 'male', 'Jakarta', '30-01-1990', 'Islam', 'married', 'O',
+                                '', 'NIP-202404-0001', '1001', 'Budi Santoso', 'male', 'Jakarta', '30-01-1990', 'Islam', 'married', 'O',
                                 'budi@example.com', 'budi.pdam@example.com', '08123456789', '1234567890123456', '1234567890123456',
                                 '12.345.678.9-012.345', '1234567890', '12345678901', 'Aktif', '0001234567890', 'Aktif',
                                 'Kelas 1', '1234567890', '1234567890', '12345', '5000000', 'Aktif', 'Jl. Contoh No. 123',
@@ -1041,6 +1042,7 @@ class EmployeeResource extends Resource
 
                         // Pre-load existing unique identifiers to avoid DB hits in loop
                         $uniques = [
+                            'pin' => \App\Models\Employee::whereNotNull('pin')->pluck('id', 'pin')->toArray(),
                             'nippam' => \App\Models\Employee::whereNotNull('nippam')->pluck('id', 'nippam')->toArray(),
                             'id_number' => \App\Models\Employee::whereNotNull('id_number')->pluck('id', 'id_number')->toArray(),
                             'email' => \App\Models\Employee::whereNotNull('email')->pluck('id', 'email')->toArray(),
@@ -1127,6 +1129,7 @@ class EmployeeResource extends Resource
                                 }
                             };
 
+                            $checkUnique('pin', $rowData['pin'] ?? '', 'PIN Absensi');
                             $checkUnique('nippam', $rowData['nippam'] ?? '', 'NIPPAM');
                             $checkUnique('id_number', $rowData['id_number'] ?? '', 'NIK');
                             $checkUnique('email', $rowData['email'] ?? '', 'Email');
@@ -1217,6 +1220,7 @@ class EmployeeResource extends Resource
                                     
                                     $employeeData = [
                                         'name' => $rowData['name'],
+                                        'pin' => $rowData['pin'] ?? null,
                                         'gender' => $rowData['gender'] ?? 'male',
                                         'religion' => $rowData['religion'] ?? null,
                                         'place_birth' => $rowData['place_birth'] ?? null,
@@ -1343,7 +1347,8 @@ class EmployeeResource extends Resource
                             ->orWhereNull('rek_dplk_pribadi')
                             ->orWhereNull('rek_dplk_bersama')
                             ->orWhereNull('employee_education_id')
-                            ->orWhereNull('probation_appointment_date');
+                            ->orWhereNull('probation_appointment_date')
+                            ->orWhereNull('pin');
                         // retirement, username, length_service dihilangkan karena otomatis
                     })),
                 Tables\Filters\Filter::make('complete_data')
@@ -1357,7 +1362,8 @@ class EmployeeResource extends Resource
                             ->whereNotNull('rek_dplk_pribadi')
                             ->whereNotNull('rek_dplk_bersama')
                             ->whereNotNull('employee_education_id')
-                            ->whereNotNull('probation_appointment_date');
+                            ->whereNotNull('probation_appointment_date')
+                            ->whereNotNull('pin');
                         // retirement, username, length_service dihilangkan karena otomatis
                     })),
             ])
@@ -1397,6 +1403,11 @@ class EmployeeResource extends Resource
                                                 ->placeholder('1234567890123456')
                                                 ->helperText('16 digit nomor Kartu Keluarga')
                                                 ->maxLength(16),
+                                            Forms\Components\TextInput::make('pin')
+                                                ->label('PIN Absensi')
+                                                ->unique(ignoreRecord: true)
+                                                ->helperText('ID unik untuk mesin absensi')
+                                                ->maxLength(50),
                                         ]),
                                 ]),
                             Forms\Components\Section::make('Data Finansial')
@@ -1494,7 +1505,7 @@ class EmployeeResource extends Resource
                         ->color('info')
                         ->action(function (\Illuminate\Support\Collection $records) {
                             $headers = [
-                                'id', 'nippam', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
+                                'id', 'nippam', 'pin', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
                                 'email', 'office_email', 'phone_number', 'id_number', 'familycard_number', 'npwp_number',
                                 'bank_account_number', 'bpjs_tk_number', 'bpjs_tk_status', 'bpjs_kes_number', 'bpjs_kes_status',
                                 'bpjs_kes_class', 'rek_dplk_pribadi', 'rek_dplk_bersama', 'dapenma_number', 'dapenma_phdp',
@@ -1511,7 +1522,7 @@ class EmployeeResource extends Resource
 
                                 // Add Instruction Row for consistency
                                 fputcsv($file, [
-                                    'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'Otomatis', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
+                                    'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'Otomatis', 'PIN Absensi', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
                                     'Email Pribadi', 'Email Kantor', 'Hanya Angka', '16 Digit', '16 Digit', 'NPWP',
                                     'No Rek', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
                                     'Kelas 1/2/3', 'DPLK', 'DPLK', 'No Dapenma', 'Hanya Angka',
@@ -1534,6 +1545,7 @@ class EmployeeResource extends Resource
                                     fputcsv($file, [
                                         $record->id,
                                         $record->nippam,
+                                        $record->pin,
                                         $record->name,
                                         $record->gender,
                                         $record->place_birth,
