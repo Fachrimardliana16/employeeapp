@@ -5,8 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\LogsActivityTrait;
+
 class EmployeePayrollDetail extends Model
 {
+    use LogsActivityTrait;
     protected $fillable = [
         'employee_payroll_id',
         'payroll_component_id',

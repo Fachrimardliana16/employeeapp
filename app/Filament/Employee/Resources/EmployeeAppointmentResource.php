@@ -248,22 +248,24 @@ class EmployeeAppointmentResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('proposal_docs')
                             ->label('Dokumen Usulan')
-                            ->directory('employee-appointments/proposals')
-                            ->acceptedFileTypes(['application/pdf'])
-                            ->maxSize(10240),
+                        ->disk('public')
+                        ->visibility('public')
+                        ->directory('employee-appointments/proposals')
+                        ->acceptedFileTypes(['application/pdf'])
+                        ->maxSize(10240),
 
-                        Forms\Components\FileUpload::make('docs')
-                            ->label('Dokumen SK Realisasi (PDF)')
-                            ->disk('public')
-                            ->directory('employee-appointments/realization')
-                            ->acceptedFileTypes(['application/pdf'])
-                            ->maxSize(10240) // 10MB
-                            ->downloadable()
-                            ->openable()
-                            ->visibility('public')
-                            ->visible(fn (Forms\Get $get) => $get('is_applied'))
-                            ->required(fn (Forms\Get $get) => $get('is_applied'))
-                            ->helperText('Upload file PDF SK Pengangkatan, maksimal 10MB'),
+                    Forms\Components\FileUpload::make('docs')
+                        ->label('Dokumen SK Realisasi (PDF)')
+                        ->disk('public')
+                        ->visibility('public')
+                        ->directory('employee-appointments/realization')
+                        ->acceptedFileTypes(['application/pdf'])
+                        ->maxSize(10240) // 10MB
+                        ->downloadable()
+                        ->openable()
+                        ->visible(fn (Forms\Get $get) => $get('is_applied'))
+                        ->required(fn (Forms\Get $get) => $get('is_applied'))
+                        ->helperText('Upload file PDF SK Pengangkatan, maksimal 10MB'),
 
                         Forms\Components\Textarea::make('desc')
                             ->label('Keterangan Tambahan')
@@ -366,6 +368,8 @@ class EmployeeAppointmentResource extends Resource
                                 ->default(now()),
                             Forms\Components\FileUpload::make('docs')
                                 ->label('Dokumen SK Realisasi')
+                                ->disk('public')
+                                ->visibility('public')
                                 ->directory('employee-appointments/realization')
                                 ->required(),
                         ])

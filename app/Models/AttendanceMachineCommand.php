@@ -5,8 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\LogsActivityTrait;
+
 class AttendanceMachineCommand extends Model
 {
+    use LogsActivityTrait;
     protected $fillable = [
         'attendance_machine_id',
         'command',

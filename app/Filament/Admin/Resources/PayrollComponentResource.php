@@ -16,7 +16,7 @@ class PayrollComponentResource extends Resource
 {
     protected static ?string $model = PayrollComponent::class;
     protected static ?string $navigationIcon = 'heroicon-o-puzzle-piece';
-    protected static ?string $navigationGroup = 'Pengaturan Payroll';
+    protected static ?string $navigationGroup = 'Pengaturan payroll';
     protected static ?string $navigationLabel = 'Komponen Payroll';
     protected static ?string $modelLabel = 'Komponen Payroll';
     protected static ?string $pluralModelLabel = 'Komponen Payroll';

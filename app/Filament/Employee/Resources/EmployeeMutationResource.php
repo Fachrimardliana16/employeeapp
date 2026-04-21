@@ -256,24 +256,25 @@ class EmployeeMutationResource extends Resource
                                     ->schema([
                                         Forms\Components\FileUpload::make('proposal_docs')
                                             ->label('Dokumen Usulan')
-                                            ->disk('public')
-                                            ->directory('mutations/proposals')
-                                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
-                                            ->maxSize(10240)
-                                            ->downloadable()
-                                            ->openable()
-                                            ->helperText('Upload dokumen usulan mutasi (PDF, JPG, PNG) maksimal 10MB'),
-                                        Forms\Components\FileUpload::make('docs')
-                                            ->label('Dokumen SK Realisasi')
-                                            ->disk('public')
-                                            ->directory('mutations/realization')
-                                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
-                                            ->maxSize(10240) // 10MB
-                                            ->downloadable()
-                                            ->openable()
-                                            ->visibility('public')
-                                            ->required(fn (Forms\Get $get) => $get('is_applied'))
-                                            ->helperText('Upload dokumen SK realisasi mutasi (PDF, JPG, PNG) maksimal 10MB'),
+                                        ->disk('public')
+                                        ->visibility('public')
+                                        ->directory('mutations/proposals')
+                                        ->acceptedFileTypes(['application/pdf'])
+                                        ->maxSize(10240)
+                                        ->downloadable()
+                                        ->openable()
+                                        ->helperText('Upload dokumen usulan mutasi (PDF) maksimal 10MB'),
+                                    Forms\Components\FileUpload::make('docs')
+                                        ->label('Dokumen SK Realisasi')
+                                        ->disk('public')
+                                        ->directory('mutations/realization')
+                                        ->acceptedFileTypes(['application/pdf'])
+                                        ->maxSize(10240) // 10MB
+                                        ->downloadable()
+                                        ->openable()
+                                        ->visibility('public')
+                                        ->required(fn (Forms\Get $get) => $get('is_applied'))
+                                        ->helperText('Upload dokumen SK realisasi mutasi (PDF) maksimal 10MB'),
                                         Forms\Components\Hidden::make('users_id')
                                             ->default(fn() => auth()->id() ?? 0),
                                     ]),
@@ -412,7 +413,7 @@ class EmployeeMutationResource extends Resource
                                 ->default(now()),
                             Forms\Components\FileUpload::make('docs')
                                 ->label('Dokumen SK Realisasi')
-                                ->disk('public')
+                                ->disk('public')->visibility('public')
                                 ->directory('mutations/realization')
                                 ->required(),
                         ])

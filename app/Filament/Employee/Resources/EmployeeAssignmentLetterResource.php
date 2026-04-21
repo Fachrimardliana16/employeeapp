@@ -239,7 +239,7 @@ class EmployeeAssignmentLetterResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('signed_file_path')
                             ->label('Upload Surat Tugas (TTD & Stempel)')
-                            ->disk('public')
+                            ->disk('public')->visibility('public')
                             ->directory('assignment_letters_signed')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(2048)
@@ -315,7 +315,7 @@ class EmployeeAssignmentLetterResource extends Resource
                         if (empty($record->pdf_file_path)) {
                             return 'Belum dibuat';
                         }
-                        $fullPath = storage_path('app/public/' . $record->pdf_file_path);
+                        $fullPath = storage_path('app/private/' . $record->pdf_file_path);
                         if (file_exists($fullPath)) {
                             return 'Tersedia';
                         }
@@ -459,7 +459,7 @@ class EmployeeAssignmentLetterResource extends Resource
 
                             // Simpan PDF ke storage
                             $pdfPath = 'assignment_letters/' . $filename;
-                            $fullPath = storage_path('app/public/' . $pdfPath);
+                            $fullPath = storage_path('app/private/' . $pdfPath);
 
                             // Buat direktori jika belum ada
                             if (!file_exists(dirname($fullPath))) {
@@ -483,7 +483,7 @@ class EmployeeAssignmentLetterResource extends Resource
                         ->form([
                             Forms\Components\FileUpload::make('signed_file_path')
                                 ->label('File Scan TTD Internal (PDF)')
-                                ->disk('public')
+                                ->disk('public')->visibility('public')
                                 ->directory('assignment_letters_internal')
                                 ->acceptedFileTypes(['application/pdf'])
                                 ->required(),
@@ -501,7 +501,7 @@ class EmployeeAssignmentLetterResource extends Resource
                         ->form([
                             Forms\Components\FileUpload::make('visit_file_path')
                                 ->label('File Scan Cap Kunjungan (PDF)')
-                                ->disk('public')
+                                ->disk('public')->visibility('public')
                                 ->directory('assignment_letters_complete')
                                 ->acceptedFileTypes(['application/pdf'])
                                 ->required(),

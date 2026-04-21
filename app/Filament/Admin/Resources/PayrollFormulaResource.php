@@ -20,7 +20,7 @@ class PayrollFormulaResource extends Resource
 {
     protected static ?string $model = PayrollFormula::class;
     protected static ?string $navigationIcon = 'heroicon-o-calculator';
-    protected static ?string $navigationGroup = 'Pengaturan Payroll';
+    protected static ?string $navigationGroup = 'Pengaturan payroll';
     protected static ?string $navigationLabel = 'Formula Payroll';
     protected static ?string $modelLabel = 'Formula Payroll';
     protected static ?string $pluralModelLabel = 'Formula Payroll';

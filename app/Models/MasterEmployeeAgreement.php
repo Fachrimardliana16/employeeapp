@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\LogsActivityTrait;
+
 class MasterEmployeeAgreement extends Model
 {
-    use HasUserTracking;
+    use HasUserTracking, LogsActivityTrait;
     protected $fillable = [
         'name',
         'desc',

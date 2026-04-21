@@ -246,6 +246,12 @@ class InterviewProcessResource extends Resource
         return [];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['jobApplication', 'interviewer']);
+    }
+
     public static function getPages(): array
     {
         return [

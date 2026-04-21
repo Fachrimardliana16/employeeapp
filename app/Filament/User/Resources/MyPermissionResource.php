@@ -99,10 +99,10 @@ class MyPermissionResource extends Resource
                         Forms\Components\FileUpload::make('scan_doc')
                             ->label('Dokumen yang Sudah Ditandatangani')
                             ->directory('permissions')
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120)
                             ->hidden(fn($operation) => $operation === 'create')
-                            ->helperText('Form yang sudah diprint dan ditandatangani basah.')
+                            ->helperText('Form yang sudah diprint dan ditandatangani basah (PDF).')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),

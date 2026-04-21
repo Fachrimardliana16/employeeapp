@@ -45,7 +45,14 @@ class AdminPanelProvider extends PanelProvider
                 // Default widgets removed
             ])
             ->plugins([
-                \Rmsramos\Activitylog\ActivitylogPlugin::make(),
+                // \Rmsramos\Activitylog\ActivitylogPlugin::make(),
+            ])
+            ->navigationGroups([
+                'Teknikal documentation',
+                'pengaturan sistem',
+                'Pengaturan payroll',
+                'Manajemen Pengguna',
+                'Sistem',
             ])
             ->userMenuItems([
                 MenuItem::make()

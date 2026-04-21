@@ -32,9 +32,11 @@
                                 <span class="text-gray-600">Gaji Pokok ({{ $selectedEmployee->grade->name ?? '-' }})</span>
                                 <div class="flex items-center gap-2">
                                     <span class="font-medium">Rp {{ number_format($payrollResult['base_salary'], 0, ',', '.') }}</span>
-                                    <a href="{{ route('filament.employee.resources.master-employee-grades.edit', $selectedEmployee->basic_salary_id) }}" target="_blank" class="opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Master Golongan">
-                                        <x-filament::icon icon="heroicon-o-pencil-square" class="w-4 h-4 text-gray-400 hover:text-primary-600"/>
-                                    </a>
+                                    @if($selectedEmployee->basic_salary_id)
+                                        <a href="{{ route('filament.employee.resources.master-employee-grades.edit', $selectedEmployee->basic_salary_id) }}" target="_blank" class="opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Master Golongan">
+                                            <x-filament::icon icon="heroicon-o-pencil-square" class="w-4 h-4 text-gray-400 hover:text-primary-600"/>
+                                        </a>
+                                    @endif
                                 </div>
                             </div>
 
@@ -57,11 +59,11 @@
                                     <div class="flex items-center gap-2">
                                         <span class="font-medium">Rp {{ number_format($item['amount'], 0, ',', '.') }}</span>
                                         
-                                        @if($isPosition)
+                                        @if($isPosition && $selectedEmployee->employee_position_id)
                                             <a href="{{ route('filament.employee.resources.master-employee-positions.edit', $selectedEmployee->employee_position_id) }}" target="_blank" class="opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <x-filament::icon icon="heroicon-o-pencil-square" class="w-4 h-4 text-gray-400 hover:text-primary-600"/>
                                             </a>
-                                        @elseif($isIndividual)
+                                        @elseif($isIndividual && $selectedEmployee->id)
                                             <a href="{{ route('filament.employee.resources.employees.edit', $selectedEmployee->id) }}" target="_blank" class="opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <x-filament::icon icon="heroicon-o-user" class="w-4 h-4 text-gray-400 hover:text-primary-600"/>
                                             </a>
@@ -105,11 +107,11 @@
                                         <div class="flex items-center gap-2">
                                             <span class="font-medium text-danger-500">- Rp {{ number_format($item['amount'], 0, ',', '.') }}</span>
                                             
-                                            @if($isPosition)
+                                            @if($isPosition && $selectedEmployee->employee_position_id)
                                                 <a href="{{ route('filament.employee.resources.master-employee-positions.edit', $selectedEmployee->employee_position_id) }}" target="_blank" class="opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <x-filament::icon icon="heroicon-o-pencil-square" class="w-4 h-4 text-gray-400 hover:text-primary-600"/>
                                                 </a>
-                                            @elseif($isIndividual)
+                                            @elseif($isIndividual && $selectedEmployee->id)
                                                 <a href="{{ route('filament.employee.resources.employees.edit', $selectedEmployee->id) }}" target="_blank" class="opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <x-filament::icon icon="heroicon-o-user" class="w-4 h-4 text-gray-400 hover:text-primary-600"/>
                                                 </a>
@@ -152,29 +154,31 @@
 
             {{-- LEGEND / KETERANGAN --}}
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-gray-400">
-                    <span class="text-xs font-bold text-gray-500">GLOBAL</span>
-                    <p class="text-sm mt-1 text-gray-600">Dihitung otomatis lewat rumus sistem untuk semua pegawai.</p>
+                <div class="p-4 bg-white dark:bg-white/5 rounded-lg shadow-sm border-l-4 border-gray-400">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">GLOBAL</span>
+                    <p class="text-sm mt-1 text-gray-600 dark:text-gray-400">Dihitung otomatis lewat rumus sistem untuk semua pegawai.</p>
                 </div>
-                <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-blue-400">
+                <div class="p-4 bg-white dark:bg-white/5 rounded-lg shadow-sm border-l-4 border-blue-400">
                     <span class="text-xs font-bold text-blue-500">POSISI / GOLONGAN</span>
-                    <p class="text-sm mt-1 text-gray-600">Diatur per jabatan/golongan di Master Data (Fixed nominal).</p>
+                    <p class="text-sm mt-1 text-gray-600 dark:text-gray-400">Diatur per jabatan/golongan di Master Data (Fixed nominal).</p>
                 </div>
-                <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-purple-400">
+                <div class="p-4 bg-white dark:bg-white/5 rounded-lg shadow-sm border-l-4 border-purple-400">
                     <span class="text-xs font-bold text-purple-500">PRIBADI</span>
-                    <p class="text-sm mt-1 text-gray-600">Diatur khusus per pegawai (Hutang, Cicilan, Koperasi, dll).</p>
+                    <p class="text-sm mt-1 text-gray-600 dark:text-gray-400">Diatur khusus per pegawai (Hutang, Cicilan, Koperasi, dll).</p>
                 </div>
-                <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-yellow-400">
+                <div class="p-4 bg-white dark:bg-white/5 rounded-lg shadow-sm border-l-4 border-yellow-400">
                     <span class="text-xs font-bold text-yellow-500">PRESENSI</span>
-                    <p class="text-sm mt-1 text-gray-600">Potongan otomatis jika tidak hadir atau terlambat.</p>
+                    <p class="text-sm mt-1 text-gray-600 dark:text-gray-400">Potongan otomatis jika tidak hadir atau terlambat.</p>
                 </div>
             </div>
         </div>
     @else
-        <div class="mt-12 flex flex-col items-center justify-center text-center p-12 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border-2 border-dashed border-gray-300">
-            <x-filament::icon icon="heroicon-o-magnifying-glass-circle" class="w-16 h-16 text-gray-300"/>
-            <h3 class="mt-4 text-xl font-semibold text-gray-600">Belum Ada Data Simulasi</h3>
-            <p class="mt-2 text-gray-500 max-w-sm">Pilih Pegawai dan Periode di atas untuk melihat rincian kalkulasi payroll yang akan didapat.</p>
+        <div class="mt-12 flex flex-col items-center justify-center text-center p-12 bg-white/50 dark:bg-white/5 rounded-2xl border-2 border-dashed border-gray-200 dark:border-white/10">
+            <div class="p-4 bg-gray-100 dark:bg-white/5 rounded-full">
+                <x-filament::icon icon="heroicon-o-magnifying-glass-circle" class="w-12 h-12 text-gray-400 dark:text-gray-500"/>
+            </div>
+            <h3 class="mt-6 text-xl font-bold text-gray-900 dark:text-white">Belum Ada Data Simulasi</h3>
+            <p class="mt-2 text-gray-500 dark:text-gray-400 max-w-sm">Pilih Pegawai dan Periode di atas untuk melihat rincian kalkulasi payroll yang akan didapat.</p>
         </div>
     @endif
 </x-filament-panels::page>

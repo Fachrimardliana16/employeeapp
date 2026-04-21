@@ -6,8 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\LogsActivityTrait;
+
 class EmployeePayroll extends Model
 {
+    use LogsActivityTrait;
     protected $fillable = [
         'employee_id',
         'payroll_period',

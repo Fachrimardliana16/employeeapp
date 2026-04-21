@@ -51,6 +51,10 @@ class EmployeeDailyReportResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('image')
                     ->image()
+                    ->imageEditor()
+                    ->imageResizeMode('cover')
+                    ->imageResizeTargetWidth('1024')
+                    ->acceptedFileTypes(['image/jpeg', 'image/png'])
                     ->optimize('webp'),
                 Forms\Components\TextInput::make('users_id')
                     ->required()

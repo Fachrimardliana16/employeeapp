@@ -123,6 +123,7 @@ class EmployeeAssignmentLetterResource extends Resource
                             Forms\Components\FileUpload::make('visit_file_path')
                                 ->label('File Scan Cap Kunjungan (PDF)')
                                 ->disk('public')
+                                ->visibility('public')
                                 ->directory('assignment_letters_complete')
                                 ->acceptedFileTypes(['application/pdf'])
                                 ->required(),

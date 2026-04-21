@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Traits\HasUserTracking;
+use App\Traits\LogsActivityTrait;
 use Illuminate\Database\Eloquent\Model;
 
 class MasterStandarHargaSatuan extends Model
 {
-    use HasUserTracking;
+    use HasUserTracking, LogsActivityTrait;
 
     protected $fillable = [
         'code',

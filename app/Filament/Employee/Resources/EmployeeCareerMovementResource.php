@@ -161,6 +161,8 @@ class EmployeeCareerMovementResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('proposal_docs')
                             ->label('Dokumen Usulan')
+                            ->disk('public')
+                            ->visibility('public')
                             ->directory('career-movements/proposals')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120),
@@ -168,6 +170,7 @@ class EmployeeCareerMovementResource extends Resource
                         Forms\Components\FileUpload::make('doc_path')
                             ->label('Dokumen SK Realisasi (PDF)')
                             ->disk('public')
+                            ->visibility('public')
                             ->directory('career-movements/realization')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120)
@@ -266,6 +269,8 @@ class EmployeeCareerMovementResource extends Resource
                                 ->default(now()),
                             Forms\Components\FileUpload::make('doc_path')
                                 ->label('Dokumen SK Realisasi')
+                                ->disk('public')
+                                ->visibility('public')
                                 ->directory('career-movements/realization')
                                 ->required(),
                         ])

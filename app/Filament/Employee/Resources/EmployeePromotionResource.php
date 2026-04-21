@@ -160,16 +160,22 @@ class EmployeePromotionResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('proposal_docs')
                             ->label('Dokumen Usulan')
+                            ->disk('public')
+                            ->visibility('public')
                             ->directory('employee-promotions/proposals')
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
-                            ->maxSize(5120),
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(5120)
+                            ->helperText('Dokumen usulan promosi (PDF)'),
                         
                         Forms\Components\FileUpload::make('doc_promotion')
                             ->label('Dokumen SK Realisasi')
+                            ->disk('public')
+                            ->visibility('public')
                             ->directory('employee-promotions/realization')
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120)
-                            ->required(fn (Forms\Get $get) => $get('is_applied')),
+                            ->required(fn (Forms\Get $get) => $get('is_applied'))
+                            ->helperText('Dokumen SK realisasi (PDF)'),
 
                         Forms\Components\Textarea::make('desc')
                             ->label('Deskripsi/Keterangan')
@@ -281,6 +287,7 @@ class EmployeePromotionResource extends Resource
                                 ->default(now()),
                             Forms\Components\FileUpload::make('doc_promotion')
                                 ->label('Dokumen SK Realisasi')
+                                ->disk('public')->visibility('public')
                                 ->directory('employee-promotions/realization')
                                 ->required(),
                         ])

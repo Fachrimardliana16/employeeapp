@@ -202,8 +202,11 @@ class EmployeeResource extends Resource
                                                     ->imageResizeTargetWidth(800)
                                                     ->imageResizeTargetHeight(800)
                                                     ->disk('public')
+                                                    ->visibility('public')
                                                     ->directory('employees/photos')
                                                     ->maxSize(15360)
+                                                    ->imageEditor()
+                                                    ->acceptedFileTypes(['image/jpeg', 'image/png'])
                                                     ->optimize('webp')
                                                     ->columnSpan(1),
                                                 Forms\Components\Group::make()
@@ -660,7 +663,7 @@ class EmployeeResource extends Resource
                     ->disk('public'),
                 Tables\Columns\TextColumn::make('nippam')
                     ->label('NIPPAM / PIN')
-                    ->description(fn (Employee $record): string => $record->pin ? "PIN: " . str_repeat('*', strlen($record->pin) - 2) . substr($record->pin, -2) : "PIN: -")
+                    ->description(fn (Employee $record): string => $record->pin ? "PIN: " . str_repeat('*', max(0, strlen($record->pin) - 2)) . substr($record->pin, -2) : "PIN: -")
                     ->searchable(['nippam', 'pin']),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')

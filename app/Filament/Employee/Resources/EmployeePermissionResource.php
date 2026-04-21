@@ -79,7 +79,7 @@ class EmployeePermissionResource extends Resource
                             ->required()
                             ->native(false)
                             ->placeholder('Pilih tanggal mulai...'),
-                        \Forms\Components\DatePicker::make('end_permission_date')
+                        Forms\Components\DatePicker::make('end_permission_date')
                             ->label('Tanggal Selesai')
                             ->required()
                             ->native(false)
@@ -118,8 +118,8 @@ class EmployeePermissionResource extends Resource
                         Forms\Components\FileUpload::make('scan_doc')
                             ->label('Dokumen Pendukung')
                             ->directory('permissions')
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
-                            ->helperText('Format: PDF atau gambar. Maksimal 5MB.')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->helperText('Format: PDF. Maksimal 5MB.')
                             ->maxSize(5120),
                     ]),
                 Forms\Components\Section::make('Persetujuan')

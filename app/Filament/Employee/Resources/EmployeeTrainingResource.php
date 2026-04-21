@@ -76,16 +76,18 @@ class EmployeeTrainingResource extends Resource
                             ->label('Foto Pelatihan')
                             ->directory('training-photos')
                             ->image()
+                            ->imageEditor()
                             ->imageResizeMode('cover')
                             ->imageCropAspectRatio('16:9')
                             ->imageResizeTargetWidth('1920')
                             ->imageResizeTargetHeight('1080')
+                            ->acceptedFileTypes(['image/jpeg', 'image/png'])
                             ->helperText('Format: JPG, PNG. Rasio 16:9 untuk hasil terbaik.'),
                         Forms\Components\FileUpload::make('docs_training')
                             ->label('Dokumen Pelatihan')
                             ->directory('training-docs')
-                            ->acceptedFileTypes(['pdf', 'doc', 'docx'])
-                            ->helperText('Format: PDF, DOC, DOCX. Maksimal 5MB.')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->helperText('Format: PDF. Maksimal 5MB.')
                             ->maxSize(5120),
                         Forms\Components\Hidden::make('users_id')
                             ->default(fn() => auth()->id() ?? 0),

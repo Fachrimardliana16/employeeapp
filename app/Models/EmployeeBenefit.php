@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+use App\Traits\LogsActivityTrait;
+
 class EmployeeBenefit extends Model
 {
-    use HasUserTracking, SoftDeletes;
+    use HasUserTracking, SoftDeletes, LogsActivityTrait;
 
     protected $fillable = [
         'employee_id',

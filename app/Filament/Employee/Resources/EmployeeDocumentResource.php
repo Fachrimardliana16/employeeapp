@@ -73,12 +73,18 @@ class EmployeeDocumentResource extends Resource
 
                         Forms\Components\FileUpload::make('file_path')
                             ->label('Upload Dokumen')
+                            ->disk('public')
+                            ->visibility('public')
                             ->directory('employee-documents')
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->acceptedFileTypes(fn (Forms\Get $get): array => $get('document_type') === 'SK' ? ['application/pdf'] : ['application/pdf', 'image/jpeg', 'image/png'])
+                            ->imageEditor()
+                            ->imageResizeMode('cover')
+                            ->imageResizeTargetWidth('1024')
                             ->maxSize(10240)
                             ->required()
-                            ->helperText('Upload file PDF atau gambar (max 10MB)')
+                            ->helperText(fn (Forms\Get $get): string => $get('document_type') === 'SK' ? 'Upload file PDF (max 10MB)' : 'Upload file PDF atau Gambar (JPG/PNG) maksimal 10MB')
                             ->downloadable()
+                            ->openable()
                             ->previewable()
                             ->columnSpanFull(),
                     ])->columns(2),
@@ -243,7 +249,8 @@ class EmployeeDocumentResource extends Resource
         return parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ]);
+            ])
+            ->with(['employee']);
     }
 
     public static function getRelations(): array

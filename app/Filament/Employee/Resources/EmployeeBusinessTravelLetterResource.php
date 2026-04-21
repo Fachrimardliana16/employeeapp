@@ -441,7 +441,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('signed_file_path')
                             ->label('Upload SPPD (TTD & Stempel)')
-                            ->disk('public')
+                            ->disk('public')->visibility('public')
                             ->directory('business_travel_letters_signed')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(2048)
@@ -641,6 +641,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                             Forms\Components\FileUpload::make('signed_file_path')
                                 ->label('File Scan TTD Internal (PDF)')
                                 ->disk('public')
+                                ->visibility('public')
                                 ->directory('business_travel_letters_internal')
                                 ->acceptedFileTypes(['application/pdf'])
                                 ->required(),
@@ -658,7 +659,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                         ->form([
                             Forms\Components\FileUpload::make('visit_file_path')
                                 ->label('File Scan Cap Kunjungan (PDF)')
-                                ->disk('public')
+                                ->disk('public')->visibility('public')
                                 ->directory('business_travel_letters_complete')
                                 ->acceptedFileTypes(['application/pdf'])
                                 ->required(),

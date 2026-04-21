@@ -21,9 +21,9 @@ class ActivityLogResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Log Aktivitas';
 
-    protected static ?string $navigationGroup = 'Manajemen Pengguna';
+    protected static ?string $navigationGroup = 'Sistem';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
@@ -84,7 +84,7 @@ class ActivityLogResource extends Resource
                 ->button(),
             ])
             ->bulkActions([
-                // Delete actions removed to preserve audit trail
+                //
             ]);
     }
 

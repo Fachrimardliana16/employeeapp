@@ -127,6 +127,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                             Forms\Components\FileUpload::make('visit_file_path')
                                 ->label('File Scan Cap Kunjungan (PDF)')
                                 ->disk('public')
+                                ->visibility('public')
                                 ->directory('business_travel_letters_complete')
                                 ->acceptedFileTypes(['application/pdf'])
                                 ->required(),

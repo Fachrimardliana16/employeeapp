@@ -119,10 +119,10 @@ class EmployeeRetirementResource extends Resource
                     Forms\Components\FileUpload::make('handover_document')
                         ->label('Dokumen Serah Terima')
                         ->directory('retirements/handover')
-                        ->acceptedFileTypes(['application/pdf', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+                        ->acceptedFileTypes(['application/pdf'])
                         ->maxSize(10240)
                         ->multiple()
-                        ->helperText('Upload dokumen serah terima (PDF/Excel, max 10MB per file)')
+                        ->helperText('Upload dokumen serah terima (PDF, max 10MB per file)')
                         ->columnSpanFull(),
                 ])->columns(1)->collapsible(),
 

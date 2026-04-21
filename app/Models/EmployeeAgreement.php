@@ -6,9 +6,11 @@ use App\Traits\HasUserTracking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\LogsActivityTrait;
+
 class EmployeeAgreement extends Model
 {
-    use HasUserTracking;
+    use HasUserTracking, LogsActivityTrait;
 
     protected $table = 'employee_agreement';
 

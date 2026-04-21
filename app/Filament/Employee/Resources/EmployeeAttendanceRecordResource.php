@@ -112,10 +112,10 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->imageEditorViewportWidth('1280')
                             ->imageEditorViewportHeight('720')
                             ->directory('attendance/photo_checkout')
-                            ->visibility('public')
+                            ->visibility('private')
                             ->maxSize(5120)
                             ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
-                            ->disk('public')
+                            ->disk('public')->visibility('public')
                             ->extraInputAttributes([
                                 'capture' => 'user',
                             ])
@@ -182,7 +182,8 @@ class EmployeeAttendanceRecordResource extends Resource
                     ->getStateUsing(fn (EmployeeAttendanceRecord $record): ?string => 
                         $record->photo_checkin ?? $record->photo_checkout ?? $record->picture
                     )
-                    ->circular()
+                    -> circular()
+                    ->disk('public')->visibility('public')
                     ->size(40),
 
                 Tables\Columns\TextColumn::make('employee_name')

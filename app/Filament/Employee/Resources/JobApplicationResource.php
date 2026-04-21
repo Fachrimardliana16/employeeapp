@@ -135,22 +135,27 @@ class JobApplicationResource extends Resource
                             ->imageResizeMode('cover')
                             ->imageResizeTargetWidth(800)
                             ->imageResizeTargetHeight(800)
+                            ->disk('local') // Change to private disk
+                            ->visibility('private')
                             ->directory('job-applications/photos')
-                            ->visibility('public')
                             ->maxSize(15360)
                             ->required()
                             ->optimize('webp')
+                            ->acceptedFileTypes(['image/jpeg', 'image/png'])
                             ->helperText('Unggah foto formal terbaru (background merah/biru, berpakaian rapi, format JPG/PNG, maks. 2MB).'),
 
                         Forms\Components\FileUpload::make('documents')
                             ->label('Unggah Dokumen (CV, Ijazah, KTP, dll)')
                             ->multiple()
+                            ->disk('local') // Change to private disk
+                            ->visibility('private')
                             ->directory('job-applications/documents')
-                            ->visibility('public')
                             ->openable()
                             ->downloadable()
                             ->reorderable()
                             ->appendFiles()
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->helperText('Unggah dokumen (CV, Ijazah, KTP, dll) dalam format PDF, maksimal 10MB per file.')
                             ->maxSize(10240),
                     ]),
 
@@ -313,7 +318,7 @@ class JobApplicationResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('photo')
                     ->label('Foto Pas')
-                    ->disk('public')
+                    ->disk('local')
                     ->circular(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Lengkap')
@@ -1087,6 +1092,7 @@ class JobApplicationResource extends Resource
         return parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 \Illuminate\Database\Eloquent\SoftDeletingScope::class,
-            ]);
+            ])
+            ->with(['appliedPosition', 'appliedDepartment', 'educationLevel']);
     }
 }

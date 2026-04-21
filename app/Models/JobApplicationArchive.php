@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\LogsActivityTrait;
 
 class JobApplicationArchive extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivityTrait;
 
     protected $fillable = [
         'job_application_id',

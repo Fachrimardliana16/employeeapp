@@ -286,13 +286,14 @@ class EmployeeAgreementResource extends Resource
                                 Forms\Components\FileUpload::make('docs')
                                     ->label('Dokumen Kontrak')
                                     ->disk('public')
+                                    ->visibility('public')
                                     ->directory('agreements')
                                     ->acceptedFileTypes(['application/pdf'])
                                     ->maxSize(10240) // 10MB
                                     ->downloadable()
                                     ->openable()
-                                    ->visibility('public')
                                     ->helperText('Upload file PDF maksimal 10MB'),
+                                    
                                 Forms\Components\Hidden::make('users_id')
                                     ->default(fn() => auth()->id() ?? 0),
                             ]),
@@ -447,12 +448,12 @@ class EmployeeAgreementResource extends Resource
                         Forms\Components\FileUpload::make('docs')
                             ->label('Dokumen Kontrak Baru (PDF)')
                             ->disk('public')
+                            ->visibility('public')
                             ->directory('agreements')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(10240) // 10MB
                             ->downloadable()
                             ->openable()
-                            ->visibility('public')
                             ->required()
                             ->helperText('Upload file PDF SK Perpanjangan Kontrak, maksimal 10MB'),
                     ])

@@ -21,7 +21,7 @@ class MasterOfficeLocationResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-map-pin';
 
-    protected static ?string $navigationGroup = 'Pengaturan Sistem';
+    protected static ?string $navigationGroup = 'pengaturan sistem';
 
     protected static ?string $navigationLabel = 'Lokasi Kantor';
 

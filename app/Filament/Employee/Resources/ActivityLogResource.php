@@ -30,8 +30,13 @@ class ActivityLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->where('causer_id', auth()->id());
+        $query = parent::getEloquentQuery();
+
+        if (auth()->user()?->hasRole("superadmin")) {
+            return $query;
+        }
+
+        return $query->where("causer_id", auth()->id());
     }
 
     public static function form(Form $form): Form

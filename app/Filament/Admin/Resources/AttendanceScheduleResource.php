@@ -19,7 +19,7 @@ class AttendanceScheduleResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static ?string $navigationGroup = 'Pengaturan Sistem';
+    protected static ?string $navigationGroup = 'pengaturan sistem';
 
     protected static ?string $navigationLabel = 'Jadwal Kehadiran';
 
