@@ -11,25 +11,35 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            $table->softDeletes()->after('updated_at');
-        });
+        if (!Schema::hasColumn('employees', 'deleted_at')) {
+            Schema::table('employees', function (Blueprint $table) {
+                $table->softDeletes()->after('updated_at');
+            });
+        }
 
-        Schema::table('employee_attendance_records', function (Blueprint $table) {
-            $table->softDeletes()->after('updated_at');
-        });
+        if (!Schema::hasColumn('employee_attendance_records', 'deleted_at')) {
+            Schema::table('employee_attendance_records', function (Blueprint $table) {
+                $table->softDeletes()->after('updated_at');
+            });
+        }
 
-        Schema::table('attendance_machine_logs', function (Blueprint $table) {
-            $table->softDeletes()->after('updated_at');
-        });
+        if (!Schema::hasColumn('attendance_machine_logs', 'deleted_at')) {
+            Schema::table('attendance_machine_logs', function (Blueprint $table) {
+                $table->softDeletes()->after('updated_at');
+            });
+        }
 
-        Schema::table('employee_assignment_letters', function (Blueprint $table) {
-            $table->softDeletes()->after('updated_at');
-        });
+        if (!Schema::hasColumn('employee_assignment_letters', 'deleted_at')) {
+            Schema::table('employee_assignment_letters', function (Blueprint $table) {
+                $table->softDeletes()->after('updated_at');
+            });
+        }
 
-        Schema::table('employee_business_travel_letters', function (Blueprint $table) {
-            $table->softDeletes()->after('updated_at');
-        });
+        if (!Schema::hasColumn('employee_business_travel_letters', 'deleted_at')) {
+            Schema::table('employee_business_travel_letters', function (Blueprint $table) {
+                $table->softDeletes()->after('updated_at');
+            });
+        }
     }
 
     /**
