@@ -11,18 +11,23 @@ use App\Models\MasterEmployeeGrade;
 use App\Models\MasterEmployeeEducation;
 use App\Models\MasterEmployeeStatusEmployment;
 use App\Models\MasterEmployeeAgreement;
-use App\Models\MasterEmployeeFamily;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Filament\Notifications\Notification;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
+use Filament\Infolists\Components;
+use Filament\Support\Enums\FontWeight;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
+use Filament\Tables\Actions\DeleteAction;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class EmployeeResource extends Resource
 {
@@ -655,7 +660,7 @@ class EmployeeResource extends Resource
                     ->disk('public'),
                 Tables\Columns\TextColumn::make('nippam')
                     ->label('NIPPAM / PIN')
-                    ->description(fn (Employee $record): string => $record->pin ? "PIN: {$record->pin}" : "PIN: -")
+                    ->description(fn (Employee $record): string => $record->pin ? "PIN: " . str_repeat('*', strlen($record->pin) - 2) . substr($record->pin, -2) : "PIN: -")
                     ->searchable(['nippam', 'pin']),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
@@ -1890,6 +1895,9 @@ class EmployeeResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
             ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit', 'attendanceMachineLogs.machine.officeLocation']);
     }
 

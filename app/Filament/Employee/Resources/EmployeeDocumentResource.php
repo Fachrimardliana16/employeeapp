@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeeDocumentResource extends Resource
 {
@@ -210,12 +213,15 @@ class EmployeeDocumentResource extends Resource
                             ->where('expiry_date', '<=', now()->addDays(30))
                     )
                     ->toggle(),
+                TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
                     Tables\Actions\EditAction::make()->label('Edit'),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
                 ])
                     ->label('Aksi')
                     ->icon('heroicon-m-ellipsis-vertical')
@@ -226,7 +232,17 @@ class EmployeeDocumentResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()->label('Hapus yang Dipilih'),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
             ]);
     }
 

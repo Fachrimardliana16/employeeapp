@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivityTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AttendanceMachineLog extends Model
 {
+    use LogsActivityTrait, SoftDeletes;
     protected $fillable = [
         'attendance_machine_id',
         'serial_number',

@@ -18,6 +18,9 @@ use Filament\Support\Enums\FontWeight;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\HtmlString;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeeAttendanceRecordResource extends Resource
 {
@@ -300,10 +303,13 @@ class EmployeeAttendanceRecordResource extends Resource
                                 fn(Builder $query, $date): Builder => $query->whereDate('attendance_time', '<=', $date),
                             );
                     }),
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\RestoreAction::make(),
+                    Tables\Actions\ForceDeleteAction::make(),
 
                     Tables\Actions\Action::make('view_location')
                         ->label('Lihat Lokasi')
@@ -326,7 +332,9 @@ class EmployeeAttendanceRecordResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    // Bulk delete removed
+                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ])->label('Aksi Masal'),
             ])
             ->defaultSort('attendance_time', 'desc');
@@ -471,6 +479,14 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->view('filament.infolists.leaflet-map'),
                     ]),
 
+            ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
             ]);
     }
 

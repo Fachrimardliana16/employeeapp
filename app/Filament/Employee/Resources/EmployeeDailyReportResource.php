@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeeDailyReportResource extends Resource
 {
@@ -37,7 +40,8 @@ class EmployeeDailyReportResource extends Resource
                     ->relationship('employee', 'name')
                     ->required(),
                 Forms\Components\DatePicker::make('daily_report_date')
-                    ->required(),
+                    ->required()
+                    ->maxDate(now()),
                 Forms\Components\Textarea::make('work_description')
                     ->required()
                     ->columnSpanFull(),
@@ -105,11 +109,14 @@ class EmployeeDailyReportResource extends Resource
                         'Proses' => 'Proses',
                         'Tertunda' => 'Tertunda',
                     ]),
+                TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat'),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
                 ])->label('Aksi')
                     ->icon('heroicon-m-ellipsis-vertical')
                     ->size('sm')
@@ -131,6 +138,14 @@ class EmployeeDailyReportResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 
     public static function getPages(): array

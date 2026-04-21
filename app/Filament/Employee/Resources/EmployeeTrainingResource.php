@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeeTrainingResource extends Resource
 {
@@ -166,6 +169,7 @@ class EmployeeTrainingResource extends Resource
                     ->label('Dengan Dokumen')
                     ->query(fn(Builder $query): Builder => $query->whereNotNull('docs_training'))
                     ->toggle(),
+                TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -196,11 +200,21 @@ class EmployeeTrainingResource extends Resource
                         ->modalDescription('Apakah Anda yakin ingin menghapus semua data pelatihan yang dipilih?')
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
                         ->modalCancelActionLabel('Batal'),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ])->label('Hapus yang Dipilih'),
             ])
             ->emptyStateHeading('Belum Ada Data Pelatihan')
             ->emptyStateDescription('Mulai dengan menambahkan data pelatihan Pegawai pertama.')
             ->emptyStateIcon('heroicon-o-academic-cap');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 
     public static function getRelations(): array

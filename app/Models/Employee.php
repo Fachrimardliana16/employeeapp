@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 use App\Traits\LogsActivityTrait;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
 {
-    use HasUserTracking, LogsActivityTrait;
+    use HasUserTracking, LogsActivityTrait, SoftDeletes;
     protected $fillable = [
         'pin',
         'nippam',

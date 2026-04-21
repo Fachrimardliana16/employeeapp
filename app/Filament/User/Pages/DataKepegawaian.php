@@ -72,77 +72,18 @@ class DataKepegawaian extends Page implements HasInfolists
     protected function calculateMonthlyStats(): void
     {
         $now = now();
-        $startOfMonth = $now->copy()->startOfMonth();
-        $today = $now->copy();
+        $stats = \App\Services\AttendanceService::getMonthlyStatsForEmployee(
+            $this->employee,
+            $now->month,
+            $now->year
+        );
 
-        // 1. Presence & Tardiness
-        $records = $this->employee->attendanceRecords()
-            ->whereMonth('attendance_time', $now->month)
-            ->whereYear('attendance_time', $now->year)
-            ->get();
-
-        $presenceDays = $records->where('state', 'in')->pluck('attendance_time')->map(fn($t) => $t->format('Y-m-d'))->unique();
-        $this->monthlyPresence = $presenceDays->count();
-
-        // Calculate Late
-        $lateCount = 0;
-        $schedules = AttendanceSchedule::where('is_active', true)->get();
-        
-        foreach ($records->where('state', 'in') as $record) {
-            $dayName = $record->attendance_time->format('l');
-            $sched = $schedules->where('day', $dayName)->first();
-            $threshold = $sched ? $sched->late_threshold : '07:30:59';
-            
-            if ($record->attendance_time->format('H:i:s') > $threshold) {
-                $lateCount++;
-            }
-        }
-        $this->monthlyLate = $lateCount;
-
-        // 2. Permits/Leave (Days)
-        $this->monthlyPermit = (int) $this->employee->employeePermissions()
-            ->where('approval_status', 'approved')
-            ->where(function($q) use ($startOfMonth, $today) {
-                 $q->whereBetween('start_permission_date', [$startOfMonth, $today])
-                   ->orWhereBetween('end_permission_date', [$startOfMonth, $today]);
-            })
-            ->get()
-            ->sum(function($p) {
-                // Simplified calculation
-                return $p->start_permission_date->diffInDays($p->end_permission_date) + 1;
-            });
-
-        // 3. Absence Calculation
-        $workDays = 0;
-        $current = $startOfMonth->copy();
-        while ($current <= $today) {
-            if (!$current->isSunday()) { // Assuming Sunday is the only off day generally
-                $workDays++;
-            }
-            $current->addDay();
-        }
-        $this->monthlyAbsence = max(0, $workDays - $this->monthlyPresence - $this->monthlyPermit);
-
-        // 4. Overtime
-        $otIn = $records->where('state', 'ot_in')->sortBy('attendance_time');
-        $otOut = $records->where('state', 'ot_out')->sortBy('attendance_time');
-        
-        $this->monthlyOvertimeCount = $otIn->count();
-        $totalMinutes = 0;
-
-        foreach ($otIn as $in) {
-            $out = $otOut->where('attendance_time', '>', $in->attendance_time)
-                ->where('attendance_time', '<', $in->attendance_time->copy()->endOfDay())
-                ->first();
-            
-            if ($out) {
-                $totalMinutes += $in->attendance_time->diffInMinutes($out->attendance_time);
-            }
-        }
-
-        $hours = floor($totalMinutes / 60);
-        $mins = $totalMinutes % 60;
-        $this->monthlyOvertimeHours = "{$hours}j {$mins}m";
+        $this->monthlyPresence = $stats['presence'];
+        $this->monthlyLate = $stats['late'];
+        $this->monthlyPermit = $stats['permit'];
+        $this->monthlyAbsence = $stats['absence'];
+        $this->monthlyOvertimeCount = $stats['overtime_count'];
+        $this->monthlyOvertimeHours = $stats['overtime_hours'];
     }
 
     public function employeeInfolist(Infolist $infolist): Infolist

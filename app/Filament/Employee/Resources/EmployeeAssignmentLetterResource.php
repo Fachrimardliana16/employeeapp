@@ -12,8 +12,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeeAssignmentLetterResource extends Resource
 {
@@ -57,11 +60,14 @@ class EmployeeAssignmentLetterResource extends Resource
 
                         Forms\Components\DatePicker::make('start_date')
                             ->label('Tanggal Mulai')
-                            ->required(),
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('end_date', null)),
 
                         Forms\Components\DatePicker::make('end_date')
                             ->label('Tanggal Selesai')
-                            ->required(),
+                            ->required()
+                            ->afterOrEqual('start_date'),
 
                         Forms\Components\Select::make('assigning_employee_id')
                             ->label('Pegawai Di Tugaskan')
@@ -363,6 +369,7 @@ class EmployeeAssignmentLetterResource extends Resource
                     ->relationship('employeePosition', 'name')
                     ->searchable()
                     ->preload(),
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('cetak_report')
@@ -523,6 +530,8 @@ class EmployeeAssignmentLetterResource extends Resource
                         ->visible(fn(EmployeeAssignmentLetter $record) => !empty($record->signed_file_path)),
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
                 ])
                 ->label('Aksi')
                 ->button(),
@@ -530,7 +539,9 @@ class EmployeeAssignmentLetterResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ])->label('Hapus yang Dipilih'),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
+                ])->label('Aksi Massal'),
             ])
             ->emptyStateHeading('Belum ada surat tugas')
             ->emptyStateDescription('Mulai dengan membuat surat tugas pertama Anda.')

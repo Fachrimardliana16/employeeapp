@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class AttendanceMachineLogResource extends Resource
 {
@@ -123,6 +126,7 @@ class AttendanceMachineLogResource extends Resource
                         }
                         return $indicators;
                     }),
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('print_report')
@@ -218,29 +222,8 @@ class AttendanceMachineLogResource extends Resource
                                 'thursday' => 'KAMIS', 'friday' => 'JUMAT', 'saturday' => 'SABTU', 'sunday' => 'MINGGU',
                             ];
 
-                            // 1. Process Records for Duplicates (ASC order for logical processing)
-                            $records = $records->sortBy('timestamp');
-                            $grouped = $records->groupBy(function($item) {
-                                return $item->timestamp->toDateString() . '_' . $item->pin . '_' . $item->type;
-                            });
-
-                            foreach ($grouped as $group) {
-                                if ($group->count() > 1) {
-                                    $type = (string)$group->first()->type;
-                                    if (in_array($type, ['0', '3', '4'])) {
-                                        $primaryId = $group->sortBy('timestamp')->first()->id;
-                                    } elseif ($type === '1') {
-                                        $primaryId = $group->sortByDesc('timestamp')->first()->id;
-                                    } else {
-                                        $primaryId = $group->sortBy('timestamp')->first()->id;
-                                    }
-                                    foreach ($group as $log) {
-                                        $log->is_record_duplicate = ($log->id !== $primaryId);
-                                    }
-                                } else {
-                                    $group->first()->is_record_duplicate = false;
-                                }
-                            }
+                            // 1. Process Records for Duplicates using Service
+                            $records = \App\Services\AttendanceService::markDuplicates($records);
 
                             // Re-sort to DESC for export display
                             $sortedRecords = $records->sortByDesc('timestamp');
@@ -291,10 +274,15 @@ class AttendanceMachineLogResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\DeleteAction::make(),
+                RestoreAction::make(),
+                ForceDeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -304,6 +292,14 @@ class AttendanceMachineLogResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 
     public static function getPages(): array

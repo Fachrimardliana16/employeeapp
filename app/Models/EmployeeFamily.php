@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Traits\HasUserTracking;
+use App\Traits\LogsActivityTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeFamily extends Model
 {
-    use HasUserTracking, SoftDeletes;
+    use HasUserTracking, SoftDeletes, LogsActivityTrait;
 
     protected $fillable = [
         'employees_id',

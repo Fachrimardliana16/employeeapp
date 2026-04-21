@@ -15,6 +15,9 @@ use Filament\Infolists\Infolist;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeePermissionResource extends Resource
 {
@@ -76,11 +79,36 @@ class EmployeePermissionResource extends Resource
                             ->required()
                             ->native(false)
                             ->placeholder('Pilih tanggal mulai...'),
-                        Forms\Components\DatePicker::make('end_permission_date')
+                        \Forms\Components\DatePicker::make('end_permission_date')
                             ->label('Tanggal Selesai')
                             ->required()
                             ->native(false)
-                            ->placeholder('Pilih tanggal selesai...'),
+                            ->placeholder('Pilih tanggal selesai...')
+                            ->afterOrEqual('start_permission_date')
+                            ->rules([
+                                fn (Forms\Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    $employeeId = $get('employee_id');
+                                    $start = $get('start_permission_date');
+                                    $end = $value;
+                                    $recordId = $get('../id'); // Filament v3 way to get current record ID in form
+
+                                    if (!$employeeId || !$start || !$end) return;
+
+                                    $overlap = \App\Models\EmployeePermission::where('employee_id', $employeeId)
+                                        ->where('approval_status', '!=', 'rejected')
+                                        ->when($recordId, fn($q) => $q->where('id', '!=', $recordId))
+                                        ->where(function ($query) use ($start, $end) {
+                                            $query->whereBetween('start_permission_date', [$start, $end])
+                                                ->orWhereBetween('end_permission_date', [$start, $end])
+                                                ->orWhere(fn($q) => $q->where('start_permission_date', '<=', $start)->where('end_permission_date', '>=', $end));
+                                        })
+                                        ->exists();
+
+                                    if ($overlap) {
+                                        $fail('Pegawai sudah memiliki pengajuan izin/cuti pada rentang tanggal tersebut.');
+                                    }
+                                },
+                            ]),
                         Forms\Components\Textarea::make('permission_desc')
                             ->label('Alasan/Deskripsi')
                             ->required()
@@ -259,6 +287,7 @@ class EmployeePermissionResource extends Resource
                     ->label('Jenis Izin/Cuti')
                     ->relationship('permission', 'name')
                     ->placeholder('Semua Jenis'),
+                TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -333,6 +362,8 @@ class EmployeePermissionResource extends Resource
                         ->successNotificationTitle('Berhasil ditolak'),
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus'),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
                 ])
                     ->label('Aksi')
                     ->icon('heroicon-m-ellipsis-vertical')
@@ -343,11 +374,21 @@ class EmployeePermissionResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ])->label('Hapus yang Dipilih'),
             ])
             ->emptyStateHeading('Belum Ada Data Izin/Cuti')
             ->emptyStateDescription('Mulai dengan menambahkan data izin atau cuti Pegawai pertama.')
             ->emptyStateIcon('heroicon-o-calendar-days');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 
     public static function getRelations(): array

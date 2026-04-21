@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Traits\HasUserTracking;
+use App\Traits\LogsActivityTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeAttendanceRecord extends Model
 {
-    use HasUserTracking;
+    use HasUserTracking, LogsActivityTrait, SoftDeletes;
 
     protected $fillable = [
         'pin',

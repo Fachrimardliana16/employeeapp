@@ -11,10 +11,13 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 use App\Models\MasterStandarHargaSatuan;
 use App\Models\Employee;
 
@@ -154,12 +157,16 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->label('Tanggal Berangkat')
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                        $set('end_date', null);
+                                        self::updateTotals($get, $set);
+                                    }),
 
                                 Forms\Components\DatePicker::make('end_date')
                                     ->label('Tanggal Kembali')
                                     ->required()
                                     ->live()
+                                    ->afterOrEqual('start_date')
                                     ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
                             ]),
 
@@ -530,6 +537,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                     ->query(fn(Builder $query, array $data) => $query
                         ->when($data['travel_from'], fn($q, $date) => $q->whereDate('start_date', '>=', $date))
                         ->when($data['travel_until'], fn($q, $date) => $q->whereDate('end_date', '<=', $date))),
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('cetak_report')
@@ -580,6 +588,9 @@ class EmployeeBusinessTravelLetterResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make(),
                     Tables\Actions\Action::make('generate_pdf')
                         ->label('Cetak PDF')
                         ->icon('heroicon-o-document-arrow-down')
@@ -682,7 +693,17 @@ class EmployeeBusinessTravelLetterResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
             ]);
     }
 

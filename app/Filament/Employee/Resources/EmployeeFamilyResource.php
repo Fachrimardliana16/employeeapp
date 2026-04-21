@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeeFamilyResource extends Resource
 {
@@ -143,7 +146,8 @@ class EmployeeFamilyResource extends Resource
                 Tables\Columns\TextColumn::make('family_id_number')
                     ->label('Nomor KTP')
                     ->searchable()
-                    ->placeholder('Tidak ada'),
+                    ->placeholder('Tidak ada')
+                    ->formatStateUsing(fn ($state) => $state ? substr($state, 0, 3) . str_repeat('*', strlen($state) - 6) . substr($state, -3) : null),
                 Tables\Columns\TextColumn::make('family_date_birth')
                     ->label('Tanggal Lahir')
                     ->date('d/m/Y')
@@ -185,6 +189,7 @@ class EmployeeFamilyResource extends Resource
                     ->trueLabel('Hanya Kontak Darurat')
                     ->falseLabel('Bukan Kontak Darurat')
                     ->native(false),
+                TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -220,6 +225,14 @@ class EmployeeFamilyResource extends Resource
             ->emptyStateHeading('Belum Ada Data Keluarga')
             ->emptyStateDescription('Mulai dengan menambahkan data keluarga Pegawai pertama.')
             ->emptyStateIcon('heroicon-o-users');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 
     public static function getRelations(): array

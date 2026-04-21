@@ -16,6 +16,9 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Notifications\Notification;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Actions\ForceDeleteAction;
 
 class EmployeeRetirementResource extends Resource
 {
@@ -55,7 +58,8 @@ class EmployeeRetirementResource extends Resource
                             ->required()
                             ->default(now())
                             ->placeholder('Pilih tanggal pensiun...')
-                            ->helperText('Tanggal resmi pegawai berhenti bekerja')
+                            ->helperText('Tanggal resmi pegawai berhenti bekerja. Minimal hari ini.')
+                            ->minDate(now()->startOfDay())
                             ->native(false),
 
                         Forms\Components\Toggle::make('is_applied')
@@ -263,6 +267,7 @@ class EmployeeRetirementResource extends Resource
                     ->label('Pensiun Bulan Ini')
                     ->query(fn (Builder $query): Builder => $query->whereMonth('retirement_date', now()->month))
                     ->toggle(),
+                TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\Action::make('terapkan_realisasi')
@@ -353,6 +358,8 @@ class EmployeeRetirementResource extends Resource
                         ->modalDescription('Apakah Anda yakin ingin menghapus semua data pensiun yang dipilih? Tindakan ini tidak dapat dibatalkan.')
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
                         ->modalCancelActionLabel('Batal'),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ])->label('Hapus yang Dipilih'),
             ])
             ->headerActions([
@@ -386,6 +393,14 @@ class EmployeeRetirementResource extends Resource
             ->emptyStateHeading('Belum Ada Data Pensiun')
             ->emptyStateDescription('Mulai dengan menambahkan data pensiun Pegawai pertama.')
             ->emptyStateIcon('heroicon-o-home');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 
     public static function getRelations(): array
