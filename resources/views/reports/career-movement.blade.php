@@ -94,10 +94,8 @@
                     <th>Status Baru</th>
                 @elseif($type === 'psi')
                     <th>No. SK</th>
-                    <th>MKG Lama</th>
-                    <th>MKG Baru</th>
-                    <th>Gaji Lama</th>
-                    <th>Gaji Baru</th>
+                    <th>MKG/Gaji Lama</th>
+                    <th>MKG/Gaji Baru</th>
                 @elseif($type === 'career_movement')
                     <th>Jenis</th>
                     <th>No. SK</th>
@@ -152,11 +150,13 @@
                                 $newMkg = intval($row->newServiceGrade->service_grade ?? 0);
                                 $oldMkg = $newMkg > 1 ? $newMkg - 2 : 0;
                             @endphp
-                            {{ $oldMkg }} Thn
+                            <div style="font-weight: bold;">{{ $oldMkg }} Thn</div>
+                            <div style="font-size: 9px; color: #666;">Rp {{ number_format($row->oldSalaryGrade?->basic_salary ?? 0, 0, ',', '.') }}</div>
                         </td>
-                        <td>{{ $row->newServiceGrade->service_grade ?? '-' }} Thn</td>
-                        <td>Rp {{ number_format($row->oldSalaryGrade?->basic_salary ?? 0, 0, ',', '.') }}</td>
-                        <td>Rp {{ number_format($row->total_basic_salary, 0, ',', '.') }}</td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $row->newServiceGrade->service_grade ?? '-' }} Thn</div>
+                            <div style="font-size: 9px; color: #28a745; font-weight: bold;">Rp {{ number_format($row->total_basic_salary, 0, ',', '.') }}</div>
+                        </td>
                     @elseif($type === 'career_movement')
                         <td>{{ $row->type === 'promotion' ? 'PROMOSI' : 'DEMOSI' }}</td>
                         <td>{{ $row->decision_letter_number ?? '-' }}</td>
