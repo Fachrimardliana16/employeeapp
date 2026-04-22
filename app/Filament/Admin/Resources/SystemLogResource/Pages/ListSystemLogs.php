@@ -57,6 +57,15 @@ class ListSystemLogs extends Page implements HasTable
                     ->wrap()
                     ->searchable(),
             ])
+            ->actions([
+                Tables\Actions\Action::make('copy')
+                    ->label('Salin')
+                    ->icon('heroicon-o-clipboard-document')
+                    ->color('gray')
+                    ->extraAttributes(fn ($record) => [
+                        'x-on:click' => "window.navigator.clipboard.writeText('" . e(addslashes($record->message)) . "'); window.Filament.notifications.show({title: 'Pesan log disalin', type: 'success'})",
+                    ]),
+            ])
             ->defaultSort('date', 'desc');
     }
 
@@ -118,6 +127,13 @@ class ListSystemLogs extends Page implements HasTable
 
         $logs = new EloquentCollection();
         foreach (array_reverse($matches) as $index => $match) {
+            $level = strtolower($match[3]);
+            
+            // Skip debug level messages
+            if ($level === 'debug') {
+                continue;
+            }
+
             // We hydrate the Activity model with our log data
             $activity = new Activity();
             $activity->id = $index + 1;
