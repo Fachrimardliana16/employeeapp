@@ -61,6 +61,7 @@ class EmployeePromotionResource extends Resource
                         Forms\Components\Toggle::make('is_applied')
                             ->label('Terapkan langsung (Realisasi)')
                             ->default(true)
+                            ->live()
                             ->helperText('Jika dicentang, golongan gaji di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.')
                             ->columnSpanFull(),
                     ])->columns(2),
@@ -74,9 +75,12 @@ class EmployeePromotionResource extends Resource
                                 'employee',
                                 'name',
                                 fn (Builder $query) => $query->whereHas('employmentStatus', function (Builder $query) {
-                                    $query->where('name', 'like', '%tetap%')
-                                          ->orWhere('name', 'like', '%permanen%')
-                                          ->orWhere('name', 'like', '%PKWTT%');
+                                    $query->where('name', '!=', 'Pensiun')
+                                          ->where(function ($q) {
+                                              $q->where('name', 'like', '%tetap%')
+                                                ->orWhere('name', 'like', '%permanen%')
+                                                ->orWhere('name', 'like', '%PKWTT%');
+                                          });
                                 })
                             )
                             ->searchable()

@@ -49,7 +49,8 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                         Forms\Components\Toggle::make('is_applied')
                             ->label('Terapkan langsung (Realisasi)')
                             ->default(true)
-                            ->helperText('Jika aktif, MKG dan gaji di profil pegawai akan langsung diperbarui.')
+                            ->live()
+                            ->helperText('Jika dicentang, gaji berkala di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.')
                             ->columnSpanFull(),
                     ])->columns(2),
 
@@ -57,7 +58,11 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     ->description('Pilih Pegawai yang akan diajukan kenaikan berkala')
                     ->schema([
                         Forms\Components\Select::make('employee_id')
-                            ->relationship('employee', 'name')
+                            ->relationship('employee', 'name', function ($query) {
+                                return $query->whereHas('employmentStatus', function ($q) {
+                                    $q->where('name', '!=', 'Pensiun');
+                                });
+                            })
                             ->label('Pegawai')
                             ->required()
                             ->searchable()

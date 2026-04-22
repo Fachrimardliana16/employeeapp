@@ -61,6 +61,7 @@ class EmployeeCareerMovementResource extends Resource
                         Forms\Components\Toggle::make('is_applied')
                             ->label('Terapkan langsung (Realisasi)')
                             ->default(true)
+                            ->live()
                             ->helperText('Jika dicentang, data jabatan/bagian di profil pegawai akan langsung diperbarui saat disimpan. Jika tidak, data akan tersimpan sebagai usulan.'),
                     ])->columns(2),
 
@@ -69,7 +70,11 @@ class EmployeeCareerMovementResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('employee_id')
                             ->label('Pegawai')
-                            ->relationship('employee', 'name')
+                            ->relationship('employee', 'name', function ($query) {
+                                return $query->whereHas('employmentStatus', function ($q) {
+                                    $q->where('name', '!=', 'Pensiun');
+                                });
+                            })
                             ->searchable()
                             ->preload()
                             ->required()
