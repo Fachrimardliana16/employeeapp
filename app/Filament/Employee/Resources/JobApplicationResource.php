@@ -864,8 +864,7 @@ class JobApplicationResource extends Resource
                                         ->circular()
                                         ->height(200)
                                         ->alignCenter()
-                                        ->disk('public')
-                                        ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
+                                        ->state(fn($record) => $record->photo ? url('image-view/' . $record->photo) : null)
                                         ->extraImgAttributes(['class' => 'shadow-lg border-2 border-primary-500'])
                                         ->placeholder('Tidak ada foto'),
                                     
