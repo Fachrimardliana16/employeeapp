@@ -9,6 +9,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Spatie\Activitylog\Models\Activity;
 
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
+
 class ActivityLogResource extends Resource
 {
     protected static ?string $model = Activity::class;
@@ -24,6 +27,68 @@ class ActivityLogResource extends Resource
     protected static ?string $navigationGroup = 'Sistem';
 
     protected static ?int $navigationSort = 2;
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Informasi Dasar')
+                    ->icon('heroicon-m-information-circle')
+                    ->schema([
+                        Infolists\Components\Grid::make(3)
+                            ->schema([
+                                Infolists\Components\TextEntry::make('log_name')
+                                    ->label('Nama Log')
+                                    ->badge(),
+                                Infolists\Components\TextEntry::make('description')
+                                    ->label('Deskripsi'),
+                                Infolists\Components\TextEntry::make('created_at')
+                                    ->label('Waktu Aktivitas')
+                                    ->dateTime('d/m/Y H:i:s'),
+                            ]),
+                    ]),
+
+                Infolists\Components\Grid::make(2)
+                    ->schema([
+                        Infolists\Components\Section::make('Subjek & Pelaku')
+                            ->schema([
+                                Infolists\Components\TextEntry::make('causer.name')
+                                    ->label('Pengguna (Pelaku)')
+                                    ->placeholder('Sistem'),
+                                Infolists\Components\TextEntry::make('subject_type')
+                                    ->label('Tipe Subjek'),
+                                Infolists\Components\TextEntry::make('subject_id')
+                                    ->label('ID Subjek'),
+                            ])->columnSpan(1),
+
+                        Infolists\Components\Section::make('Konteks')
+                            ->schema([
+                                Infolists\Components\TextEntry::make('event')
+                                    ->label('Event')
+                                    ->badge()
+                                    ->color(fn ($state) => match ($state) {
+                                        'created' => 'success',
+                                        'updated' => 'warning',
+                                        'deleted' => 'danger',
+                                        default => 'gray',
+                                    }),
+                                Infolists\Components\TextEntry::make('batch_uuid')
+                                    ->label('Batch ID')
+                                    ->placeholder('-'),
+                            ])->columnSpan(1),
+                    ]),
+
+                Infolists\Components\Section::make('Data Perubahan')
+                    ->icon('heroicon-m-arrow-path')
+                    ->schema([
+                        Infolists\Components\KeyValue::make('properties.attributes')
+                            ->label('Data Baru / Sekarang'),
+                        Infolists\Components\KeyValue::make('properties.old')
+                            ->label('Data Lama (Sebelum Perubahan)')
+                            ->visible(fn ($record) => !empty($record->properties['old'])),
+                    ]),
+            ]);
+    }
 
     public static function form(Form $form): Form
     {
