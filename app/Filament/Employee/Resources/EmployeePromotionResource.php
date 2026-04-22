@@ -238,6 +238,24 @@ class EmployeePromotionResource extends Resource
                     ->sortable()
                     ->color('warning')
                     ->icon('heroicon-m-calendar')
+                    ->description(function ($record) {
+                        $target = $record->next_promotion_date ?? $record->employee?->next_promotion_date;
+                        if (!$target) return null;
+                        
+                        $now = now();
+                        if ($now->gt($target)) return 'Melewati jadwal';
+                        if ($now->isSameDay($target)) return 'Hari ini';
+                        
+                        $diff = $now->diff($target);
+                        $months = $diff->m + ($diff->y * 12);
+                        $days = $diff->d;
+                        
+                        $parts = [];
+                        if ($months > 0) $parts[] = "{$months} bulan";
+                        if ($days > 0) $parts[] = "{$days} hari";
+                        
+                        return 'Sisa ' . (implode(' ', $parts) ?: '0 hari');
+                    })
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('doc_promotion')

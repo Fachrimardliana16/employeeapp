@@ -268,10 +268,22 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     ->color('warning')
                     ->description(function ($record) {
                         if (!$record->employee?->next_kgb_date) return null;
-                        $days = now()->diffInDays($record->employee->next_kgb_date, false);
-                        if ($days < 0) return 'Melewati jadwal';
-                        if ($days == 0) return 'Hari ini';
-                        return "Sisa {$days} hari";
+                        
+                        $now = now();
+                        $target = $record->employee->next_kgb_date;
+                        
+                        if ($now->gt($target)) return 'Melewati jadwal';
+                        if ($now->isSameDay($target)) return 'Hari ini';
+                        
+                        $diff = $now->diff($target);
+                        $months = $diff->m + ($diff->y * 12);
+                        $days = $diff->d;
+                        
+                        $parts = [];
+                        if ($months > 0) $parts[] = "{$months} bulan";
+                        if ($days > 0) $parts[] = "{$days} hari";
+                        
+                        return 'Sisa ' . (implode(' ', $parts) ?: '0 hari');
                     }),
 
                 Tables\Columns\TextColumn::make('docs_letter')
