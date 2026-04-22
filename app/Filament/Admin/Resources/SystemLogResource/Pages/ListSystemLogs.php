@@ -63,7 +63,7 @@ class ListSystemLogs extends Page implements HasTable
                     ->icon('heroicon-o-clipboard-document')
                     ->color('gray')
                     ->extraAttributes(fn ($record) => [
-                        'x-on:click' => "window.navigator.clipboard.writeText('" . e(addslashes($record->message)) . "'); window.Filament.notifications.show({title: 'Pesan log disalin', type: 'success'})",
+                        'x-on:click' => 'window.navigator.clipboard.writeText(' . json_encode($record->message) . '); window.Filament.notifications.show({title: "Pesan log disalin", type: "success"})',
                     ]),
             ])
             ->defaultSort('date', 'desc');
