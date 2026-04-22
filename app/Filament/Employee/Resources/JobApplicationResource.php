@@ -896,19 +896,20 @@ class JobApplicationResource extends Resource
                                         ->alignCenter()
                                         ->extraAttributes(['class' => 'mt-4']),
 
-                                    Infolists\Components\RepeatableEntry::make('documents')
+                                     Infolists\Components\RepeatableEntry::make('documents')
                                         ->label('Dokumen Lampiran')
                                         ->schema([
                                             Infolists\Components\TextEntry::make('')
-                                                ->formatStateUsing(fn ($state) => basename($state))
+                                                ->formatStateUsing(fn ($state) => $state ? basename((string)$state) : '-')
                                                 ->weight('medium')
                                                 ->suffixAction(
                                                     Infolists\Components\Actions\Action::make('download')
                                                         ->label('Unduh')
                                                         ->icon('heroicon-o-arrow-down-tray')
                                                         ->color('primary')
-                                                        ->url(fn ($state) => asset('storage/' . $state))
+                                                        ->url(fn ($state) => $state ? asset('storage/' . $state) : null)
                                                         ->openUrlInNewTab()
+                                                        ->visible(fn ($state) => !empty($state))
                                                 ),
                                         ])
                                         ->grid(1)
@@ -941,7 +942,7 @@ class JobApplicationResource extends Resource
                                                         ->label('Status Sipil'),
                                                     Infolists\Components\TextEntry::make('birth_info')
                                                         ->label('Tempat, Tgl Lahir')
-                                                        ->state(fn($record) => "{$record->place_birth}, " . $record->date_birth->format('d F Y')),
+                                                        ->state(fn($record) => "{$record->place_birth}, " . ($record->date_birth ? $record->date_birth->format('d F Y') : '-')),
                                                 ]),
                                             Infolists\Components\TextEntry::make('address')
                                                 ->label('Alamat Lengkap')
@@ -991,7 +992,7 @@ class JobApplicationResource extends Resource
                                                         ->schema([
                                                             Infolists\Components\TextEntry::make('education_summary')
                                                                 ->label('Institusi')
-                                                                ->state(fn($record) => "{$record->educationLevel->name} - {$record->education_institution}"),
+                                                                ->state(fn($record) => ($record->educationLevel->name ?? '-') . " - " . ($record->education_institution ?? '-')),
                                                             Infolists\Components\TextEntry::make('education_major')
                                                                 ->label('Jurusan'),
                                                             Infolists\Components\TextEntry::make('education_graduation_year')
@@ -1029,7 +1030,7 @@ class JobApplicationResource extends Resource
                                                                 ->weight('bold'),
                                                             Infolists\Components\TextEntry::make('interview_date')
                                                                 ->label('Waktu')
-                                                                ->formatStateUsing(fn($record) => $record->interview_date->format('d M Y') . ($record->interview_time ? ' (' . $record->interview_time . ')' : '')),
+                                                                ->formatStateUsing(fn($record) => $record->interview_date ? $record->interview_date->format('d M Y') . ($record->interview_time ? ' (' . $record->interview_time . ')' : '') : '-'),
                                                             Infolists\Components\TextEntry::make('result')
                                                                 ->label('Hasil')
                                                                 ->badge()

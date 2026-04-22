@@ -74,7 +74,7 @@ class ListSystemLogs extends Page implements HasTable
         }
 
         // Native PHP tail implementation for hosting compatibility
-        $lines = 500;
+        $lines = 2000;
         $handle = fopen($logPath, "r");
         $lineCounter = $lines;
         $pos = -2; // Skip last character if it's a newline
@@ -112,8 +112,8 @@ class ListSystemLogs extends Page implements HasTable
             return new EloquentCollection();
         }
 
-        // Regex handles standard Laravel [date] environment.LEVEL: message format
-        $pattern = '/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+)\.(\w+): (.*)/m';
+        // Split by the date pattern to capture multi-line messages (stack traces)
+        $pattern = '/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+)\.(\w+): (.*?)(?=\n\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]|$)/s';
         preg_match_all($pattern, $lastLines, $matches, PREG_SET_ORDER);
 
         $logs = new EloquentCollection();
@@ -123,7 +123,7 @@ class ListSystemLogs extends Page implements HasTable
             $activity->id = $index + 1;
             $activity->setAttribute('date', $match[1]);
             $activity->setAttribute('level', $match[3]);
-            $activity->setAttribute('message', $match[4]);
+            $activity->setAttribute('message', trim($match[4]));
             
             $logs->add($activity);
         }
