@@ -102,6 +102,7 @@ class ManageBackup extends Page
                 $sql = "-- Table: $table\n-- Generated via Pure PHP Gentle Mode\n\n";
                 
                 // Get Schema (Driver Aware)
+                $wrappedTable = \Illuminate\Support\Facades\DB::connection()->getQueryGrammar()->wrapTable($table);
                 if ($driver === 'sqlite') {
                     $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
                     if (!empty($schema)) {
@@ -109,13 +110,13 @@ class ManageBackup extends Page
                     }
                 } else {
                     // MySQL
-                    $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE `$table`")[0];
+                    $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable")[0];
                     $schemaKey = 'Create Table';
                     $sql .= $schema->$schemaKey . ";\n\n";
                 }
 
                 // Get Data using Chunks (Memory Efficient)
-                \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use (&$sql, $table) {
+                \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use (&$sql, $wrappedTable) {
                     foreach ($rows as $row) {
                         $rowArray = (array)$row;
                         $keys = array_keys($rowArray);
@@ -127,7 +128,7 @@ class ManageBackup extends Page
                             return "'" . str_replace("'", "''", $value) . "'";
                         }, $values);
 
-                        $sql .= "INSERT INTO `$table` (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n";
+                        $sql .= "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n";
                     }
                 });
 
@@ -289,6 +290,7 @@ class ManageBackup extends Page
 
         foreach ($tables as $table) {
             // Get Schema
+            $wrappedTable = \Illuminate\Support\Facades\DB::connection()->getQueryGrammar()->wrapTable($table);
             if ($driver === 'sqlite') {
                 $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
                 if (!empty($schema)) {
@@ -296,13 +298,13 @@ class ManageBackup extends Page
                 }
             } else {
                 // MySQL
-                $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE `$table`")[0];
+                $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable")[0];
                 $schemaKey = 'Create Table';
                 $fullSql .= $schema->$schemaKey . ";\n\n";
             }
 
             // Get Data (Chunked for memory efficiency)
-            \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use (&$fullSql, $table) {
+            \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use (&$fullSql, $wrappedTable) {
                 foreach ($rows as $row) {
                     $rowArray = (array)$row;
                     $keys = array_keys($rowArray);
@@ -314,7 +316,7 @@ class ManageBackup extends Page
                         return "'" . str_replace("'", "''", $value) . "'";
                     }, $values);
 
-                    $fullSql .= "INSERT INTO `$table` (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n";
+                    $fullSql .= "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n";
                 }
             });
             $fullSql .= "\n";
