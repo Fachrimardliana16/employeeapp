@@ -249,7 +249,7 @@ class EmployeeCareerMovementResource extends Resource
                     ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
                     ->color(fn ($state) => $state ? 'primary' : 'gray')
                     ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
-                    ->url(fn ($record) => $record->doc_path ? asset('storage/' . $record->doc_path) : null)
+                    ->url(fn ($record) => $record->doc_path ? url('image-view/' . $record->doc_path) : null)
                     ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')

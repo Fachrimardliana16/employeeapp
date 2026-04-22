@@ -245,7 +245,7 @@ class EmployeePromotionResource extends Resource
                     ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
                     ->color(fn ($state) => $state ? 'primary' : 'gray')
                     ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
-                    ->url(fn ($record) => $record->doc_promotion ? asset('storage/' . $record->doc_promotion) : null)
+                    ->url(fn ($record) => $record->doc_promotion ? url('image-view/' . $record->doc_promotion) : null)
                     ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')

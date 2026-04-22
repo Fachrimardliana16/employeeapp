@@ -154,12 +154,13 @@ class EmployeeMutationResource extends Resource
                                             ->live()
                                             ->afterStateUpdated(function (callable $set, callable $get, $state) {
                                                 if ($state) {
-                                                    $employee = Employee::with(['department', 'subDepartment', 'position'])->find($state);
+                                                    $employee = \App\Models\Employee::with(['department', 'subDepartment', 'position'])->find($state);
                                                     if ($employee) {
-                                                        // Auto-fill current data as "old" data
+                                                        // Auto-fill current data as "old" and "new" data (since position stays same in mutation)
                                                         $set('old_department_id', $employee->departments_id);
                                                         $set('old_sub_department_id', $employee->sub_department_id);
                                                         $set('old_position_id', $employee->employee_position_id);
+                                                        $set('new_position_id', $employee->employee_position_id);
                                                     }
                                                 }
                                             })
@@ -249,17 +250,13 @@ class EmployeeMutationResource extends Resource
                                             ]),
                                         Forms\Components\Select::make('new_position_id')
                                             ->label('Jabatan Baru')
-                                            ->options(function (Forms\Get $get) {
-                                                $oldPositionId = $get('old_position_id');
-                                                return MasterEmployeePosition::query()
-                                                    ->when($oldPositionId, fn ($query) => $query->where('id', '!=', $oldPositionId))
-                                                    ->pluck('name', 'id')
-                                                    ->toArray();
-                                            })
+                                            ->relationship('newPosition', 'name')
                                             ->required()
                                             ->searchable()
                                             ->preload()
-                                            ->helperText('Jabatan baru setelah mutasi'),
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->helperText('Jabatan tetap sama untuk Mutasi. Gunakan menu Promosi/Demosi untuk mengubah jabatan.'),
                                     ]),
                                     
                                 Forms\Components\Section::make('Dokumen Pendukung')
@@ -355,7 +352,7 @@ class EmployeeMutationResource extends Resource
                     ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
                     ->color(fn ($state) => $state ? 'primary' : 'gray')
                     ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
-                    ->url(fn ($record) => $record->docs ? asset('storage/' . $record->docs) : null)
+                    ->url(fn ($record) => $record->docs ? url('image-view/' . $record->docs) : null)
                     ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')

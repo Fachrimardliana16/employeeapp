@@ -111,7 +111,7 @@ class EmployeeAssignmentLetterResource extends Resource
                     Tables\Actions\Action::make('download_pdf')
                         ->label('Download PDF')
                         ->icon('heroicon-o-document-arrow-down')
-                        ->url(fn(EmployeeAssignmentLetter $record) => $record->pdf_file_path ? asset('storage/' . $record->pdf_file_path) : null)
+                        ->url(fn(EmployeeAssignmentLetter $record) => $record->pdf_file_path ? url('image-view/' . $record->pdf_file_path) : null)
                         ->openUrlInNewTab()
                         ->visible(fn(EmployeeAssignmentLetter $record) => !empty($record->pdf_file_path)),
                     Tables\Actions\Action::make('upload_signed')
@@ -143,10 +143,10 @@ class EmployeeAssignmentLetterResource extends Resource
                             Forms\Components\Group::make([
                                 Forms\Components\Placeholder::make('internal_file')
                                     ->label('Arsip TTD Internal')
-                                    ->content(fn($record) => $record->signed_file_path ? new \Illuminate\Support\HtmlString("<a href='".asset('storage/'.$record->signed_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Internal</a>") : 'Belum diupload'),
+                                    ->content(fn($record) => $record->signed_file_path ? new \Illuminate\Support\HtmlString("<a href='".url('image-view/'.$record->signed_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Internal</a>") : 'Belum diupload'),
                                 Forms\Components\Placeholder::make('visit_file')
                                     ->label('Arsip Cap Kunjungan')
-                                    ->content(fn($record) => $record->visit_file_path ? new \Illuminate\Support\HtmlString("<a href='".asset('storage/'.$record->visit_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Kunjungan</a>") : 'Belum diupload'),
+                                    ->content(fn($record) => $record->visit_file_path ? new \Illuminate\Support\HtmlString("<a href='".url('image-view/'.$record->visit_file_path)."' target='_blank' class='text-primary-600 underline'>Buka File Kunjungan</a>") : 'Belum diupload'),
                             ])->columns(2)
                         ]),
                 ])

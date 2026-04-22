@@ -133,7 +133,7 @@ class EmployeeDocumentResource extends Resource
                 Tables\Columns\IconColumn::make('file_path')
                     ->label('File')
                     ->icon('heroicon-o-document')
-                    ->url(fn($record) => $record->file_path ? asset('storage/' . $record->file_path) : null)
+                    ->url(fn($record) => $record->file_path ? url('image-view/' . $record->file_path) : null)
                     ->openUrlInNewTab()
                     ->alignCenter(),
                 Tables\Columns\TextColumn::make('created_at')
@@ -175,7 +175,7 @@ class EmployeeDocumentResource extends Resource
                     Tables\Actions\Action::make('download')
                         ->label('Download')
                         ->icon('heroicon-o-arrow-down-tray')
-                        ->url(fn($record) => $record->file_path ? asset('storage/' . $record->file_path) : null)
+                        ->url(fn($record) => $record->file_path ? url('image-view/' . $record->file_path) : null)
                         ->openUrlInNewTab(),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])

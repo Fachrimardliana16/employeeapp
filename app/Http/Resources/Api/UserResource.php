@@ -46,7 +46,7 @@ class UserResource extends JsonResource
                     'religion' => $employee->religion,
                     'blood_type' => $employee->blood_type,
                     'marital_status' => $employee->marital_status,
-                    'image_url' => $employee->image ? asset('storage/' . $employee->image) : null,
+                    'image_url' => $employee->image ? url('image-view/' . $employee->image) : null,
                 ],
                 'employment_data' => [
                     'employment_status' => $employee->employmentStatus?->name,

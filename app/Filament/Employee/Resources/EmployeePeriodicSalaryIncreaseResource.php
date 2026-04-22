@@ -261,7 +261,7 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
                     ->color(fn ($state) => $state ? 'primary' : 'gray')
                     ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
-                    ->url(fn ($record) => $record->docs_letter ? asset('storage/' . $record->docs_letter) : null)
+                    ->url(fn ($record) => $record->docs_letter ? url('image-view/' . $record->docs_letter) : null)
                     ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')

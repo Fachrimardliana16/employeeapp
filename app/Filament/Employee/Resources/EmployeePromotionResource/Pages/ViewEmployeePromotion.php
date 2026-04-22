@@ -91,7 +91,7 @@ class ViewEmployeePromotion extends ViewRecord
                             ->getStateUsing(fn ($record) => $record->doc_promotion ? 'Dokumen tersedia' : 'Tidak ada dokumen')
                             ->badge()
                             ->color(fn ($record) => $record->doc_promotion ? 'success' : 'gray')
-                            ->url(fn ($record) => $record->doc_promotion ? asset('storage/' . $record->doc_promotion) : null)
+                            ->url(fn ($record) => $record->doc_promotion ? url('image-view/' . $record->doc_promotion) : null)
                             ->openUrlInNewTab(),
                     ]),
 

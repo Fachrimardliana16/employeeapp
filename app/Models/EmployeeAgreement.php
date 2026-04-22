@@ -191,7 +191,7 @@ class EmployeeAgreement extends Model
      */
     public function getDocsUrlAttribute(): ?string
     {
-        return $this->docs ? asset('storage/' . $this->docs) : null;
+        return $this->docs ? url('image-view/' . $this->docs) : null;
     }
 
     /**
