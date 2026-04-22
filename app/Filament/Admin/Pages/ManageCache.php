@@ -14,7 +14,7 @@ class ManageCache extends Page
 
     protected static string $view = 'filament.admin.pages.manage-cache';
 
-    protected static ?string $navigationGroup = 'pengaturan sistem';
+    protected static ?string $navigationGroup = 'Sistem';
 
     protected static ?string $navigationLabel = 'Kelola Cache';
 
