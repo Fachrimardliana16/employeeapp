@@ -96,8 +96,7 @@ class ActivityLogResource extends Resource
                                     return 'Data corrupt or invalid JSON';
                                 }
                             })
-                            ->fontFamily('mono')
-                            ->wrap(),
+                            ->fontFamily('mono'),
                     ]),
             ]);
     }
