@@ -129,26 +129,25 @@ class JobApplicationResource extends Resource
                 Forms\Components\Section::make('Dokumen Lamaran')
                     ->schema([
                         Forms\Components\FileUpload::make('photo')
-                            ->label('Foto Pas')
+                            ->label('Foto Pas (4x6)')
                             ->image()
                             ->imageEditor()
                             ->imageResizeMode('cover')
                             ->imageResizeTargetWidth(800)
                             ->imageResizeTargetHeight(800)
-                            ->disk('local') // Change to private disk
-                            ->visibility('private')
-                            ->directory('job-applications/photos')
-                            ->maxSize(15360)
-                            ->required()
-                            ->optimize('webp')
                             ->acceptedFileTypes(['image/jpeg', 'image/png'])
-                            ->helperText('Unggah foto formal terbaru (background merah/biru, berpakaian rapi, format JPG/PNG, maks. 2MB).'),
+                            ->maxSize(2048)
+                            ->disk('public')
+                            ->visibility('public')
+                            ->directory('job-applications/photos')
+                            ->required()
+                            ->columnSpan(1),
 
                         Forms\Components\FileUpload::make('documents')
-                            ->label('Unggah Dokumen (CV, Ijazah, KTP, dll)')
+                            ->label('Dokumen Pendukung (CV, Ijazah, KTP, dll)')
                             ->multiple()
-                            ->disk('local') // Change to private disk
-                            ->visibility('private')
+                            ->disk('public')
+                            ->visibility('public')
                             ->directory('job-applications/documents')
                             ->openable()
                             ->downloadable()
@@ -318,7 +317,8 @@ class JobApplicationResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('photo')
                     ->label('Foto Pas')
-                    ->disk('local')
+                    ->disk('public')
+                    ->imageUrl(fn($record) => $record->photo ? url('image-view/' . $record->photo) : null)
                     ->circular(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Lengkap')
@@ -864,6 +864,8 @@ class JobApplicationResource extends Resource
                                         ->circular()
                                         ->height(200)
                                         ->alignCenter()
+                                        ->disk('public')
+                                        ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
                                         ->extraImgAttributes(['class' => 'shadow-lg border-2 border-primary-500'])
                                         ->placeholder('Tidak ada foto'),
                                     
@@ -907,7 +909,7 @@ class JobApplicationResource extends Resource
                                                         ->label('Unduh')
                                                         ->icon('heroicon-o-arrow-down-tray')
                                                         ->color('primary')
-                                                        ->url(fn ($component) => $component->getState() ? asset('storage/' . $component->getState()) : null)
+                                                        ->url(fn ($component) => $component->getState() ? url('image-view/' . $component->getState()) : null)
                                                         ->openUrlInNewTab()
                                                         ->visible(fn ($component) => !empty($component->getState()))
                                                 ),
