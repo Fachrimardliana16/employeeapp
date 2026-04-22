@@ -69,17 +69,50 @@ class ListSystemLogs extends Page implements HasTable
     {
         $logPath = storage_path('logs/laravel.log');
 
-        if (!File::exists($logPath)) {
+        if (!File::exists($logPath) || !is_readable($logPath)) {
             return new EloquentCollection();
         }
 
-        // Use shell tail command for memory efficiency
-        $lastLines = shell_exec("tail -n 500 " . escapeshellarg($logPath));
+        // Native PHP tail implementation for hosting compatibility
+        $lines = 500;
+        $handle = fopen($logPath, "r");
+        $lineCounter = $lines;
+        $pos = -2; // Skip last character if it's a newline
+        $beginning = false;
+        $lastLines = "";
+
+        // Seek backward from the end
+        while ($lineCounter > 0) {
+            while (true) {
+                if (fseek($handle, $pos, SEEK_END) == -1) {
+                    $beginning = true;
+                    break;
+                }
+                $t = fgetc($handle);
+                if ($t === "\n") {
+                    break;
+                }
+                $pos--;
+            }
+            $lineCounter--;
+            if ($beginning) break;
+            $pos--;
+        }
+
+        if (!$beginning) {
+            fseek($handle, $pos + 2, SEEK_END);
+        } else {
+            rewind($handle);
+        }
+
+        $lastLines = fread($handle, abs($pos) + 2);
+        fclose($handle);
         
         if (empty($lastLines)) {
             return new EloquentCollection();
         }
 
+        // Regex handles standard Laravel [date] environment.LEVEL: message format
         $pattern = '/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+)\.(\w+): (.*)/m';
         preg_match_all($pattern, $lastLines, $matches, PREG_SET_ORDER);
 
