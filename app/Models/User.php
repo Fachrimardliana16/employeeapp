@@ -5,15 +5,36 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use App\Traits\LogsActivityTrait;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, HasRoles, LogsActivityTrait;
+
+    /**
+     * Determine if the user can access a Filament panel.
+     * Required for production environment (APP_ENV=production).
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Pastikan user aktif dan terverifikasi
+        if (!$this->is_active || !$this->is_verified) {
+            return false;
+        }
+
+        return match ($panel->getId()) {
+            'admin' => $this->hasRole('superadmin'),
+            'employee' => $this->hasRole(['superadmin', 'admin']),
+            'user' => $this->hasRole(['superadmin', 'admin', 'user']),
+            default => false,
+        };
+    }
 
     /**
      * The attributes that are mass assignable.
