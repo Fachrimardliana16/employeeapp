@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-use App\Traits\LogsActivityTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AttendanceMachineLog extends Model
 {
-    use LogsActivityTrait, SoftDeletes;
+    use SoftDeletes;
+    // LogsActivityTrait dihapus: machine logs sudah merupakan log dari mesin absensi
+    // volume sangat tinggi (ratusan per sync), tidak perlu di-log ulang
     protected $fillable = [
         'attendance_machine_id',
         'serial_number',

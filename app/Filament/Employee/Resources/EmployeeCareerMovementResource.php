@@ -150,7 +150,13 @@ class EmployeeCareerMovementResource extends Resource
                                 
                                 Forms\Components\Select::make('new_position_id')
                                     ->label('Jabatan Baru')
-                                    ->relationship('newPosition', 'name')
+                                    ->options(function (Forms\Get $get) {
+                                        $oldPositionId = $get('old_position_id');
+                                        return MasterEmployeePosition::query()
+                                            ->when($oldPositionId, fn ($query) => $query->where('id', '!=', $oldPositionId))
+                                            ->pluck('name', 'id')
+                                            ->toArray();
+                                    })
                                     ->required()
                                     ->searchable()
                                     ->preload(),
@@ -174,7 +180,8 @@ class EmployeeCareerMovementResource extends Resource
                             ->directory('career-movements/realization')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120)
-                            ->required(fn (Forms\Get $get) => $get('is_applied')),
+                            ->required(fn (Forms\Get $get) => $get('is_applied'))
+                            ->visible(fn (Forms\Get $get) => $get('is_applied')),
                         
                         Forms\Components\Textarea::make('description')
                             ->label('Keterangan')
@@ -232,11 +239,13 @@ class EmployeeCareerMovementResource extends Resource
                     ->description(fn ($record) => $record->newDepartment?->name)
                     ->searchable(),
 
-                Tables\Columns\IconColumn::make('doc_path')
+                Tables\Columns\TextColumn::make('doc_path')
                     ->label('Berkas')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-document-text')
-                    ->getStateUsing(fn ($record) => (bool) $record->doc_path),
+                    ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
+                    ->color(fn ($state) => $state ? 'primary' : 'gray')
+                    ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
+                    ->url(fn ($record) => $record->doc_path ? asset('storage/' . $record->doc_path) : null)
+                    ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')
                     ->label('Status')

@@ -32,7 +32,7 @@ class InterviewProcessResource extends Resource
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return static::getModel()::where('result', 'pending')->count() > 0 ? 'warning' : 'gray';
+        return static::getNavigationBadge() !== null ? 'warning' : 'gray';
     }
 
     public static function form(Form $form): Form

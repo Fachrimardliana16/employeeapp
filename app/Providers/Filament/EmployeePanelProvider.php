@@ -91,7 +91,9 @@ class EmployeePanelProvider extends PanelProvider
                 'Master Data',
                 'Bantuan',
             ])
-            ->sidebarCollapsibleOnDesktop()
-            ->spa();
+            ->sidebarCollapsibleOnDesktop();
+            // ->spa() dihapus: di shared hosting yang lambat, SPA mode
+            // membuat navigasi terasa "stuck" karena tidak ada loading bar browser.
+            // Tanpa SPA, browser menampilkan loading indicator bawaan saat pindah halaman.
     }
 }

@@ -30,6 +30,11 @@ class EditEmployeeCareerMovement extends EditRecord
     {
         $record = $this->record;
         
+        // Only update employee profile when is_applied is true (realisasi)
+        if (!$record->is_applied) {
+            return;
+        }
+
         $employee = Employee::find($record->employee_id);
         
         if ($employee) {

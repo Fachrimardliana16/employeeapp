@@ -45,7 +45,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return static::getModel()::where('status', 'on progress')->count() > 0 ? 'warning' : 'gray';
+        return static::getNavigationBadge() !== null ? 'warning' : 'gray';
     }
 
     public static function updateTotals(Get $get, Set $set): void

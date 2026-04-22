@@ -1935,7 +1935,7 @@ class EmployeeResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ])
-            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit', 'attendanceMachineLogs.machine.officeLocation']);
+            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit']);
     }
 
     public static function getPages(): array

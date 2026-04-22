@@ -244,7 +244,13 @@ class EmployeeMutationResource extends Resource
                                             ]),
                                         Forms\Components\Select::make('new_position_id')
                                             ->label('Jabatan Baru')
-                                            ->relationship('newPosition', 'name')
+                                            ->options(function (Forms\Get $get) {
+                                                $oldPositionId = $get('old_position_id');
+                                                return MasterEmployeePosition::query()
+                                                    ->when($oldPositionId, fn ($query) => $query->where('id', '!=', $oldPositionId))
+                                                    ->pluck('name', 'id')
+                                                    ->toArray();
+                                            })
                                             ->required()
                                             ->searchable()
                                             ->preload()
@@ -274,6 +280,7 @@ class EmployeeMutationResource extends Resource
                                         ->openable()
                                         ->visibility('public')
                                         ->required(fn (Forms\Get $get) => $get('is_applied'))
+                                        ->visible(fn (Forms\Get $get) => $get('is_applied'))
                                         ->helperText('Upload dokumen SK realisasi mutasi (PDF) maksimal 10MB'),
                                         Forms\Components\Hidden::make('users_id')
                                             ->default(fn() => auth()->id() ?? 0),
@@ -337,6 +344,14 @@ class EmployeeMutationResource extends Resource
                             '</div>';
                     })
                     ->wrap(),
+
+                Tables\Columns\TextColumn::make('docs')
+                    ->label('Berkas')
+                    ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
+                    ->color(fn ($state) => $state ? 'primary' : 'gray')
+                    ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
+                    ->url(fn ($record) => $record->docs ? asset('storage/' . $record->docs) : null)
+                    ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')
                     ->label('Status')

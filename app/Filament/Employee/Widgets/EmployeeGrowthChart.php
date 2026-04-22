@@ -21,26 +21,51 @@ class EmployeeGrowthChart extends ChartWidget
     {
         $months = [];
         $employeeCounts = [];
-        
-        // Get data for the last 12 months
+
+        $windowStart = Carbon::now()->subMonths(11)->startOfMonth();
+
+        // Pre-fetch all monthly data in 2 aggregate queries instead of 24
+        $hiredByMonth = Employee::selectRaw(
+                "strftime('%Y-%m', entry_date) as month, COUNT(*) as total"
+            )
+            ->whereNotNull('entry_date')
+            ->groupBy('month')
+            ->pluck('total', 'month')
+            ->toArray();
+
+        $leftByMonth = EmployeeRetirement::selectRaw(
+                "strftime('%Y-%m', retirement_date) as month, COUNT(*) as total"
+            )
+            ->where('approval_status', 'approved')
+            ->whereNotNull('retirement_date')
+            ->groupBy('month')
+            ->pluck('total', 'month')
+            ->toArray();
+
+        // Calculate cumulative totals BEFORE our 12-month window (in PHP, no more queries)
+        $cumulativeHired = 0;
+        $cumulativeLeft = 0;
+
+        foreach ($hiredByMonth as $m => $count) {
+            if (Carbon::parse($m . '-01')->lt($windowStart)) {
+                $cumulativeHired += $count;
+            }
+        }
+        foreach ($leftByMonth as $m => $count) {
+            if (Carbon::parse($m . '-01')->lt($windowStart)) {
+                $cumulativeLeft += $count;
+            }
+        }
+
+        // Build 12-month data using pre-fetched results
         for ($i = 11; $i >= 0; $i--) {
             $date = Carbon::now()->subMonths($i);
-            $monthName = $date->format('M Y');
-            $months[] = $monthName;
-            
-            $endOfMonth = $date->copy()->endOfMonth();
-            
-            // Count total employees hired before or on this month
-            $totalHired = Employee::where('entry_date', '<=', $endOfMonth)->count();
-            
-            // Count total employees retired/resigned before or on this month
-            // Assuming approval_status is 'approved' for completed retirements
-            $totalLeft = EmployeeRetirement::where('retirement_date', '<=', $endOfMonth)
-                ->where('approval_status', 'approved')
-                ->count();
-                
-            $currentCount = max(0, $totalHired - $totalLeft);
-            $employeeCounts[] = $currentCount;
+            $key = $date->format('Y-m');
+            $months[] = $date->format('M Y');
+
+            $cumulativeHired += ($hiredByMonth[$key] ?? 0);
+            $cumulativeLeft += ($leftByMonth[$key] ?? 0);
+            $employeeCounts[] = max(0, $cumulativeHired - $cumulativeLeft);
         }
 
         return [

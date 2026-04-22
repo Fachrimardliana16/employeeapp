@@ -10,7 +10,7 @@ use Carbon\Carbon;
 
 class EmployeeContractWidget extends BaseWidget
 {
-    protected static ?int $sort = 5;
+    protected static ?int $sort = 6;
     protected static bool $isLazy = true;
     
     protected int | string | array $columnSpan = 1;
@@ -22,6 +22,7 @@ class EmployeeContractWidget extends BaseWidget
         return $table
             ->query(
                 Employee::query()
+                    ->with(['agreement'])
                     ->whereNotNull('agreement_date_end')
                     ->where('agreement_date_end', '>=', now())
                     ->where('agreement_date_end', '<=', now()->addMonths(6))

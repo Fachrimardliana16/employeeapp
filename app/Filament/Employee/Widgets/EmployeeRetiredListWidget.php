@@ -22,6 +22,7 @@ class EmployeeRetiredListWidget extends BaseWidget
         return $table
             ->query(
                 Employee::query()
+                    ->with(['position', 'department'])
                     ->whereNotNull('retirement')
                     ->where('retirement', '<=', now())
                     ->where('retirement', '>=', now()->subYears(5))

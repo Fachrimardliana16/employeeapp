@@ -175,6 +175,7 @@ class EmployeePromotionResource extends Resource
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120)
                             ->required(fn (Forms\Get $get) => $get('is_applied'))
+                            ->visible(fn (Forms\Get $get) => $get('is_applied'))
                             ->helperText('Dokumen SK realisasi (PDF)'),
 
                         Forms\Components\Textarea::make('desc')
@@ -235,12 +236,13 @@ class EmployeePromotionResource extends Resource
                     ->icon('heroicon-m-calendar')
                     ->toggleable(),
 
-                Tables\Columns\IconColumn::make('doc_promotion')
+                Tables\Columns\TextColumn::make('doc_promotion')
                     ->label('Berkas')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-document-text')
-                    ->falseIcon('heroicon-o-x-mark')
-                    ->getStateUsing(fn ($record) => !empty($record->doc_promotion)),
+                    ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
+                    ->color(fn ($state) => $state ? 'primary' : 'gray')
+                    ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
+                    ->url(fn ($record) => $record->doc_promotion ? asset('storage/' . $record->doc_promotion) : null)
+                    ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')
                     ->label('Status')

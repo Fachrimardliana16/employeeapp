@@ -172,7 +172,8 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                             ->directory('employee-kgb/realization')
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(5120)
-                            ->required(fn (Forms\Get $get) => $get('is_applied')),
+                            ->required(fn (Forms\Get $get) => $get('is_applied'))
+                            ->visible(fn (Forms\Get $get) => $get('is_applied')),
 
                         Forms\Components\Textarea::make('notes')
                             ->label('Catatan/Deskripsi')
@@ -249,6 +250,14 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     ->date('d/m/Y')
                     ->description(fn ($record) => $record->applied_at ? 'Realisasi: ' . $record->applied_at->format('d/m/Y') : 'Realisasi: -')
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('docs_letter')
+                    ->label('Berkas')
+                    ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')
+                    ->color(fn ($state) => $state ? 'primary' : 'gray')
+                    ->icon(fn ($state) => $state ? 'heroicon-o-document-text' : null)
+                    ->url(fn ($record) => $record->docs_letter ? asset('storage/' . $record->docs_letter) : null)
+                    ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('is_applied')
                     ->label('Status')

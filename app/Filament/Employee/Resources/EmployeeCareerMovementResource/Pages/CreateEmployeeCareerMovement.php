@@ -21,9 +21,24 @@ class CreateEmployeeCareerMovement extends CreateRecord
     {
         $record = $this->record;
         
+        // Only update employee profile when is_applied is true (realisasi)
+        if (!$record->is_applied) {
+            Notification::make()
+                ->info()
+                ->title('Usulan Berhasil Disimpan')
+                ->body("Data {$record->type} untuk {$record->employee->name} tersimpan sebagai usulan. Profil pegawai belum diperbarui.")
+                ->send();
+            return;
+        }
+
         $employee = Employee::find($record->employee_id);
         
         if ($employee) {
+            $record->update([
+                'applied_at' => now(),
+                'applied_by' => auth()->id(),
+            ]);
+
             $employee->update([
                 'departments_id' => $record->new_department_id,
                 'sub_department_id' => $record->new_sub_department_id,
