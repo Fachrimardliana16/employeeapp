@@ -135,7 +135,8 @@ class ManageBackup extends Page
                 // Data
                 try {
                     $rowCount = 0;
-                    \Illuminate\Support\Facades\DB::table($table)->chunk(500, function ($rows) use ($handle, $wrappedTable, &$rowCount) {
+                    $orderCol = $this->getFirstColumn($table);
+                    \Illuminate\Support\Facades\DB::table($table)->orderBy($orderCol)->chunk(500, function ($rows) use ($handle, $wrappedTable, &$rowCount) {
                         foreach ($rows as $row) {
                             $rowArray = (array) $row;
                             $keys = array_keys($rowArray);
@@ -374,7 +375,8 @@ class ManageBackup extends Page
 
             // Data
             try {
-                \Illuminate\Support\Facades\DB::table($table)->chunk(500, function ($rows) use ($handle, $wrappedTable) {
+                $orderCol = $this->getFirstColumn($table);
+                \Illuminate\Support\Facades\DB::table($table)->orderBy($orderCol)->chunk(500, function ($rows) use ($handle, $wrappedTable) {
                     foreach ($rows as $row) {
                         $rowArray = (array) $row;
                         $keys = array_keys($rowArray);
@@ -440,5 +442,33 @@ class ManageBackup extends Page
             return '`' . implode('`.`', $parts) . '`';
         }
         return '`' . $table . '`';
+    }
+
+    /**
+     * Get the first column name of a table for use in orderBy.
+     * Required because Laravel's chunk() demands an orderBy clause.
+     */
+    protected function getFirstColumn(string $table): string
+    {
+        $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+
+        try {
+            if ($driver === 'sqlite') {
+                $columns = \Illuminate\Support\Facades\DB::select("PRAGMA table_info('$table')");
+                if (!empty($columns)) {
+                    return $columns[0]->name;
+                }
+            } else {
+                $wrappedTable = $this->wrapTableName($table);
+                $columns = \Illuminate\Support\Facades\DB::select("SHOW COLUMNS FROM $wrappedTable");
+                if (!empty($columns)) {
+                    return $columns[0]->Field;
+                }
+            }
+        } catch (\Exception $e) {
+            // Fallback
+        }
+
+        return 'id'; // Fallback to 'id' which most tables have
     }
 }
