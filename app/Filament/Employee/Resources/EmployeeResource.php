@@ -915,7 +915,7 @@ class EmployeeResource extends Resource
                             
                             // Instruction Row
                             fputcsv($file, [
-                                'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'NIPPAM (Otomatis jika kosong)', 'PIN Absensi (Wajib untuk mesin)', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Agama', 'single/married/divorced/widowed', 'A/B/O/AB',
+                                'KOSONGKAN untuk Pegawai Baru/ISI untuk Update', 'NIPPAM (Otomatis jika kosong)', 'PIN Absensi (Wajib untuk mesin)', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Agama', 'single/married/divorced/widowed', 'A/B/O/AB',
                                 'Email Pribadi', 'Email Kantor', 'No HP', 'NIK (16 Digit)', 'No KK (16 Digit)', 'NPWP',
                                 'No Rekening', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
                                 'Kelas 1/2/3', 'Rek DPLK Pribadi', 'Rek DPLK Bersama', 'No Dapenma', 'PHDP (Angka)',
