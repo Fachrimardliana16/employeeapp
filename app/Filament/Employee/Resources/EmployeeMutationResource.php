@@ -488,6 +488,13 @@ class EmployeeMutationResource extends Resource
                             ->relationship('employee', 'name')
                             ->searchable()
                             ->preload(),
+                        Forms\Components\Select::make('is_applied')
+                            ->label('Status')
+                            ->options([
+                                1 => 'Realisasi',
+                                0 => 'Usulan',
+                            ])
+                            ->placeholder('Semua Status'),
                     ])
                     ->action(function (array $data) {
                         return redirect()->route('report.career-movement', [
@@ -495,6 +502,7 @@ class EmployeeMutationResource extends Resource
                             'start_date' => $data['start_date'],
                             'end_date' => $data['end_date'],
                             'employee_id' => $data['employee_id'],
+                            'is_applied' => $data['is_applied'],
                         ]);
                     }),
             ])

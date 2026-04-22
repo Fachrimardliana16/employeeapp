@@ -31,7 +31,8 @@ class ReportController extends Controller
         
         $query->when($startDate, fn($q) => $q->whereDate($dateColumn, '>=', $startDate))
               ->when($endDate, fn($q) => $q->whereDate($dateColumn, '<=', $endDate))
-              ->when($employeeId, fn($q) => $q->where('employee_id', $employeeId));
+              ->when($employeeId, fn($q) => $q->where('employee_id', $employeeId))
+              ->when($request->has('is_applied') && $request->is_applied !== null, fn($q) => $q->where('is_applied', $request->is_applied));
 
         $data = $query->with('employee')->orderBy($dateColumn, 'desc')->get();
         
