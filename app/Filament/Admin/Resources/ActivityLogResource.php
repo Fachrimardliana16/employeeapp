@@ -86,10 +86,42 @@ class ActivityLogResource extends Resource
                     ->icon('heroicon-m-arrow-path')
                     ->schema([
                         \Filament\Infolists\Components\TextEntry::make('properties_json')
-                            ->label('Data Perubahan (JSON)')
+                            ->label('Detail Perubahan Data')
                             ->state(function ($record) {
                                 $props = $record->properties;
-                                if (empty($props)) return 'No data';
+                                if (empty($props)) return 'Tidak ada detail perubahan.';
+                                
+                                $old = $props['old'] ?? [];
+                                $new = $props['attributes'] ?? [];
+
+                                if (empty($old) && !empty($new)) {
+                                    // Record baru atau hanya ada atribut baru
+                                    $output = "Data Baru:\n";
+                                    foreach ($new as $key => $value) {
+                                        $valStr = is_array($value) ? json_encode($value) : (string)$value;
+                                        $output .= "• " . ucwords(str_replace('_', ' ', $key)) . ": " . ($valStr ?: '-') . "\n";
+                                    }
+                                    return $output;
+                                }
+
+                                if (!empty($old) && !empty($new)) {
+                                    // Perubahan data
+                                    $output = "Perubahan Terdeteksi:\n";
+                                    foreach ($new as $key => $newValue) {
+                                        $oldValue = $old[$key] ?? '-';
+                                        
+                                        $oldStr = is_array($oldValue) ? json_encode($oldValue) : (string)$oldValue;
+                                        $newStr = is_array($newValue) ? json_encode($newValue) : (string)$newValue;
+
+                                        if ($oldStr !== $newStr) {
+                                            $output .= "• " . ucwords(str_replace('_', ' ', $key)) . ": \n";
+                                            $output .= "  Dari: " . ($oldStr ?: '(kosong)') . "\n";
+                                            $output .= "  Menjadi: " . ($newStr ?: '(kosong)') . "\n\n";
+                                        }
+                                    }
+                                    return $output ?: "Tidak ada perbedaan nilai terdeteksi.";
+                                }
+
                                 return json_encode($props, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
                             })
                             ->fontFamily('mono')
