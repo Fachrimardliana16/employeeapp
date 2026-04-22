@@ -315,11 +315,11 @@ class JobApplicationResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('photo')
+                Tables\Columns\TextColumn::make('photo')
                     ->label('Foto Pas')
-                    ->disk('public')
-                    ->imageUrl(fn($record) => $record->photo ? url('image-view/' . $record->photo) : null)
-                    ->circular(),
+                    ->formatStateUsing(fn ($state) => $state ? '<div class="flex justify-center"><img src="'.url('image-view/'.$state).'" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
+                    ->html()
+                    ->alignCenter(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Lengkap')
                     ->description(fn (JobApplication $record): string => $record->application_number)

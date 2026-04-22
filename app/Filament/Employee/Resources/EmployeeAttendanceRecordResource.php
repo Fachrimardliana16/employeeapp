@@ -177,14 +177,14 @@ class EmployeeAttendanceRecordResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('visual_proof')
+                Tables\Columns\TextColumn::make('visual_proof')
                     ->label('Foto')
                     ->getStateUsing(fn (EmployeeAttendanceRecord $record): ?string => 
                         $record->photo_checkin ?? $record->photo_checkout ?? $record->picture
                     )
-                    -> circular()
-                    ->disk('public')->visibility('public')
-                    ->size(40),
+                    ->formatStateUsing(fn ($state) => $state ? '<div class="flex justify-center"><img src="'.url('image-view/'.$state).'" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
+                    ->html()
+                    ->alignCenter(),
 
                 Tables\Columns\TextColumn::make('employee_name')
                     ->label('Pegawai & PIN')
@@ -449,18 +449,24 @@ class EmployeeAttendanceRecordResource extends Resource
                                 Components\ImageEntry::make('photo_checkin')
                                     ->hiddenLabel()
                                     ->height(350)
+                                    ->disk('public')
+                                    ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->photo_checkin),
                                     
                                 Components\ImageEntry::make('photo_checkout')
                                     ->hiddenLabel()
                                     ->height(350)
+                                    ->disk('public')
+                                    ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->photo_checkout),
 
                                 Components\ImageEntry::make('picture')
                                     ->hiddenLabel()
                                     ->height(350)
+                                    ->disk('public')
+                                    ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->picture && !$record->photo_checkin && !$record->photo_checkout),
                                     

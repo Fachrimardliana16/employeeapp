@@ -113,6 +113,7 @@ class DataKepegawaian extends Page implements HasInfolists
                                         ->circular()
                                         ->height(250)
                                         ->disk('public')
+                                        ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
                                         ->extraAttributes([
                                             'class' => 'flex justify-center',
                                         ]),

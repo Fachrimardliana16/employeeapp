@@ -657,10 +657,11 @@ class EmployeeResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('image')
+                Tables\Columns\TextColumn::make('image')
                     ->label('Foto Pas')
-                    ->circular()
-                    ->disk('public'),
+                    ->formatStateUsing(fn ($state) => $state ? '<div class="flex justify-center"><img src="'.url('image-view/'.$state).'" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
+                    ->html()
+                    ->alignCenter(),
                 Tables\Columns\TextColumn::make('nippam')
                     ->label('NIPPAM / PIN')
                     ->description(fn (Employee $record): string => $record->pin ? "PIN: " . str_repeat('*', max(0, strlen($record->pin) - 2)) . substr($record->pin, -2) : "PIN: -")
@@ -1660,6 +1661,7 @@ class EmployeeResource extends Resource
                                         ->height(200)
                                         ->alignCenter()
                                         ->disk('public')
+                                        ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
                                         ->extraImgAttributes(['class' => 'shadow-lg border-2 border-primary-500'])
                                         ->placeholder('Tidak ada foto'),
                                     
