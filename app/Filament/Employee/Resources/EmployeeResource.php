@@ -915,13 +915,13 @@ class EmployeeResource extends Resource
                             
                             // Instruction Row
                             fputcsv($file, [
-                                'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'NIPPAM (Otomatis jika kosong)', 'PIN Absensi (Wajib untuk mesin)', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
-                                'Email Pribadi', 'Email Kantor', 'Hanya Angka', '16 Digit', '16 Digit', 'NPWP',
-                                'No Rek', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
-                                'Kelas 1/2/3', 'DPLK', 'DPLK', 'No Dapenma', 'Hanya Angka',
-                                'Aktif/Tidak', 'Alamat Lengkap', 'Bag/Cab/Unit', 'Nama Unit/ID', 'Sub Bagian (Nama/ID)',
-                                'Jabatan (Nama/ID)', 'Status (Nama/ID)', 'Pendidikan (Nama/ID)', 'Golongan (Nama/ID)', 'Tahun (0/2/4)',
-                                'Jenis SK (Nama/ID)', 'Tgl Masuk (dd-mm-yy)', 'Tgl Pengangkatan (dd-mm-yy)', 'Cuti (Angka)',
+                                'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'NIPPAM (Otomatis jika kosong)', 'PIN Absensi (Wajib untuk mesin)', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Agama', 'single/married/divorced/widowed', 'A/B/O/AB',
+                                'Email Pribadi', 'Email Kantor', 'No HP', 'NIK (16 Digit)', 'No KK (16 Digit)', 'NPWP',
+                                'No Rekening', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
+                                'Kelas 1/2/3', 'Rek DPLK Pribadi', 'Rek DPLK Bersama', 'No Dapenma', 'PHDP (Angka)',
+                                'Aktif/Tidak', 'Alamat Lengkap', 'bagian/cabang/unit', 'Nama Unit (Bagian/Cabang/Unit)', 'Sub Departemen',
+                                'Jabatan', 'Status Pegawai', 'Pendidikan', 'Golongan', 'Masa Kerja Golongan (Tahun)',
+                                'Jenis SK', 'Tgl Masuk', 'Tgl Pengangkatan', 'Sisa Cuti',
                                 'Tgl Kontrak Mulai', 'Tgl Kontrak Selesai', 'Tgl Golongan Mulai', 'Tgl Golongan Selesai', 'Tgl Gaji Berkala Mulai', 'Tgl Gaji Berkala Selesai'
                             ]);
 
@@ -933,9 +933,9 @@ class EmployeeResource extends Resource
                             $dept = \App\Models\MasterDepartment::first();
 
                             fputcsv($file, [
-                                '', 'NIP-202404-0001', '1001', 'Budi Santoso', 'male', 'Jakarta', '30-01-1990', 'Islam', 'married', 'O',
+                                '', '123456789', '1001', 'Budi Santoso', 'male', 'Jakarta', '30-01-1990', 'Islam', 'single', 'O',
                                 'budi@example.com', 'budi.pdam@example.com', '08123456789', '1234567890123456', '1234567890123456',
-                                '12.345.678.9-012.345', '1234567890', '12345678901', 'Aktif', '0001234567890', 'Aktif',
+                                '12.345.678.9-012.000', '1234567890', '00012345678', 'Aktif', '0001234567890', 'Aktif',
                                 'Kelas 1', '1234567890', '1234567890', '12345', '5000000', 'Aktif', 'Jl. Contoh No. 123',
                                 $dept?->type ?? 'bagian', $dept?->name ?? 'Bagian Umum', 'Sub Bagian Umum', $pos, $status, $edu, $grade, '0',
                                 'PKWTT', '01-01-2024', '01-07-2024', '12',
@@ -1017,14 +1017,17 @@ class EmployeeResource extends Resource
                         for ($i = $headerIndex + 1; $i < count($tempRows); $i++) {
                             $row = $tempRows[$i];
                             
-                            // Skip if it looks like the Instruction Row (contains 'Wajib' or 'Otomatis' or 'dd-mm-yyyy')
+                            // Skip if it looks like the Instruction Row
                             $rowString = implode(' ', $row);
                             if (stripos($rowString, 'Wajib') !== false || stripos($rowString, 'Otomatis') !== false || stripos($rowString, 'dd-mm-yyyy') !== false) {
                                 continue;
                             }
 
                             if (count($header) === count($row)) {
-                                $rows[] = array_combine($header, $row);
+                                $rows[] = [
+                                    'data' => array_combine($header, $row),
+                                    'line_number' => $i + 1
+                                ];
                             }
                         }
 
@@ -1057,9 +1060,9 @@ class EmployeeResource extends Resource
                         ];
 
                         // Phase 1: Validation
-                        foreach ($rows as $index => $rowData) {
-                            // Find line number in original file for better error reporting
-                            $actualRowInFile = ($headerIndex + 1) + ($index + 1); 
+                        foreach ($rows as $index => $rowPackage) {
+                            $rowData = $rowPackage['data'];
+                            $actualRowInFile = $rowPackage['line_number'];
                             $rowErrors = [];
 
                             if (empty($rowData['name'])) {
@@ -1158,15 +1161,16 @@ class EmployeeResource extends Resource
                                 $errors[] = "<strong>Baris {$actualRowInFile} ({$displayName}):</strong> " . implode(', ', $rowErrors);
                             }
 
-                            $processedData[] = [
-                                'row' => $rowData,
-                                'ids' => [
-                                    'dept_id' => $deptId, 'bagian_id' => $bagianId, 'cabang_id' => $cabangId, 'unit_id' => $unitId,
-                                    'sub_dept_id' => $subDeptId, 'pos_id' => $posId, 'status_id' => $statusId,
-                                    'edu_id' => $eduId, 'grade_id' => $gradeId, 'mkg_id' => $mkgId, 'agreement_id' => $agreementId,
-                                ]
-                            ];
-                        }
+                             $processedData[] = [
+                                 'row' => $rowData,
+                                 'line_number' => $actualRowInFile,
+                                 'ids' => [
+                                     'dept_id' => $deptId, 'bagian_id' => $bagianId, 'cabang_id' => $cabangId, 'unit_id' => $unitId,
+                                     'sub_dept_id' => $subDeptId, 'pos_id' => $posId, 'status_id' => $statusId,
+                                     'edu_id' => $eduId, 'grade_id' => $gradeId, 'mkg_id' => $mkgId, 'agreement_id' => $agreementId,
+                                 ]
+                             ];
+                         }
 
                         if (!empty($errors)) {
                             $totalErrors = count($errors);
@@ -1187,13 +1191,14 @@ class EmployeeResource extends Resource
                         // Phase 2: Processing (Transactional)
                         try {
                             \Illuminate\Support\Facades\DB::transaction(function() use ($processedData, &$stats, &$currentRowName, &$currentRowIndex, $headerIndex) {
-                                foreach ($processedData as $index => $data) {
+                                 foreach ($processedData as $data) {
                                     $rowData = $data['row'];
                                     $ids = $data['ids'];
+                                    $actualRowInFile = $data['line_number'];
 
                                     // Track current row for error reporting
                                     $currentRowName = $rowData['name'] ?? ($rowData['nippam'] ?? 'N/A');
-                                    $currentRowIndex = ($headerIndex + 1) + ($index + 1);
+                                    $currentRowIndex = $actualRowInFile;
 
                                     $convertDate = function($dateStr) {
                                         if (empty($dateStr)) return null;
@@ -1609,13 +1614,13 @@ class EmployeeResource extends Resource
                                         $record->address,
                                         $unitType,
                                         $unitName,
-                                        $record->subDepartment->name ?? '',
-                                        $record->position->name ?? '',
-                                        $record->employmentStatus->name ?? '',
-                                        $record->education->name ?? '',
-                                        $record->grade->name ?? '',
-                                        $record->serviceGrade->service_grade ?? '',
-                                        $record->agreement->name ?? '',
+                                        $record->subDepartment->name ?? $record->sub_department_id,
+                                        $record->position->name ?? $record->employee_position_id,
+                                        $record->employmentStatus->name ?? $record->employment_status_id,
+                                        $record->education->name ?? $record->employee_education_id,
+                                        $record->grade->name ?? $record->basic_salary_id,
+                                        $record->serviceGrade->service_grade ?? $record->employee_service_grade_id,
+                                        $record->agreement->name ?? $record->master_employee_agreement_id,
                                         $record->entry_date?->format('d-m-Y'),
                                         $record->probation_appointment_date?->format('d-m-Y'),
                                         $record->leave_balance,
