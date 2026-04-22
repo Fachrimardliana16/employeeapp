@@ -99,24 +99,26 @@ class ManageBackup extends Page
             foreach ($tables as $table) {
                 $this->consoleOutput .= "Backing up table: $table...\n";
                 
-                $sql = "-- Table: $table\n-- Generated via Pure PHP Gentle Mode\n\n";
+                $tempSqlFile = storage_path('app/backup-temp/tbl-' . md5($table) . '.sql');
+                $handle = fopen($tempSqlFile, 'w');
+                fwrite($handle, "-- Table: $table\n-- Generated via Pure PHP Gentle Mode\n\n");
                 
                 // Get Schema (Driver Aware)
                 $wrappedTable = \Illuminate\Support\Facades\DB::connection()->getQueryGrammar()->wrapTable($table);
                 if ($driver === 'sqlite') {
                     $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
                     if (!empty($schema)) {
-                        $sql .= $schema[0]->sql . ";\n\n";
+                        fwrite($handle, $schema[0]->sql . ";\n\n");
                     }
                 } else {
                     // MySQL
                     $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable")[0];
                     $schemaKey = 'Create Table';
-                    $sql .= $schema->$schemaKey . ";\n\n";
+                    fwrite($handle, $schema->$schemaKey . ";\n\n");
                 }
 
-                // Get Data using Chunks (Memory Efficient)
-                \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use (&$sql, $wrappedTable) {
+                // Get Data using Chunks (Memory Efficient Streaming)
+                \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use ($handle, $wrappedTable) {
                     foreach ($rows as $row) {
                         $rowArray = (array)$row;
                         $keys = array_keys($rowArray);
@@ -128,17 +130,24 @@ class ManageBackup extends Page
                             return "'" . str_replace("'", "''", $value) . "'";
                         }, $values);
 
-                        $sql .= "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n";
+                        fwrite($handle, "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n");
                     }
                 });
 
-                $zip->addFromString("$table.sql", $sql);
+                fclose($handle);
+                $zip->addFile($tempSqlFile, "$table.sql");
                 
                 // GENTLE MODE: Small pause to prevent hitting DB limits
                 usleep(100000); // 0.1 second
             }
 
             $zip->close();
+            
+            // Clean up individual temp SQL files after zip is closed
+            foreach ($tables as $table) {
+                $tempSqlFile = storage_path('app/backup-temp/tbl-' . md5($table) . '.sql');
+                if (file_exists($tempSqlFile)) @unlink($tempSqlFile);
+            }
 
             // Move to final destination
             \Illuminate\Support\Facades\Storage::disk('local')->putFileAs($backupFolder, new \Illuminate\Http\File($tempPath), $filename);
@@ -286,7 +295,10 @@ class ManageBackup extends Page
     {
         $tables = \Illuminate\Support\Facades\DB::connection()->getSchemaBuilder()->getTableListing();
         $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
-        $fullSql = "-- HRIS Database Dump\n-- Generated via Pure PHP Mode\n-- Driver: $driver\n\n";
+        
+        $tempSqlFile = storage_path('app/backup-temp/full-db-dump.sql');
+        $handle = fopen($tempSqlFile, 'w');
+        fwrite($handle, "-- HRIS Database Dump\n-- Generated via Pure PHP Mode\n-- Driver: $driver\n\n");
 
         foreach ($tables as $table) {
             // Get Schema
@@ -294,17 +306,17 @@ class ManageBackup extends Page
             if ($driver === 'sqlite') {
                 $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
                 if (!empty($schema)) {
-                    $fullSql .= $schema[0]->sql . ";\n\n";
+                    fwrite($handle, $schema[0]->sql . ";\n\n");
                 }
             } else {
                 // MySQL
                 $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable")[0];
                 $schemaKey = 'Create Table';
-                $fullSql .= $schema->$schemaKey . ";\n\n";
+                fwrite($handle, $schema->$schemaKey . ";\n\n");
             }
 
-            // Get Data (Chunked for memory efficiency)
-            \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use (&$fullSql, $wrappedTable) {
+            // Get Data (Chunked for memory efficiency streaming)
+            \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use ($handle, $wrappedTable) {
                 foreach ($rows as $row) {
                     $rowArray = (array)$row;
                     $keys = array_keys($rowArray);
@@ -316,12 +328,15 @@ class ManageBackup extends Page
                         return "'" . str_replace("'", "''", $value) . "'";
                     }, $values);
 
-                    $fullSql .= "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n";
+                    fwrite($handle, "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n");
                 }
             });
-            $fullSql .= "\n";
+            fwrite($handle, "\n");
         }
 
-        $zip->addFromString($innerPath, $fullSql);
+        fclose($handle);
+        $zip->addFile($tempSqlFile, $innerPath);
+        // Note: Clean up should happen after ZipArchive is closed in calling method
+        // but for safety we'll try to delete it in a finally block or rely on parent
     }
 }
