@@ -81,10 +81,20 @@ class ActivityLogResource extends Resource
                 Infolists\Components\Section::make('Data Perubahan')
                     ->icon('heroicon-m-arrow-path')
                     ->schema([
-                        Infolists\Components\KeyValue::make('properties.attributes')
-                            ->label('Data Baru / Sekarang'),
-                        Infolists\Components\KeyValue::make('properties.old')
+                        Infolists\Components\TextEntry::make('properties.attributes')
+                            ->label('Data Baru / Sekarang')
+                            ->state(fn ($record) => $record->properties['attributes'] ?? null)
+                            ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '-')
+                            ->fontFamily('mono')
+                            ->wrap()
+                            ->visible(fn ($record) => !empty($record->properties['attributes'])),
+                        
+                        Infolists\Components\TextEntry::make('properties.old')
                             ->label('Data Lama (Sebelum Perubahan)')
+                            ->state(fn ($record) => $record->properties['old'] ?? null)
+                            ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '-')
+                            ->fontFamily('mono')
+                            ->wrap()
                             ->visible(fn ($record) => !empty($record->properties['old'])),
                     ]),
             ]);
