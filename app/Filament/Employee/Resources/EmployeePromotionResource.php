@@ -363,6 +363,29 @@ class EmployeePromotionResource extends Resource
                             'employee_id' => $data['employee_id'],
                         ]);
                     }),
+
+                Tables\Actions\Action::make('cetak_jadwal')
+                    ->label('Cetak Jadwal')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('warning')
+                    ->form([
+                        Forms\Components\Select::make('year')
+                            ->label('Pilih Tahun')
+                            ->options(function () {
+                                $years = [];
+                                $currentYear = now()->year;
+                                for ($i = $currentYear; $i <= $currentYear + 2; $i++) {
+                                    $years[$i] = $i;
+                                }
+                                return $years;
+                            })
+                            ->default(now()->year)
+                            ->required(),
+                    ])
+                    ->action(function (array $data, $livewire) {
+                        $url = route('report.promotion-schedule', ['year' => $data['year']]);
+                        $livewire->js("window.open('{$url}', '_blank')");
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

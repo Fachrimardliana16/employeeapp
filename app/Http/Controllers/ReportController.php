@@ -117,4 +117,44 @@ class ReportController extends Controller
 
         return $pdf->stream('Jadwal_KGB_Golongan_' . $year . '.pdf');
     }
+
+    public function kgbSchedule(Request $request)
+    {
+        $year = $request->query('year', now()->year);
+        
+        $employees = Employee::with(['grade', 'position', 'serviceGrade'])
+            ->dueForKgbInYear($year)
+            ->get();
+
+        $kgbData = $employees->groupBy(fn($e) => $e->next_kgb_date->format('m'))
+            ->sortKeys();
+
+        $pdf = Pdf::loadView('reports.kgb-schedule', [
+            'year' => $year,
+            'kgbData' => $kgbData,
+            'generated_at' => now()->translatedFormat('d F Y H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Jadwal_KGB_' . $year . '.pdf');
+    }
+
+    public function promotionSchedule(Request $request)
+    {
+        $year = $request->query('year', now()->year);
+        
+        $employees = Employee::with(['grade', 'position', 'serviceGrade'])
+            ->dueForPromotionInYear($year)
+            ->get();
+
+        $promoData = $employees->groupBy(fn($e) => $e->next_promotion_date->format('m'))
+            ->sortKeys();
+
+        $pdf = Pdf::loadView('reports.promotion-schedule', [
+            'year' => $year,
+            'promoData' => $promoData,
+            'generated_at' => now()->translatedFormat('d F Y H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Jadwal_Kenaikan_Golongan_' . $year . '.pdf');
+    }
 }

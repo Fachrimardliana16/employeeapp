@@ -433,6 +433,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/career-movement-report', [\App\Http\Controllers\ReportController::class, 'careerMovement'])->name('report.career-movement');
     Route::get('/career-schedule-report', [\App\Http\Controllers\ReportController::class, 'careerSchedule'])->name('report.career-schedule');
+    Route::get('/kgb-schedule-report', [\App\Http\Controllers\ReportController::class, 'kgbSchedule'])->name('report.kgb-schedule');
+    Route::get('/promotion-schedule-report', [\App\Http\Controllers\ReportController::class, 'promotionSchedule'])->name('report.promotion-schedule');
 
     Route::get('/attendance-logs-report-pdf', function (\Illuminate\Http\Request $request) {
         $query = \App\Models\AttendanceMachineLog::with(['machine.officeLocation', 'employee'])

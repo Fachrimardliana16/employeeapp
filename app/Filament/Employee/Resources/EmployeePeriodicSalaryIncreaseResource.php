@@ -58,9 +58,14 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     ->description('Pilih Pegawai yang akan diajukan kenaikan berkala')
                     ->schema([
                         Forms\Components\Select::make('employee_id')
-                            ->relationship('employee', 'name', function ($query) {
-                                return $query->whereHas('employmentStatus', function ($q) {
-                                    $q->where('name', '!=', 'Pensiun');
+                            ->relationship('employee', 'name', function (Builder $query) {
+                                return $query->whereHas('employmentStatus', function (Builder $q) {
+                                    $q->where('name', '!=', 'Pensiun')
+                                      ->where(function ($inner) {
+                                          $inner->where('name', 'like', '%tetap%')
+                                                ->orWhere('name', 'like', '%permanen%')
+                                                ->orWhere('name', 'like', '%PKWTT%');
+                                      });
                                 });
                             })
                             ->label('Pegawai')
@@ -377,6 +382,29 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                             'end_date' => $data['end_date'],
                             'employee_id' => $data['employee_id'],
                         ]);
+                    }),
+
+                Tables\Actions\Action::make('cetak_jadwal')
+                    ->label('Cetak Jadwal')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('warning')
+                    ->form([
+                        Forms\Components\Select::make('year')
+                            ->label('Pilih Tahun')
+                            ->options(function () {
+                                $years = [];
+                                $currentYear = now()->year;
+                                for ($i = $currentYear; $i <= $currentYear + 2; $i++) {
+                                    $years[$i] = $i;
+                                }
+                                return $years;
+                            })
+                            ->default(now()->year)
+                            ->required(),
+                    ])
+                    ->action(function (array $data, $livewire) {
+                        $url = route('report.kgb-schedule', ['year' => $data['year']]);
+                        $livewire->js("window.open('{$url}', '_blank')");
                     }),
             ])
             ->bulkActions([

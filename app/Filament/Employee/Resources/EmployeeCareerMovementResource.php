@@ -286,6 +286,7 @@ class EmployeeCareerMovementResource extends Resource
                                 ->disk('public')
                                 ->visibility('public')
                                 ->directory('career-movements/realization')
+                                ->acceptedFileTypes(['application/pdf'])
                                 ->required(),
                         ])
                         ->action(function ($record, array $data) {
