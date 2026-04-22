@@ -261,6 +261,19 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                     ->description(fn ($record) => $record->applied_at ? 'Realisasi: ' . $record->applied_at->format('d/m/Y') : 'Realisasi: -')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('employee.next_kgb_date')
+                    ->label('KGB Berikutnya')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->color('warning')
+                    ->description(function ($record) {
+                        if (!$record->employee?->next_kgb_date) return null;
+                        $days = now()->diffInDays($record->employee->next_kgb_date, false);
+                        if ($days < 0) return 'Melewati jadwal';
+                        if ($days == 0) return 'Hari ini';
+                        return "Sisa {$days} hari";
+                    }),
+
                 Tables\Columns\TextColumn::make('docs_letter')
                     ->label('Berkas')
                     ->formatStateUsing(fn ($state) => $state ? 'Lihat PDF' : '-')

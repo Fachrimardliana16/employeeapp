@@ -241,4 +241,13 @@ class EmployeeAgreement extends Model
 
         return sprintf('PKT-%s%s-%04d', $year, $month, $lastNumber);
     }
+
+    /**
+     * SCOPES
+     */
+    public function scopeDueToExpireInYear($query, $year)
+    {
+        return $query->where('is_active', true)
+            ->whereYear('agreement_date_end', $year);
+    }
 }

@@ -379,6 +379,30 @@ class EmployeeAgreementResource extends Resource
                         return static::generatePDFReport();
                     })
                     ->tooltip('Generate laporan kontrak pegawai dalam format PDF'),
+
+                Tables\Actions\Action::make('cetak_jadwal')
+                    ->label('Cetak Jadwal')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('warning')
+                    ->form([
+                        Forms\Components\Select::make('year')
+                            ->label('Pilih Tahun')
+                            ->options(function () {
+                                $years = [];
+                                $currentYear = now()->year;
+                                for ($i = $currentYear; $i <= $currentYear + 2; $i++) {
+                                    $years[$i] = $i;
+                                }
+                                return $years;
+                            })
+                            ->default(now()->year)
+                            ->required(),
+                    ])
+                    ->action(function (array $data, $livewire) {
+                        $url = route('report.contract-schedule', ['year' => $data['year']]);
+                        $livewire->js("window.open('{$url}', '_blank')");
+                    })
+                    ->tooltip('Cetak jadwal kontrak yang berakhir pada tahun terpilih'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('agreement_id')

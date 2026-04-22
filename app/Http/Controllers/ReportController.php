@@ -157,4 +157,24 @@ class ReportController extends Controller
 
         return $pdf->stream('Jadwal_Kenaikan_Golongan_' . $year . '.pdf');
     }
+
+    public function contractSchedule(Request $request)
+    {
+        $year = $request->query('year', now()->year);
+        
+        $agreements = \App\Models\EmployeeAgreement::with(['employee', 'department', 'masterAgreement'])
+            ->dueToExpireInYear($year)
+            ->get();
+
+        $contractData = $agreements->groupBy(fn($e) => $e->agreement_date_end->format('m'))
+            ->sortKeys();
+
+        $pdf = Pdf::loadView('reports.contract-schedule', [
+            'year' => $year,
+            'contractData' => $contractData,
+            'generated_at' => now()->translatedFormat('d F Y H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Jadwal_Habis_Kontrak_' . $year . '.pdf');
+    }
 }
