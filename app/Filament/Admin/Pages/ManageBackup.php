@@ -32,7 +32,7 @@ class ManageBackup extends Page
     public function getBackups(): Collection
     {
         $backupDisk = Storage::disk('local');
-        $backupFolder = 'employeeapp'; 
+        $backupFolder = 'employeeapp';
 
         if (!$backupDisk->exists($backupFolder)) {
             return collect();
@@ -42,13 +42,12 @@ class ManageBackup extends Page
 
         return collect($files)->map(function ($file) use ($backupDisk) {
             $fullPath = $backupDisk->path($file);
-            $type = 'Database'; 
-            
-            // Check filename for explicit type first
+            $type = 'Database';
+
             $filename = basename($file);
             if (str_contains($filename, '-per-table')) {
                 $type = 'Per Table';
-            } else if (file_exists($fullPath)) {
+            } elseif (file_exists($fullPath)) {
                 $zip = new \ZipArchive();
                 if ($zip->open($fullPath) === true) {
                     for ($i = 0; $i < $zip->numFiles; $i++) {
@@ -73,95 +72,238 @@ class ManageBackup extends Page
         })->sortByDesc('created_at');
     }
 
+    // =========================================================================
+    // BACKUP ACTIONS
+    // =========================================================================
+
     public function runTableLevelBackup()
     {
-        $this->consoleOutput = "Starting Table-Level Backup (Hosting-Compatible Mode)...\n";
-        
+        $this->consoleOutput = "=== Table-Level Backup (Hosting-Compatible) ===\n";
+
         try {
-            set_time_limit(900); // 15 minutes
-            
+            set_time_limit(900);
+
             $backupFolder = 'employeeapp';
-            $filename = \Illuminate\Support\Carbon::now()->format('Y-m-d-H-i-s') . '-per-table.zip';
-            $tempPath = storage_path('app/backup-temp/' . $filename);
-            
-            if (!file_exists(dirname($tempPath))) {
-                mkdir(dirname($tempPath), 0755, true);
+            $filename = Carbon::now()->format('Y-m-d-H-i-s') . '-per-table.zip';
+            $tempDir = storage_path('app/backup-temp');
+            $tempPath = $tempDir . '/' . $filename;
+
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
             }
 
             $zip = new \ZipArchive();
-            if ($zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
+            if ($zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
                 throw new \Exception("Cannot create zip file at $tempPath");
             }
 
-            $tables = \Illuminate\Support\Facades\DB::connection()->getSchemaBuilder()->getTableListing();
+            $tables = $this->getTableNames();
             $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
-            
+            $this->consoleOutput .= "Driver: $driver | Tables found: " . count($tables) . "\n\n";
+
             foreach ($tables as $table) {
-                $this->consoleOutput .= "Backing up table: $table...\n";
-                
-                $tempSqlFile = storage_path('app/backup-temp/tbl-' . md5($table) . '.sql');
+                $this->consoleOutput .= "Backing up: $table... ";
+
+                $tempSqlFile = $tempDir . '/tbl-' . md5($table) . '.sql';
                 $handle = fopen($tempSqlFile, 'w');
-                fwrite($handle, "-- Table: $table\n-- Generated via Pure PHP Gentle Mode\n\n");
-                
-                // Get Schema (Driver Aware)
-                $wrappedTable = \Illuminate\Support\Facades\DB::connection()->getQueryGrammar()->wrapTable($table);
-                if ($driver === 'sqlite') {
-                    $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
-                    if (!empty($schema)) {
-                        fwrite($handle, $schema[0]->sql . ";\n\n");
+                fwrite($handle, "-- Table: $table\n\n");
+
+                $wrappedTable = $this->wrapTableName($table);
+
+                // Schema
+                try {
+                    if ($driver === 'sqlite') {
+                        $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", [$table]);
+                        if (!empty($schema)) {
+                            fwrite($handle, $schema[0]->sql . ";\n\n");
+                        }
+                    } else {
+                        $schemaRows = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable");
+                        if (!empty($schemaRows)) {
+                            $schemaRow = (array) $schemaRows[0];
+                            $createSql = $schemaRow['Create Table'] ?? $schemaRow['Create View'] ?? null;
+                            if ($createSql) {
+                                fwrite($handle, $createSql . ";\n\n");
+                            }
+                        }
                     }
-                } else {
-                    // MySQL
-                    $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable")[0];
-                    $schemaKey = 'Create Table';
-                    fwrite($handle, $schema->$schemaKey . ";\n\n");
+                } catch (\Exception $e) {
+                    fwrite($handle, "-- Schema error: " . $e->getMessage() . "\n\n");
+                    $this->consoleOutput .= "[schema skip] ";
                 }
 
-                // Get Data using Chunks (Memory Efficient Streaming)
-                \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use ($handle, $wrappedTable) {
-                    foreach ($rows as $row) {
-                        $rowArray = (array)$row;
-                        $keys = array_keys($rowArray);
-                        $values = array_values($rowArray);
-                        
-                        $escapedValues = array_map(function($value) {
-                            if ($value === null) return 'NULL';
-                            if (is_numeric($value)) return $value;
-                            return "'" . str_replace("'", "''", $value) . "'";
-                        }, $values);
+                // Data
+                try {
+                    $rowCount = 0;
+                    \Illuminate\Support\Facades\DB::table($table)->chunk(500, function ($rows) use ($handle, $wrappedTable, &$rowCount) {
+                        foreach ($rows as $row) {
+                            $rowArray = (array) $row;
+                            $keys = array_keys($rowArray);
+                            $values = array_values($rowArray);
 
-                        fwrite($handle, "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n");
-                    }
-                });
+                            $escapedValues = array_map(function ($v) {
+                                if ($v === null) return 'NULL';
+                                if (is_numeric($v)) return $v;
+                                return "'" . addslashes((string) $v) . "'";
+                            }, $values);
+
+                            fwrite($handle, "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n");
+                            $rowCount++;
+                        }
+                    });
+                    $this->consoleOutput .= "$rowCount rows OK\n";
+                } catch (\Exception $e) {
+                    fwrite($handle, "-- Data error: " . $e->getMessage() . "\n");
+                    $this->consoleOutput .= "DATA ERROR: " . $e->getMessage() . "\n";
+                }
 
                 fclose($handle);
                 $zip->addFile($tempSqlFile, "$table.sql");
-                
-                // GENTLE MODE: Small pause to prevent hitting DB limits
-                usleep(100000); // 0.1 second
+
+                usleep(100000); // 0.1s pause
             }
 
             $zip->close();
-            
-            // Clean up individual temp SQL files after zip is closed
+
+            // Cleanup temp SQL files
             foreach ($tables as $table) {
-                $tempSqlFile = storage_path('app/backup-temp/tbl-' . md5($table) . '.sql');
-                if (file_exists($tempSqlFile)) @unlink($tempSqlFile);
+                $f = $tempDir . '/tbl-' . md5($table) . '.sql';
+                if (file_exists($f)) @unlink($f);
             }
 
-            // Move to final destination
-            \Illuminate\Support\Facades\Storage::disk('local')->putFileAs($backupFolder, new \Illuminate\Http\File($tempPath), $filename);
+            Storage::disk('local')->putFileAs($backupFolder, new \Illuminate\Http\File($tempPath), $filename);
             @unlink($tempPath);
 
             $this->consoleOutput .= "\n--- Table-Level Backup Completed Successfully ---";
-            $this->consoleOutput .= "\nBackup file: $filename";
+            $this->consoleOutput .= "\nFile: $filename";
+            Notification::make()->title('Backup Per Tabel Selesai!')->success()->send();
 
-            \Filament\Notifications\Notification::make()->title('Backup Per Tabel Selesai!')->success()->send();
         } catch (\Exception $e) {
-            $this->consoleOutput .= "\nERROR: " . $e->getMessage();
-            \Filament\Notifications\Notification::make()->title('Backup Per Tabel Gagal')->danger()->send();
+            $this->consoleOutput .= "\nFATAL ERROR: " . $e->getMessage();
+            Notification::make()->title('Backup Per Tabel Gagal')->danger()->send();
         }
     }
+
+    public function runDbBackup()
+    {
+        $this->consoleOutput = "=== Database Backup (Pure PHP) ===\n";
+
+        try {
+            set_time_limit(300);
+
+            $backupFolder = 'employeeapp';
+            $filename = Carbon::now()->format('Y-m-d-H-i-s') . '.zip';
+            $tempDir = storage_path('app/backup-temp');
+            $tempPath = $tempDir . '/' . $filename;
+
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+
+            $zip = new \ZipArchive();
+            if ($zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                throw new \Exception("Cannot create zip file at $tempPath");
+            }
+
+            $this->generatePurePhpDbDump($zip, 'db-dumps/database-backup.sql');
+
+            $zip->close();
+
+            // Cleanup temp db dump
+            $tempDbFile = $tempDir . '/full-db-dump.sql';
+            if (file_exists($tempDbFile)) @unlink($tempDbFile);
+
+            Storage::disk('local')->putFileAs($backupFolder, new \Illuminate\Http\File($tempPath), $filename);
+            @unlink($tempPath);
+
+            $this->consoleOutput .= "\n--- Database Backup Completed Successfully ---";
+            Notification::make()->title('Backup Database Selesai!')->success()->send();
+
+        } catch (\Exception $e) {
+            $this->consoleOutput .= "\nFATAL ERROR: " . $e->getMessage();
+            Notification::make()->title('Backup Database Gagal')->danger()->send();
+        }
+    }
+
+    public function runFullBackup()
+    {
+        $this->consoleOutput = "=== Full Backup (Pure PHP) ===\n";
+
+        try {
+            set_time_limit(900);
+
+            $backupFolder = 'employeeapp';
+            $filename = Carbon::now()->format('Y-m-d-H-i-s') . '.zip';
+            $tempDir = storage_path('app/backup-temp');
+            $tempPath = $tempDir . '/' . $filename;
+
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+
+            $zip = new \ZipArchive();
+            if ($zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                throw new \Exception("Cannot create zip file at $tempPath");
+            }
+
+            // 1. DB
+            $this->consoleOutput .= "Step 1: Dumping Database...\n";
+            $this->generatePurePhpDbDump($zip, 'db-dumps/database-backup.sql');
+
+            // 2. Files
+            $this->consoleOutput .= "Step 2: Archiving Files...\n";
+            $rootPath = base_path();
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($rootPath, \RecursiveDirectoryIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::LEAVES_ONLY
+            );
+
+            $excludes = ['vendor', 'node_modules', '.git', 'backup-temp'];
+            $count = 0;
+
+            foreach ($iterator as $file) {
+                $filePath = $file->getRealPath();
+                $relativePath = substr($filePath, strlen($rootPath) + 1);
+
+                $skip = false;
+                foreach ($excludes as $ex) {
+                    if (str_contains($relativePath, $ex)) {
+                        $skip = true;
+                        break;
+                    }
+                }
+
+                if (!$skip) {
+                    $zip->addFile($filePath, $relativePath);
+                    $count++;
+                    if ($count % 500 === 0) {
+                        $this->consoleOutput .= "Added $count files...\n";
+                    }
+                }
+            }
+
+            $zip->close();
+
+            // Cleanup temp db dump
+            $tempDbFile = $tempDir . '/full-db-dump.sql';
+            if (file_exists($tempDbFile)) @unlink($tempDbFile);
+
+            Storage::disk('local')->putFileAs($backupFolder, new \Illuminate\Http\File($tempPath), $filename);
+            @unlink($tempPath);
+
+            $this->consoleOutput .= "\n--- Full Backup Completed Successfully ---";
+            $this->consoleOutput .= "\n$count files archived.";
+            Notification::make()->title('Backup Lengkap Selesai!')->success()->send();
+
+        } catch (\Exception $e) {
+            $this->consoleOutput .= "\nFATAL ERROR: " . $e->getMessage();
+            Notification::make()->title('Backup Lengkap Gagal')->danger()->send();
+        }
+    }
+
+    // =========================================================================
+    // DOWNLOAD / DELETE
+    // =========================================================================
 
     public function downloadBackup($path)
     {
@@ -179,164 +321,124 @@ class ManageBackup extends Page
         }
     }
 
-    public function runFullBackup()
+    // =========================================================================
+    // HELPER METHODS
+    // =========================================================================
+
+    /**
+     * Generate a full SQL dump and add it to the zip archive.
+     * Streams data to a temp file to keep memory usage minimal.
+     */
+    protected function generatePurePhpDbDump(\ZipArchive $zip, string $innerPath): void
     {
-        $this->consoleOutput = "Starting Full Backup (Pure PHP Mode)...\n";
-        $this->consoleOutput .= "This process may take a while depending on file count.\n";
-        
-        try {
-            set_time_limit(900); // 15 mins
-            $backupFolder = 'employeeapp';
-            $filename = \Illuminate\Support\Carbon::now()->format('Y-m-d-H-i-s') . '.zip';
-            $tempPath = storage_path('app/backup-temp/' . $filename);
-            
-            if (!file_exists(dirname($tempPath))) {
-                mkdir(dirname($tempPath), 0755, true);
-            }
-
-            $zip = new \ZipArchive();
-            if ($zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
-                throw new \Exception("Cannot create zip file at $tempPath");
-            }
-
-            // 1. DUMP DATABASE
-            $this->consoleOutput .= "Step 1: Dumping Database...\n";
-            $this->generatePurePhpDbDump($zip, 'db-dumps/database-backup.sql');
-
-            // 2. ARCHIVE FILES
-            $this->consoleOutput .= "Step 2: Archiving Files...\n";
-            $rootPath = base_path();
-            $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($rootPath, \RecursiveDirectoryIterator::SKIP_DOTS),
-                \RecursiveIteratorIterator::LEAVES_ONLY
-            );
-
-            $excludePaths = [
-                DIRECTORY_SEPARATOR . 'vendor',
-                DIRECTORY_SEPARATOR . 'node_modules',
-                DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'backup-temp',
-                DIRECTORY_SEPARATOR . '.git'
-            ];
-
-            $count = 0;
-            foreach ($files as $name => $file) {
-                $filePath = $file->getRealPath();
-                $relativePath = substr($filePath, strlen($rootPath) + 1);
-
-                // Check exclusions
-                $shouldExclude = false;
-                foreach ($excludePaths as $exclude) {
-                    if (str_contains(DIRECTORY_SEPARATOR . $relativePath, $exclude)) {
-                        $shouldExclude = true;
-                        break;
-                    }
-                }
-
-                if (!$shouldExclude) {
-                    $zip->addFile($filePath, $relativePath);
-                    $count++;
-                    if ($count % 500 === 0) {
-                        $this->consoleOutput .= "Added $count files...\n";
-                    }
-                }
-            }
-
-            $zip->close();
-
-            // 3. STORAGE
-            \Illuminate\Support\Facades\Storage::disk('local')->putFileAs($backupFolder, new \Illuminate\Http\File($tempPath), $filename);
-            @unlink($tempPath);
-
-            $this->consoleOutput .= "\n--- Full Backup Completed Successfully ---";
-            $this->consoleOutput .= "\nBackup file: $filename ($count files archived)";
-
-            \Filament\Notifications\Notification::make()->title('Backup Lengkap Selesai!')->success()->send();
-        } catch (\Exception $e) {
-            $this->consoleOutput .= "\nERROR: " . $e->getMessage();
-            \Filament\Notifications\Notification::make()->title('Backup Lengkap Gagal')->danger()->send();
-        }
-    }
-
-    public function runDbBackup()
-    {
-        $this->consoleOutput = "Starting DB Backup (Pure PHP Mode)...\n";
-        
-        try {
-            set_time_limit(300);
-            $backupFolder = 'employeeapp';
-            $filename = \Illuminate\Support\Carbon::now()->format('Y-m-d-H-i-s') . '.zip';
-            $tempPath = storage_path('app/backup-temp/' . $filename);
-            
-            if (!file_exists(dirname($tempPath))) {
-                mkdir(dirname($tempPath), 0755, true);
-            }
-
-            $zip = new \ZipArchive();
-            if ($zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
-                throw new \Exception("Cannot create zip file at $tempPath");
-            }
-
-            $this->generatePurePhpDbDump($zip, 'db-dumps/database-backup.sql');
-            
-            $zip->close();
-
-            \Illuminate\Support\Facades\Storage::disk('local')->putFileAs($backupFolder, new \Illuminate\Http\File($tempPath), $filename);
-            @unlink($tempPath);
-
-            $this->consoleOutput .= "\n--- Database Backup Completed Successfully ---";
-            \Filament\Notifications\Notification::make()->title('Backup Database Selesai!')->success()->send();
-        } catch (\Exception $e) {
-            $this->consoleOutput .= "\nERROR: " . $e->getMessage();
-            \Filament\Notifications\Notification::make()->title('Backup Database Gagal')->danger()->send();
-        }
-    }
-
-    protected function generatePurePhpDbDump(\ZipArchive $zip, string $innerPath)
-    {
-        $tables = \Illuminate\Support\Facades\DB::connection()->getSchemaBuilder()->getTableListing();
+        $tables = $this->getTableNames();
         $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
-        
-        $tempSqlFile = storage_path('app/backup-temp/full-db-dump.sql');
+
+        $tempDir = storage_path('app/backup-temp');
+        if (!file_exists($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $tempSqlFile = $tempDir . '/full-db-dump.sql';
         $handle = fopen($tempSqlFile, 'w');
-        fwrite($handle, "-- HRIS Database Dump\n-- Generated via Pure PHP Mode\n-- Driver: $driver\n\n");
+        fwrite($handle, "-- HRIS Database Dump\n-- Generated: " . now()->toDateTimeString() . "\n-- Driver: $driver\n\n");
+
+        $this->consoleOutput .= "Found " . count($tables) . " tables to dump.\n";
 
         foreach ($tables as $table) {
-            // Get Schema
-            $wrappedTable = \Illuminate\Support\Facades\DB::connection()->getQueryGrammar()->wrapTable($table);
-            if ($driver === 'sqlite') {
-                $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
-                if (!empty($schema)) {
-                    fwrite($handle, $schema[0]->sql . ";\n\n");
+            $wrappedTable = $this->wrapTableName($table);
+            fwrite($handle, "-- ========================================\n");
+            fwrite($handle, "-- Table: $table\n");
+            fwrite($handle, "-- ========================================\n\n");
+
+            // Schema
+            try {
+                if ($driver === 'sqlite') {
+                    $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", [$table]);
+                    if (!empty($schema)) {
+                        fwrite($handle, $schema[0]->sql . ";\n\n");
+                    }
+                } else {
+                    $schemaRows = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable");
+                    if (!empty($schemaRows)) {
+                        $schemaRow = (array) $schemaRows[0];
+                        $createSql = $schemaRow['Create Table'] ?? $schemaRow['Create View'] ?? null;
+                        if ($createSql) {
+                            fwrite($handle, $createSql . ";\n\n");
+                        }
+                    }
                 }
-            } else {
-                // MySQL
-                $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE $wrappedTable")[0];
-                $schemaKey = 'Create Table';
-                fwrite($handle, $schema->$schemaKey . ";\n\n");
+            } catch (\Exception $e) {
+                fwrite($handle, "-- Schema error: " . $e->getMessage() . "\n\n");
             }
 
-            // Get Data (Chunked for memory efficiency streaming)
-            \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use ($handle, $wrappedTable) {
-                foreach ($rows as $row) {
-                    $rowArray = (array)$row;
-                    $keys = array_keys($rowArray);
-                    $values = array_values($rowArray);
-                    
-                    $escapedValues = array_map(function($value) {
-                        if ($value === null) return 'NULL';
-                        if (is_numeric($value)) return $value;
-                        return "'" . str_replace("'", "''", $value) . "'";
-                    }, $values);
+            // Data
+            try {
+                \Illuminate\Support\Facades\DB::table($table)->chunk(500, function ($rows) use ($handle, $wrappedTable) {
+                    foreach ($rows as $row) {
+                        $rowArray = (array) $row;
+                        $keys = array_keys($rowArray);
+                        $values = array_values($rowArray);
 
-                    fwrite($handle, "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n");
-                }
-            });
+                        $escapedValues = array_map(function ($v) {
+                            if ($v === null) return 'NULL';
+                            if (is_numeric($v)) return $v;
+                            return "'" . addslashes((string) $v) . "'";
+                        }, $values);
+
+                        fwrite($handle, "INSERT INTO $wrappedTable (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n");
+                    }
+                });
+            } catch (\Exception $e) {
+                fwrite($handle, "-- Data error: " . $e->getMessage() . "\n");
+            }
+
             fwrite($handle, "\n");
+            usleep(50000); // 50ms pause between tables
         }
 
         fclose($handle);
         $zip->addFile($tempSqlFile, $innerPath);
-        // Note: Clean up should happen after ZipArchive is closed in calling method
-        // but for safety we'll try to delete it in a finally block or rely on parent
+    }
+
+    /**
+     * Get table names for the CURRENT database only.
+     *
+     * CRITICAL: Laravel's getTableListing() on MySQL returns cross-database
+     * references (e.g. "other_db.some_table") which causes errors.
+     * We use SHOW TABLES instead, which only returns current DB tables.
+     */
+    protected function getTableNames(): array
+    {
+        $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return \Illuminate\Support\Facades\DB::connection()->getSchemaBuilder()->getTableListing();
+        }
+
+        // MySQL: SHOW TABLES only returns tables from the current database
+        $results = \Illuminate\Support\Facades\DB::select('SHOW TABLES');
+
+        $tables = [];
+        foreach ($results as $row) {
+            $rowArray = (array) $row;
+            // SHOW TABLES returns a column named "Tables_in_{database_name}"
+            $tables[] = reset($rowArray);
+        }
+
+        return $tables;
+    }
+
+    /**
+     * Wrap a table name in backticks for raw SQL.
+     * Handles dot-notation (db.table) by wrapping each part separately.
+     */
+    protected function wrapTableName(string $table): string
+    {
+        if (str_contains($table, '.')) {
+            $parts = explode('.', $table);
+            return '`' . implode('`.`', $parts) . '`';
+        }
+        return '`' . $table . '`';
     }
 }
