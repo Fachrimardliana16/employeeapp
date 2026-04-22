@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 class EmployeeGenderChart extends ChartWidget
 {
     protected static ?int $sort = 8;
+    protected static bool $isLazy = true;
     
     protected static ?string $heading = 'Pegawai menurut Jenis Kelamin';
     

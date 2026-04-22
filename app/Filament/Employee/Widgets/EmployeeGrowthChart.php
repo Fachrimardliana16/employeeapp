@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 class EmployeeGrowthChart extends ChartWidget
 {
     protected static ?int $sort = 10;
+    protected static bool $isLazy = true;
     
     protected static ?string $heading = 'Pertumbuhan Jumlah Pegawai';
     

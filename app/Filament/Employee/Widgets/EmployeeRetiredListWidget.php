@@ -11,6 +11,7 @@ use Carbon\Carbon;
 class EmployeeRetiredListWidget extends BaseWidget
 {
     protected static ?int $sort = 5;
+    protected static bool $isLazy = true;
     
     protected int | string | array $columnSpan = 'full';
 

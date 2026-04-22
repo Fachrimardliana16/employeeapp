@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 class DailyAttendanceTrendChart extends ChartWidget
 {
     protected static ?int $sort = 11;
+    protected static bool $isLazy = true;
     
     protected static ?string $heading = 'Tren Kehadiran Harian';
     

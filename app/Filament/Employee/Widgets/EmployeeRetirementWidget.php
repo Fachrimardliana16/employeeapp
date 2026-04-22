@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 class EmployeeRetirementWidget extends BaseWidget
 {
     protected static ?int $sort = 4;
+    protected static bool $isLazy = true;
     
     protected int | string | array $columnSpan = 1;
 

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 class EmployeeEducationChart extends ChartWidget
 {
     protected static ?int $sort = 7;
+    protected static bool $isLazy = true;
     
     protected static ?string $heading = 'Pegawai menurut Tingkat Pendidikan';
     

@@ -10,6 +10,7 @@ use Filament\Widgets\TableWidget as BaseWidget;
 class JobApplicationListWidget extends BaseWidget
 {
     protected static ?int $sort = 2;
+    protected static bool $isLazy = true;
     
     protected int | string | array $columnSpan = 1;
 

@@ -10,6 +10,7 @@ use Carbon\Carbon;
 class TodayAttendanceChart extends ChartWidget
 {
     protected static ?int $sort = 9;
+    protected static bool $isLazy = true;
     
     protected static ?string $heading = 'Kehadiran Pegawai Hari Ini';
     

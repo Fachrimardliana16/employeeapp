@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 class EmployeeStatusChart extends ChartWidget
 {
     protected static ?int $sort = 6;
+    protected static bool $isLazy = true;
     
     protected static ?string $heading = 'Pegawai menurut Status Kepegawaian';
     
