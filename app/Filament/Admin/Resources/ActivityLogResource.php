@@ -9,9 +9,6 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Spatie\Activitylog\Models\Activity;
 
-use Filament\Infolists;
-use Filament\Infolists\Infolist;
-
 class ActivityLogResource extends Resource
 {
     protected static ?string $model = Activity::class;
@@ -27,19 +24,6 @@ class ActivityLogResource extends Resource
     protected static ?string $navigationGroup = 'Sistem';
 
     protected static ?int $navigationSort = 2;
-
-    public static function infolist(Infolist $infolist): Infolist
-    {
-        return $infolist
-            ->schema([
-                Infolists\Components\TextEntry::make('id')
-                    ->label('ID Log'),
-                Infolists\Components\TextEntry::make('description')
-                    ->label('Deskripsi'),
-                Infolists\Components\TextEntry::make('created_at')
-                    ->label('Waktu'),
-            ]);
-    }
 
     public static function form(Form $form): Form
     {
