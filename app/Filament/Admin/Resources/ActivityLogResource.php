@@ -85,18 +85,15 @@ class ActivityLogResource extends Resource
                 \Filament\Infolists\Components\Section::make('Detail Perubahan')
                     ->icon('heroicon-m-arrow-path')
                     ->schema([
-                        \Filament\Infolists\Components\TextEntry::make('properties')
-                            ->label('Properti Log (JSON)')
-                            ->formatStateUsing(function ($state) {
-                                if (empty($state)) return '-';
-                                try {
-                                    $data = is_array($state) ? $state : json_decode($state, true);
-                                    return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-                                } catch (\Exception $e) {
-                                    return 'Data corrupt or invalid JSON';
-                                }
+                        \Filament\Infolists\Components\TextEntry::make('properties_json')
+                            ->label('Data Perubahan (JSON)')
+                            ->state(function ($record) {
+                                $props = $record->properties;
+                                if (empty($props)) return 'No data';
+                                return json_encode($props, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
                             })
-                            ->fontFamily('mono'),
+                            ->fontFamily('mono')
+                            ->prose(),
                     ]),
             ]);
     }
