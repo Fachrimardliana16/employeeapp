@@ -1226,33 +1226,41 @@ class EmployeeResource extends Resource
                                     $isNew = empty($rowData['id']);
                                     if ($isNew) $stats['created']++; else $stats['updated']++;
                                     
+                                    $clean = fn($val) => ($val === '' || $val === null) ? null : trim($val);
+
+                                    $gender = strtolower(trim($rowData['gender'] ?? ''));
+                                    $gender = in_array($gender, ['male', 'female']) ? $gender : 'male';
+                                    
+                                    $marital = strtolower(trim($rowData['marital_status'] ?? ''));
+                                    $marital = in_array($marital, ['single', 'married', 'divorced', 'widowed']) ? $marital : 'single';
+
                                     $employeeData = [
                                         'name' => $rowData['name'],
-                                        'pin' => $rowData['pin'] ?? null,
-                                        'gender' => $rowData['gender'] ?? 'male',
-                                        'religion' => $rowData['religion'] ?? null,
-                                        'place_birth' => $rowData['place_birth'] ?? null,
+                                        'pin' => $clean($rowData['pin'] ?? null),
+                                        'gender' => $gender,
+                                        'religion' => $clean($rowData['religion'] ?? null),
+                                        'place_birth' => $clean($rowData['place_birth'] ?? null),
                                         'date_birth' => $convertDate($rowData['date_birth'] ?? ''),
-                                        'marital_status' => $rowData['marital_status'] ?? 'single',
-                                        'blood_type' => $rowData['blood_type'] ?? null,
-                                        'email' => $rowData['email'] ?? null,
-                                        'office_email' => $rowData['office_email'] ?? null,
-                                        'phone_number' => $rowData['phone_number'] ?? null,
-                                        'id_number' => $rowData['id_number'] ?? null,
-                                        'familycard_number' => $rowData['familycard_number'] ?? null,
-                                        'npwp_number' => $rowData['npwp_number'] ?? null,
-                                        'bank_account_number' => $rowData['bank_account_number'] ?? null,
-                                        'bpjs_tk_number' => $rowData['bpjs_tk_number'] ?? null,
-                                        'bpjs_tk_status' => $rowData['bpjs_tk_status'] ?? 'Aktif',
-                                        'bpjs_kes_number' => $rowData['bpjs_kes_number'] ?? null,
-                                        'bpjs_kes_status' => $rowData['bpjs_kes_status'] ?? 'Aktif',
-                                        'bpjs_kes_class' => $rowData['bpjs_kes_class'] ?? null,
-                                        'rek_dplk_pribadi' => $rowData['rek_dplk_pribadi'] ?? null,
-                                        'rek_dplk_bersama' => $rowData['rek_dplk_bersama'] ?? null,
-                                        'dapenma_number' => $rowData['dapenma_number'] ?? null,
+                                        'marital_status' => $marital,
+                                        'blood_type' => $clean($rowData['blood_type'] ?? null),
+                                        'email' => $clean($rowData['email'] ?? null),
+                                        'office_email' => $clean($rowData['office_email'] ?? null),
+                                        'phone_number' => $clean($rowData['phone_number'] ?? null),
+                                        'id_number' => $clean($rowData['id_number'] ?? null),
+                                        'familycard_number' => $clean($rowData['familycard_number'] ?? null),
+                                        'npwp_number' => $clean($rowData['npwp_number'] ?? null),
+                                        'bank_account_number' => $clean($rowData['bank_account_number'] ?? null),
+                                        'bpjs_tk_number' => $clean($rowData['bpjs_tk_number'] ?? null),
+                                        'bpjs_tk_status' => $clean($rowData['bpjs_tk_status'] ?? 'Aktif'),
+                                        'bpjs_kes_number' => $clean($rowData['bpjs_kes_number'] ?? null),
+                                        'bpjs_kes_status' => $clean($rowData['bpjs_kes_status'] ?? 'Aktif'),
+                                        'bpjs_kes_class' => $clean($rowData['bpjs_kes_class'] ?? null),
+                                        'rek_dplk_pribadi' => $clean($rowData['rek_dplk_pribadi'] ?? null),
+                                        'rek_dplk_bersama' => $clean($rowData['rek_dplk_bersama'] ?? null),
+                                        'dapenma_number' => $clean($rowData['dapenma_number'] ?? null),
                                         'dapenma_phdp' => (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '') ? $rowData['dapenma_phdp'] : null,
-                                        'dapenma_status' => $rowData['dapenma_status'] ?? 'Aktif',
-                                        'address' => $rowData['address'] ?? null,
+                                        'dapenma_status' => $clean($rowData['dapenma_status'] ?? 'Aktif'),
+                                        'address' => $clean($rowData['address'] ?? null),
                                         'departments_id' => $ids['dept_id'],
                                         'bagian_id' => $ids['bagian_id'],
                                         'cabang_id' => $ids['cabang_id'],
