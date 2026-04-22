@@ -87,6 +87,7 @@ class ActivityLogResource extends Resource
                     ->schema([
                         \Filament\Infolists\Components\TextEntry::make('properties_json')
                             ->label('Detail Perubahan Data')
+                            ->html()
                             ->state(function ($record) {
                                 $props = $record->properties;
                                 if (empty($props)) return 'Tidak ada detail perubahan.';
@@ -95,34 +96,52 @@ class ActivityLogResource extends Resource
                                 $new = $props['attributes'] ?? [];
 
                                 if (empty($old) && !empty($new)) {
-                                    // Record baru atau hanya ada atribut baru
-                                    $output = "Data Baru:\n";
+                                    $html = '<table class="w-full text-sm text-left border-collapse border border-gray-200 dark:border-gray-700">';
+                                    $html .= '<thead class="bg-gray-50 dark:bg-gray-800"><tr>';
+                                    $html .= '<th class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">Kolom</th>';
+                                    $html .= '<th class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">Nilai Baru</th>';
+                                    $html .= '</tr></thead><tbody>';
+                                    
                                     foreach ($new as $key => $value) {
                                         $valStr = is_array($value) ? json_encode($value) : (string)$value;
-                                        $output .= "• " . ucwords(str_replace('_', ' ', $key)) . ": " . ($valStr ?: '-') . "\n";
+                                        $html .= '<tr>';
+                                        $html .= '<td class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 font-medium">' . ucwords(str_replace('_', ' ', $key)) . '</td>';
+                                        $html .= '<td class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">' . ($valStr ?: '-') . '</td>';
+                                        $html .= '</tr>';
                                     }
-                                    return $output;
+                                    $html .= '</tbody></table>';
+                                    return $html;
                                 }
 
                                 if (!empty($old) && !empty($new)) {
-                                    // Perubahan data
-                                    $output = "Perubahan Terdeteksi:\n";
+                                    $html = '<table class="w-full text-sm text-left border-collapse border border-gray-200 dark:border-gray-700">';
+                                    $html .= '<thead class="bg-gray-50 dark:bg-gray-800"><tr>';
+                                    $html .= '<th class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 font-bold">Kolom</th>';
+                                    $html .= '<th class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 font-bold text-danger-600">Sebelum</th>';
+                                    $html .= '<th class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 font-bold text-success-600">Sesudah</th>';
+                                    $html .= '</tr></thead><tbody>';
+                                    
+                                    $changed = false;
                                     foreach ($new as $key => $newValue) {
-                                        $oldValue = $old[$key] ?? '-';
+                                        $oldValue = $old[$key] ?? null;
                                         
                                         $oldStr = is_array($oldValue) ? json_encode($oldValue) : (string)$oldValue;
                                         $newStr = is_array($newValue) ? json_encode($newValue) : (string)$newValue;
 
                                         if ($oldStr !== $newStr) {
-                                            $output .= "• " . ucwords(str_replace('_', ' ', $key)) . ": \n";
-                                            $output .= "  Dari: " . ($oldStr ?: '(kosong)') . "\n";
-                                            $output .= "  Menjadi: " . ($newStr ?: '(kosong)') . "\n\n";
+                                            $changed = true;
+                                            $html .= '<tr>';
+                                            $html .= '<td class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 font-medium">' . ucwords(str_replace('_', ' ', $key)) . '</td>';
+                                            $html .= '<td class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 text-danger-500 line-through">' . ($oldStr ?: '(kosong)') . '</td>';
+                                            $html .= '<td class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 text-success-500 font-bold">' . ($newStr ?: '(kosong)') . '</td>';
+                                            $html .= '</tr>';
                                         }
                                     }
-                                    return $output ?: "Tidak ada perbedaan nilai terdeteksi.";
+                                    $html .= '</tbody></table>';
+                                    return $changed ? $html : 'Tidak ada perbedaan nilai terdeteksi.';
                                 }
 
-                                return json_encode($props, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                                return '<pre class="p-2 bg-gray-100 dark:bg-gray-800 rounded">' . json_encode($props, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . '</pre>';
                             })
                             ->fontFamily('mono')
                             ->prose(),
