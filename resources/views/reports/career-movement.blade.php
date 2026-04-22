@@ -64,6 +64,11 @@
                 <td>:</td>
                 <td>{{ $employeeName }}</td>
             </tr>
+            <tr>
+                <td>Dokumen</td>
+                <td>:</td>
+                <td style="font-weight: bold; color: #000;">{{ $title }}</td>
+            </tr>
         </table>
     </div>
 
@@ -75,27 +80,31 @@
                 <th width="20%">Pegawai / NIPPAM</th>
                 @if($type === 'promotion')
                     <th>No. SK</th>
+                    <th>Golongan Lama</th>
                     <th>Golongan Baru</th>
                 @elseif($type === 'mutation')
-                    <th>Asal Bagian</th>
-                    <th>Tujuan Bagian</th>
-                    <th>Jabatan Baru</th>
+                    <th>Data Lama (Bagian/Jabatan)</th>
+                    <th>Data Baru (Bagian/Jabatan)</th>
                 @elseif($type === 'retirement')
                     <th>Jenis / Alasan</th>
                     <th>Status</th>
                 @elseif($type === 'appointment')
                     <th>No. SK</th>
+                    <th>Status Lama</th>
                     <th>Status Baru</th>
                 @elseif($type === 'psi')
                     <th>No. SK</th>
+                    <th>MKG Lama</th>
                     <th>MKG Baru</th>
+                    <th>Gaji Lama</th>
                     <th>Gaji Baru</th>
                 @elseif($type === 'career_movement')
                     <th>Jenis</th>
                     <th>No. SK</th>
-                    <th>Jabatan Baru</th>
+                    <th>Data Lama (Bagian/Jabatan)</th>
+                    <th>Data Baru (Bagian/Jabatan)</th>
                 @endif
-                <th width="10%">Status</th>
+                <th width="8%">Status</th>
             </tr>
         </thead>
         <tbody>
@@ -110,25 +119,51 @@
                     
                     @if($type === 'promotion')
                         <td>{{ $row->decision_letter_number ?? '-' }}</td>
-                        <td>{{ $row->newGrade->name ?? '-' }}</td>
+                        <td>{{ $row->oldSalaryGrade->name ?? '-' }}</td>
+                        <td>{{ $row->newSalaryGrade->name ?? '-' }}</td>
                     @elseif($type === 'mutation')
-                        <td>{{ $row->oldDepartment->name ?? '-' }}</td>
-                        <td>{{ $row->newDepartment->name ?? '-' }}</td>
-                        <td>{{ $row->newPosition->name ?? '-' }}</td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $row->oldDepartment->name ?? '-' }}</div>
+                            @if($row->oldSubDepartment)<div style="font-size: 9px; color: #666;">Sub: {{ $row->oldSubDepartment->name }}</div>@endif
+                            <div style="font-size: 9px; font-style: italic;">Jbt: {{ $row->oldPosition->name ?? '-' }}</div>
+                        </td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $row->newDepartment->name ?? '-' }}</div>
+                            @if($row->newSubDepartment)<div style="font-size: 9px; color: #666;">Sub: {{ $row->newSubDepartment->name }}</div>@endif
+                            <div style="font-size: 9px; font-style: italic;">Jbt: {{ $row->newPosition->name ?? '-' }}</div>
+                        </td>
                     @elseif($type === 'retirement')
                         <td>{{ $row->reason ?? '-' }}</td>
                         <td>{{ $row->retirement_type ?? 'Pensiun' }}</td>
                     @elseif($type === 'appointment')
                         <td>{{ $row->decision_letter_number ?? '-' }}</td>
+                        <td>{{ $row->oldEmploymentStatus->name ?? '-' }}</td>
                         <td>{{ $row->newEmploymentStatus->name ?? '-' }}</td>
                     @elseif($type === 'psi')
                         <td>{{ $row->number_psi ?? '-' }}</td>
+                        <td>
+                            @php
+                                $newMkg = intval($row->newServiceGrade->service_grade ?? 0);
+                                $oldMkg = $newMkg > 1 ? $newMkg - 2 : 0;
+                            @endphp
+                            {{ $oldMkg }} Thn
+                        </td>
                         <td>{{ $row->newServiceGrade->service_grade ?? '-' }} Thn</td>
+                        <td>Rp {{ number_format($row->oldSalaryGrade?->basic_salary ?? 0, 0, ',', '.') }}</td>
                         <td>Rp {{ number_format($row->total_basic_salary, 0, ',', '.') }}</td>
                     @elseif($type === 'career_movement')
                         <td>{{ $row->type === 'promotion' ? 'PROMOSI' : 'DEMOSI' }}</td>
                         <td>{{ $row->decision_letter_number ?? '-' }}</td>
-                        <td>{{ $row->newPosition->name ?? '-' }}</td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $row->oldDepartment->name ?? '-' }}</div>
+                            @if($row->oldSubDepartment)<div style="font-size: 9px; color: #666;">Sub: {{ $row->oldSubDepartment->name }}</div>@endif
+                            <div style="font-size: 9px; font-style: italic;">Jbt: {{ $row->oldPosition->name ?? '-' }}</div>
+                        </td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $row->newDepartment->name ?? '-' }}</div>
+                            @if($row->newSubDepartment)<div style="font-size: 9px; color: #666;">Sub: {{ $row->newSubDepartment->name }}</div>@endif
+                            <div style="font-size: 9px; font-style: italic;">Jbt: {{ $row->newPosition->name ?? '-' }}</div>
+                        </td>
                     @endif
 
                     <td align="center">

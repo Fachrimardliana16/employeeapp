@@ -34,7 +34,8 @@ class ReportController extends Controller
               ->when($employeeId, fn($q) => $q->where('employee_id', $employeeId))
               ->when($request->has('is_applied') && $request->is_applied !== null, fn($q) => $q->where('is_applied', $request->is_applied));
 
-        $data = $query->with('employee')->orderBy($dateColumn, 'desc')->get();
+        $relations = array_merge(['employee'], $this->getRelationsForType($type));
+        $data = $query->with($relations)->orderBy($dateColumn, 'desc')->get();
         
         $title = $this->getTitleForType($type);
         $employeeName = $employeeId ? Employee::find($employeeId)?->name : 'Semua Pegawai';
@@ -75,6 +76,26 @@ class ReportController extends Controller
             'psi' => 'date_periodic_salary_increase',
             'career_movement' => 'movement_date',
             default => 'created_at',
+        };
+    }
+
+    protected function getRelationsForType($type)
+    {
+        return match ($type) {
+            'promotion' => ['oldSalaryGrade', 'newSalaryGrade'],
+            'mutation' => [
+                'oldDepartment', 'newDepartment', 
+                'oldSubDepartment', 'newSubDepartment', 
+                'oldPosition', 'newPosition'
+            ],
+            'appointment' => ['newEmploymentStatus', 'oldEmploymentStatus'],
+            'psi' => ['oldSalaryGrade', 'newSalaryGrade', 'newServiceGrade'],
+            'career_movement' => [
+                'oldDepartment', 'newDepartment',
+                'oldSubDepartment', 'newSubDepartment',
+                'oldPosition', 'newPosition'
+            ],
+            default => [],
         };
     }
 
