@@ -907,9 +907,9 @@ class JobApplicationResource extends Resource
                                                         ->label('Unduh')
                                                         ->icon('heroicon-o-arrow-down-tray')
                                                         ->color('primary')
-                                                        ->url(fn ($state) => $state ? asset('storage/' . $state) : null)
+                                                        ->url(fn ($component) => $component->getState() ? asset('storage/' . $component->getState()) : null)
                                                         ->openUrlInNewTab()
-                                                        ->visible(fn ($state) => !empty($state))
+                                                        ->visible(fn ($component) => !empty($component->getState()))
                                                 ),
                                         ])
                                         ->grid(1)
