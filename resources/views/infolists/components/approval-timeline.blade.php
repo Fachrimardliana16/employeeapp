@@ -11,7 +11,7 @@
         <!-- Icon & Line Column -->
         <div style="flex: none; width: 40px; margin-right: 16px; display: flex; flex-direction: column; align-items: center;">
             <div style="width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="bg-primary-100 dark:bg-primary-900 border border-primary-200 dark:border-primary-800">
-                <x-heroicon-m-paper-airplane style="width: 16px; height: 16px;" class="text-primary-600 dark:text-primary-400"/>
+                <!-- Icon removed to avoid loading issues -->
             </div>
             <!-- Vertical Line -->
             <div style="flex-grow: 1; width: 2px; margin-top: 8px; margin-bottom: 8px; border-radius: 9999px;" class="bg-gray-200 dark:bg-white/10"></div>
@@ -35,15 +35,15 @@
         <div style="flex: none; width: 40px; margin-right: 16px; display: flex; flex-direction: column; align-items: center;">
             @if($isPending)
                 <div style="width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="bg-warning-100 dark:bg-warning-900 border border-warning-200 dark:border-warning-800">
-                    <x-heroicon-m-clock style="width: 16px; height: 16px; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;" class="text-warning-600 dark:text-warning-400"/>
+                    <!-- Icon removed -->
                 </div>
             @elseif($isApproved)
                 <div style="width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="bg-success-100 dark:bg-success-900 border border-success-200 dark:border-success-800">
-                    <x-heroicon-m-check-circle style="width: 16px; height: 16px;" class="text-success-600 dark:text-success-400"/>
+                    <!-- Icon removed -->
                 </div>
             @elseif($isRejected)
                 <div style="width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="bg-danger-100 dark:bg-danger-900 border border-danger-200 dark:border-danger-800">
-                    <x-heroicon-m-x-circle style="width: 16px; height: 16px;" class="text-danger-600 dark:text-danger-400"/>
+                    <!-- Icon removed -->
                 </div>
             @endif
         </div>

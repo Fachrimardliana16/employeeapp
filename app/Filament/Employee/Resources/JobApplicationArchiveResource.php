@@ -215,7 +215,7 @@ class JobApplicationArchiveResource extends Resource
                                         ->height(200)
                                         ->alignCenter()
                                         ->disk('public')
-                                        ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
+                                        ->state(fn($record) => $record->snapshot_photo ? url('image-view/' . $record->snapshot_photo) : null)
                                         ->extraAttributes(['class' => 'p-4 bg-gray-50 rounded-xl mb-4'])
                                         ->placeholder('Tidak ada foto'),
                                     

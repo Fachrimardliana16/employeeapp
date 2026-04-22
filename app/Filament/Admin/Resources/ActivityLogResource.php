@@ -85,7 +85,7 @@ class ActivityLogResource extends Resource
                 \Filament\Infolists\Components\Section::make('Detail Perubahan')
                     ->icon('heroicon-m-arrow-path')
                     ->schema([
-                        \Filament\Infolists\Components\TextEntry::make('properties_json')
+                        \Filament\Infolists\Components\TextEntry::make('details')
                             ->label('Detail Perubahan Data')
                             ->html()
                             ->state(function ($record) {

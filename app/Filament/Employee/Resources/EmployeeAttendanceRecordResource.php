@@ -450,7 +450,7 @@ class EmployeeAttendanceRecordResource extends Resource
                                     ->hiddenLabel()
                                     ->height(350)
                                     ->disk('public')
-                                    ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
+                                    ->state(fn($record) => $record->photo_checkin ? url('image-view/' . $record->photo_checkin) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->photo_checkin),
                                     
@@ -458,15 +458,15 @@ class EmployeeAttendanceRecordResource extends Resource
                                     ->hiddenLabel()
                                     ->height(350)
                                     ->disk('public')
-                                    ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
+                                    ->state(fn($record) => $record->photo_checkout ? url('image-view/' . $record->photo_checkout) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->photo_checkout),
-
+ 
                                 Components\ImageEntry::make('picture')
                                     ->hiddenLabel()
                                     ->height(350)
                                     ->disk('public')
-                                    ->imageUrl(fn($state) => $state ? url('image-view/' . $state) : null)
+                                    ->state(fn($record) => $record->picture ? url('image-view/' . $record->picture) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->picture && !$record->photo_checkin && !$record->photo_checkout),
                                     
