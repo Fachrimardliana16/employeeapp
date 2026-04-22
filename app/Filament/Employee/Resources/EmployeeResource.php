@@ -898,7 +898,7 @@ class EmployeeResource extends Resource
                     ->color('info')
                     ->action(function () {
                         $headers = [
-                            'id', 'nippam', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
+                            'id', 'nippam', 'pin', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
                             'email', 'office_email', 'phone_number', 'id_number', 'familycard_number', 'npwp_number',
                             'bank_account_number', 'bpjs_tk_number', 'bpjs_tk_status', 'bpjs_kes_number', 'bpjs_kes_status',
                             'bpjs_kes_class', 'rek_dplk_pribadi', 'rek_dplk_bersama', 'dapenma_number', 'dapenma_phdp',
@@ -1181,12 +1181,19 @@ class EmployeeResource extends Resource
                         }
 
                         $stats = ['created' => 0, 'updated' => 0];
+                        $currentRowName = 'N/A';
+                        $currentRowIndex = 0;
+
                         // Phase 2: Processing (Transactional)
                         try {
-                            \Illuminate\Support\Facades\DB::transaction(function() use ($processedData, &$stats) {
-                                foreach ($processedData as $data) {
+                            \Illuminate\Support\Facades\DB::transaction(function() use ($processedData, &$stats, &$currentRowName, &$currentRowIndex, $headerIndex) {
+                                foreach ($processedData as $index => $data) {
                                     $rowData = $data['row'];
                                     $ids = $data['ids'];
+
+                                    // Track current row for error reporting
+                                    $currentRowName = $rowData['name'] ?? ($rowData['nippam'] ?? 'N/A');
+                                    $currentRowIndex = ($headerIndex + 1) + ($index + 1);
 
                                     $convertDate = function($dateStr) {
                                         if (empty($dateStr)) return null;
@@ -1325,10 +1332,23 @@ class EmployeeResource extends Resource
                                 ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
                                 ->success()->send();
                         } catch (\Exception $e) {
-                            \Illuminate\Support\Facades\Log::error('Import Error: ' . $e->getMessage());
+                            $errorMessage = $e->getMessage();
+                            $friendlyMessage = "Terjadi kesalahan sistem saat menyimpan data.";
+
+                            if (str_contains($errorMessage, 'Duplicate entry')) {
+                                $friendlyMessage = "Data ini sudah terdaftar (Duplikasi NIPPAM/PIN/NIK).";
+                            } elseif (str_contains($errorMessage, 'Data truncated')) {
+                                $friendlyMessage = "Format data tidak sesuai dengan batasan sistem (Data terlalu panjang atau pilihan tidak valid).";
+                            }
+
+                            \Illuminate\Support\Facades\Log::error("Import Error: {$errorMessage} | Row: {$currentRowIndex} | Name: {$currentRowName}");
+                            
                             Notification::make()
                                 ->title('Proses Gagal')
-                                ->body('Terjadi kesalahan saat menyimpan data: ' . $e->getMessage())
+                                ->body(new \Illuminate\Support\HtmlString("
+                                    Terjadi kesalahan pada data <strong>{$currentRowName}</strong> (Baris {$currentRowIndex}).<br><br>
+                                    <strong>Pesan:</strong> {$friendlyMessage}
+                                "))
                                 ->danger()
                                 ->persistent()
                                 ->send();
