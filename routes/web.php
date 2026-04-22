@@ -20,7 +20,13 @@ use App\Models\JobApplication;
 
 // Storage Bridge route to handle file access on restrictive hostings without symlink
 Route::get('/image-view/{path}', function ($path) {
+    // Try public first (default)
     $fullPath = storage_path("app/public/" . $path);
+    
+    // Fallback to local (app root) if not in public
+    if (!file_exists($fullPath)) {
+        $fullPath = storage_path("app/" . $path);
+    }
     
     if (!file_exists($fullPath)) {
         abort(404);
