@@ -16,11 +16,13 @@ class ManageBackup extends Page
 
     protected static string $view = 'filament.admin.pages.manage-backup';
 
-    protected static ?string $navigationGroup = 'Sistem';
+    protected static ?string $navigationGroup = 'pengaturan sistem';
 
     protected static ?string $navigationLabel = 'Kelola Backup';
 
     protected static ?string $title = 'Kelola Backup';
+
+    protected static ?string $slug = 'manage-backup';
 
     protected static ?int $navigationSort = 11;
 
