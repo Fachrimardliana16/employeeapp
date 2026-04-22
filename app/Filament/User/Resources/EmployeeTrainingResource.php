@@ -56,7 +56,12 @@ class EmployeeTrainingResource extends Resource
                         Forms\Components\FileUpload::make('photo_training')
                             ->label('Foto Pelatihan')
                             ->directory('training-photos')
-                            ->image(),
+                            ->image()
+                            ->imageEditor()
+                            ->imageResizeMode('cover')
+                            ->imageResizeTargetWidth(1024)
+                            ->optimize('webp')
+                            ->maxSize(15360),
                         Forms\Components\FileUpload::make('docs_training')
                             ->label('Dokumen Pelatihan')
                             ->directory('training-docs')
