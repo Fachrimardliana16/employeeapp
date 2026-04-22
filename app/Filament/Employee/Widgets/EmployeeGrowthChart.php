@@ -26,7 +26,9 @@ class EmployeeGrowthChart extends ChartWidget
 
         // Pre-fetch all monthly data in 2 aggregate queries instead of 24
         $hiredByMonth = Employee::selectRaw(
-                "strftime('%Y-%m', entry_date) as month, COUNT(*) as total"
+                config('database.default') === 'sqlite' 
+                    ? "strftime('%Y-%m', entry_date) as month, COUNT(*) as total" 
+                    : "DATE_FORMAT(entry_date, '%Y-%m') as month, COUNT(*) as total"
             )
             ->whereNotNull('entry_date')
             ->groupBy('month')
@@ -34,7 +36,9 @@ class EmployeeGrowthChart extends ChartWidget
             ->toArray();
 
         $leftByMonth = EmployeeRetirement::selectRaw(
-                "strftime('%Y-%m', retirement_date) as month, COUNT(*) as total"
+                config('database.default') === 'sqlite' 
+                    ? "strftime('%Y-%m', retirement_date) as month, COUNT(*) as total" 
+                    : "DATE_FORMAT(retirement_date, '%Y-%m') as month, COUNT(*) as total"
             )
             ->where('approval_status', 'approved')
             ->whereNotNull('retirement_date')

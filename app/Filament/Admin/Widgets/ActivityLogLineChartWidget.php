@@ -25,7 +25,12 @@ class ActivityLogLineChartWidget extends ChartWidget
 
         if ($activeFilter === 'minute') {
             $start = now()->subMinutes(59);
-            $activities = Activity::select(DB::raw("strftime('%H:%M', created_at) as time_label"), DB::raw('count(*) as aggregate'))
+            $activities = Activity::select(
+                    DB::raw(config('database.default') === 'sqlite' 
+                        ? "strftime('%H:%M', created_at) as time_label" 
+                        : "DATE_FORMAT(created_at, '%H:%i') as time_label"), 
+                    DB::raw('count(*) as aggregate')
+                )
                 ->where('created_at', '>=', $start)
                 ->groupBy('time_label')
                 ->pluck('aggregate', 'time_label');
@@ -37,7 +42,12 @@ class ActivityLogLineChartWidget extends ChartWidget
             }
         } elseif ($activeFilter === 'hour') {
             $start = now()->subHours(23);
-            $activities = Activity::select(DB::raw("strftime('%H:00', created_at) as time_label"), DB::raw('count(*) as aggregate'))
+            $activities = Activity::select(
+                    DB::raw(config('database.default') === 'sqlite' 
+                        ? "strftime('%H:00', created_at) as time_label" 
+                        : "DATE_FORMAT(created_at, '%H:00') as time_label"), 
+                    DB::raw('count(*) as aggregate')
+                )
                 ->where('created_at', '>=', $start)
                 ->groupBy('time_label')
                 ->pluck('aggregate', 'time_label');
