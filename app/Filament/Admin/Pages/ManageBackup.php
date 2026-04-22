@@ -75,10 +75,10 @@ class ManageBackup extends Page
 
     public function runTableLevelBackup()
     {
-        $this->consoleOutput = "Starting Table-Level Backup process...\n";
+        $this->consoleOutput = "Starting Table-Level Backup (Hosting-Compatible Mode)...\n";
         
         try {
-            set_time_limit(600); // 10 minutes
+            set_time_limit(900); // 15 minutes
             
             $backupFolder = 'employeeapp';
             $filename = \Illuminate\Support\Carbon::now()->format('Y-m-d-H-i-s') . '-per-table.zip';
@@ -94,35 +94,47 @@ class ManageBackup extends Page
             }
 
             $tables = \Illuminate\Support\Facades\DB::connection()->getSchemaBuilder()->getTableListing();
+            $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
             
             foreach ($tables as $table) {
                 $this->consoleOutput .= "Backing up table: $table...\n";
                 
-                $sql = "-- Table: $table\n";
+                $sql = "-- Table: $table\n-- Generated via Pure PHP Gentle Mode\n\n";
                 
-                // Get Schema (Specific for SQLite)
-                $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
-                if (!empty($schema)) {
-                    $sql .= $schema[0]->sql . ";\n\n";
+                // Get Schema (Driver Aware)
+                if ($driver === 'sqlite') {
+                    $schema = \Illuminate\Support\Facades\DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table", ['table' => $table]);
+                    if (!empty($schema)) {
+                        $sql .= $schema[0]->sql . ";\n\n";
+                    }
+                } else {
+                    // MySQL
+                    $schema = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE `$table`")[0];
+                    $schemaKey = 'Create Table';
+                    $sql .= $schema->$schemaKey . ";\n\n";
                 }
 
-                // Get Data
-                $rows = \Illuminate\Support\Facades\DB::table($table)->get();
-                foreach ($rows as $row) {
-                    $rowArray = (array)$row;
-                    $keys = array_keys($rowArray);
-                    $values = array_values($rowArray);
-                    
-                    $escapedValues = array_map(function($value) {
-                        if ($value === null) return 'NULL';
-                        if (is_numeric($value)) return $value;
-                        return "'" . str_replace("'", "''", $value) . "'";
-                    }, $values);
+                // Get Data using Chunks (Memory Efficient)
+                \Illuminate\Support\Facades\DB::table($table)->orderBy(\Illuminate\Support\Facades\DB::raw(1))->chunk(500, function($rows) use (&$sql, $table) {
+                    foreach ($rows as $row) {
+                        $rowArray = (array)$row;
+                        $keys = array_keys($rowArray);
+                        $values = array_values($rowArray);
+                        
+                        $escapedValues = array_map(function($value) {
+                            if ($value === null) return 'NULL';
+                            if (is_numeric($value)) return $value;
+                            return "'" . str_replace("'", "''", $value) . "'";
+                        }, $values);
 
-                    $sql .= "INSERT INTO \"$table\" (\"" . implode('", "', $keys) . "\") VALUES (" . implode(', ', $escapedValues) . ");\n";
-                }
+                        $sql .= "INSERT INTO `$table` (`" . implode('`, `', $keys) . "`) VALUES (" . implode(', ', $escapedValues) . ");\n";
+                    }
+                });
 
                 $zip->addFromString("$table.sql", $sql);
+                
+                // GENTLE MODE: Small pause to prevent hitting DB limits
+                usleep(100000); // 0.1 second
             }
 
             $zip->close();
