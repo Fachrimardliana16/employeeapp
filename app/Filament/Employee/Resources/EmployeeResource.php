@@ -1845,8 +1845,7 @@ class EmployeeResource extends Resource
                                                 ->schema([
                                                     Infolists\Components\ViewEntry::make('mutation_data')
                                                         ->view('filament.components.mutation-data-table')
-                                                        ->hiddenLabel()
-                                                        ->hidden(fn (Employee $record) => $record->mutations->isEmpty()),
+                                                        ->hiddenLabel(),
                                                 ])->compact()->collapsible()->collapsed(),
 
                                             Infolists\Components\Section::make('Histori Pergerakan Karir')
@@ -1854,8 +1853,7 @@ class EmployeeResource extends Resource
                                                 ->schema([
                                                     Infolists\Components\ViewEntry::make('career_movement_data')
                                                         ->view('filament.components.career-movement-table')
-                                                        ->hiddenLabel()
-                                                        ->hidden(fn (Employee $record) => $record->careerMovements->isEmpty()),
+                                                        ->hiddenLabel(),
                                                 ])->compact()->collapsible()->collapsed(),
 
                                             Infolists\Components\Section::make('Histori Kenaikan Golongan / Promosi')
@@ -1863,8 +1861,15 @@ class EmployeeResource extends Resource
                                                 ->schema([
                                                     Infolists\Components\ViewEntry::make('grade_promotion_data')
                                                         ->view('filament.components.promotion-history-table')
-                                                        ->hiddenLabel()
-                                                        ->hidden(fn (Employee $record) => $record->promotions->isEmpty()),
+                                                        ->hiddenLabel(),
+                                                ])->compact()->collapsible()->collapsed(),
+
+                                            Infolists\Components\Section::make('Histori Kenaikan Gaji Berkala (KGB)')
+                                                ->icon('heroicon-o-banknotes')
+                                                ->schema([
+                                                    Infolists\Components\ViewEntry::make('periodic_salary_increase_data')
+                                                        ->view('filament.components.periodic-salary-increase-table')
+                                                        ->hiddenLabel(),
                                                 ])->compact()->collapsible()->collapsed(),
 
                                             Infolists\Components\Section::make('Histori Pengangkatan')
@@ -1872,8 +1877,7 @@ class EmployeeResource extends Resource
                                                 ->schema([
                                                     Infolists\Components\ViewEntry::make('appointment_data')
                                                         ->view('filament.components.appointment-history-table')
-                                                        ->hiddenLabel()
-                                                        ->hidden(fn (Employee $record) => $record->appointments->isEmpty()),
+                                                        ->hiddenLabel(),
                                                 ])->compact()->collapsible()->collapsed(),
                                         ]),
 

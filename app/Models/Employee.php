@@ -257,6 +257,11 @@ class Employee extends Model
         return $this->hasMany(EmployeePromotion::class);
     }
 
+    public function periodicSalaryIncreases(): HasMany
+    {
+        return $this->hasMany(EmployeePeriodicSalaryIncrease::class, 'employee_id');
+    }
+
     public function mutations(): HasMany
     {
         return $this->hasMany(EmployeeMutation::class);

@@ -432,6 +432,7 @@ class EmployeeMutationResource extends Resource
                                 ->label('Dokumen SK Realisasi')
                                 ->disk('public')->visibility('public')
                                 ->directory('mutations/realization')
+                                ->acceptedFileTypes(['application/pdf'])
                                 ->required(),
                         ])
                         ->action(function (EmployeeMutation $record, array $data) {

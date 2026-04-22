@@ -295,6 +295,7 @@ class EmployeePromotionResource extends Resource
                                 ->label('Dokumen SK Realisasi')
                                 ->disk('public')->visibility('public')
                                 ->directory('employee-promotions/realization')
+                                ->acceptedFileTypes(['application/pdf'])
                                 ->required(),
                         ])
                         ->action(function ($record, array $data) {

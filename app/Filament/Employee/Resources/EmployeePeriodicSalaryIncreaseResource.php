@@ -316,6 +316,7 @@ class EmployeePeriodicSalaryIncreaseResource extends Resource
                             Forms\Components\FileUpload::make('docs_letter')
                                 ->label('Dokumen SK Realisasi')
                                 ->directory('employee-kgb/realization')
+                                ->acceptedFileTypes(['application/pdf'])
                                 ->required(),
                             Forms\Components\TextInput::make('notes')
                                 ->label('Keterangan Tambahan'),
