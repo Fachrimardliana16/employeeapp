@@ -1,14 +1,14 @@
 <?php
 
 namespace App\Filament\Admin\Resources;
-
+ 
 use App\Filament\Admin\Resources\SystemLogResource\Pages;
 use Filament\Resources\Resource;
-use Spatie\Activitylog\Models\Activity; // Dummy model as resource needs a model
-
+use App\Models\SystemLog;
+ 
 class SystemLogResource extends Resource
 {
-    protected static ?string $model = Activity::class; // Use anything, we only use index page
+    protected static ?string $model = SystemLog::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
 

@@ -32,71 +32,12 @@ class ActivityLogResource extends Resource
     {
         return $infolist
             ->schema([
-                Infolists\Components\Section::make('Informasi Dasar')
-                    ->icon('heroicon-m-information-circle')
-                    ->schema([
-                        Infolists\Components\Grid::make(3)
-                            ->schema([
-                                Infolists\Components\TextEntry::make('log_name')
-                                    ->label('Nama Log')
-                                    ->badge(),
-                                Infolists\Components\TextEntry::make('description')
-                                    ->label('Deskripsi'),
-                                Infolists\Components\TextEntry::make('created_at')
-                                    ->label('Waktu Aktivitas')
-                                    ->dateTime('d/m/Y H:i:s'),
-                            ]),
-                    ]),
-
-                Infolists\Components\Grid::make(2)
-                    ->schema([
-                        Infolists\Components\Section::make('Subjek & Pelaku')
-                            ->schema([
-                                Infolists\Components\TextEntry::make('causer.name')
-                                    ->label('Pengguna (Pelaku)')
-                                    ->placeholder('Sistem'),
-                                Infolists\Components\TextEntry::make('subject_type')
-                                    ->label('Tipe Subjek'),
-                                Infolists\Components\TextEntry::make('subject_id')
-                                    ->label('ID Subjek'),
-                            ])->columnSpan(1),
-
-                        Infolists\Components\Section::make('Konteks')
-                            ->schema([
-                                Infolists\Components\TextEntry::make('event')
-                                    ->label('Event')
-                                    ->badge()
-                                    ->color(fn ($state) => match ($state) {
-                                        'created' => 'success',
-                                        'updated' => 'warning',
-                                        'deleted' => 'danger',
-                                        default => 'gray',
-                                    }),
-                                Infolists\Components\TextEntry::make('batch_uuid')
-                                    ->label('Batch ID')
-                                    ->placeholder('-'),
-                            ])->columnSpan(1),
-                    ]),
-
-                Infolists\Components\Section::make('Data Perubahan')
-                    ->icon('heroicon-m-arrow-path')
-                    ->schema([
-                        Infolists\Components\TextEntry::make('properties.attributes')
-                            ->label('Data Baru / Sekarang')
-                            ->state(fn ($record) => $record->properties['attributes'] ?? null)
-                            ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '-')
-                            ->fontFamily('mono')
-                            ->wrap()
-                            ->visible(fn ($record) => !empty($record->properties['attributes'])),
-                        
-                        Infolists\Components\TextEntry::make('properties.old')
-                            ->label('Data Lama (Sebelum Perubahan)')
-                            ->state(fn ($record) => $record->properties['old'] ?? null)
-                            ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '-')
-                            ->fontFamily('mono')
-                            ->wrap()
-                            ->visible(fn ($record) => !empty($record->properties['old'])),
-                    ]),
+                Infolists\Components\TextEntry::make('id')
+                    ->label('ID Log'),
+                Infolists\Components\TextEntry::make('description')
+                    ->label('Deskripsi'),
+                Infolists\Components\TextEntry::make('created_at')
+                    ->label('Waktu'),
             ]);
     }
 
