@@ -80,8 +80,8 @@
                 <th width="20%">Pegawai / NIPPAM</th>
                 @if($type === 'promotion')
                     <th>No. SK</th>
-                    <th>Golongan Lama</th>
-                    <th>Golongan Baru</th>
+                    <th>Golongan/Gaji Lama</th>
+                    <th>Golongan/Gaji Baru</th>
                 @elseif($type === 'mutation')
                     <th>Data Lama (Bagian/Jabatan)</th>
                     <th>Data Baru (Bagian/Jabatan)</th>
@@ -119,8 +119,14 @@
                     
                     @if($type === 'promotion')
                         <td>{{ $row->decision_letter_number ?? '-' }}</td>
-                        <td>{{ $row->oldSalaryGrade->name ?? '-' }}</td>
-                        <td>{{ $row->newSalaryGrade->name ?? '-' }}</td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $row->oldSalaryGrade->name ?? '-' }}</div>
+                            <div style="font-size: 9px; color: #666;">Rp {{ number_format($row->oldSalaryGrade?->basic_salary ?? 0, 0, ',', '.') }}</div>
+                        </td>
+                        <td>
+                            <div style="font-weight: bold;">{{ $row->newSalaryGrade->name ?? '-' }}</div>
+                            <div style="font-size: 9px; color: #28a745; font-weight: bold;">Rp {{ number_format($row->newSalaryGrade?->basic_salary ?? 0, 0, ',', '.') }}</div>
+                        </td>
                     @elseif($type === 'mutation')
                         <td>
                             <div style="font-weight: bold;">{{ $row->oldDepartment->name ?? '-' }}</div>
