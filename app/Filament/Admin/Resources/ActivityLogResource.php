@@ -25,6 +25,83 @@ class ActivityLogResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
+    {
+        return $infolist
+            ->schema([
+                \Filament\Infolists\Components\Section::make('Informasi Dasar')
+                    ->icon('heroicon-m-information-circle')
+                    ->schema([
+                        \Filament\Infolists\Components\Grid::make(3)
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('log_name')
+                                    ->label('Nama Log')
+                                    ->badge(),
+                                \Filament\Infolists\Components\TextEntry::make('description')
+                                    ->label('Deskripsi'),
+                                \Filament\Infolists\Components\TextEntry::make('created_at')
+                                    ->label('Waktu Aktivitas')
+                                    ->dateTime('d/m/Y H:i:s'),
+                            ]),
+                    ]),
+
+                \Filament\Infolists\Components\Grid::make(3)
+                    ->schema([
+                        \Filament\Infolists\Components\Section::make('Subjek')
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('subject_type')
+                                    ->label('Tipe Subjek'),
+                                \Filament\Infolists\Components\TextEntry::make('subject_id')
+                                    ->label('ID Subjek'),
+                            ])->columnSpan(1),
+
+                        \Filament\Infolists\Components\Section::make('Pelaku (Pelaksana)')
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('causer_id')
+                                    ->label('ID Pelaku')
+                                    ->placeholder('System / Otomatis'),
+                                \Filament\Infolists\Components\TextEntry::make('causer_type')
+                                    ->label('Tipe Pelaku')
+                                    ->placeholder('-'),
+                            ])->columnSpan(1),
+
+                        \Filament\Infolists\Components\Section::make('Konteks')
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('event')
+                                    ->label('Event')
+                                    ->badge()
+                                    ->color(fn ($state) => match ($state) {
+                                        'created' => 'success',
+                                        'updated' => 'warning',
+                                        'deleted' => 'danger',
+                                        default => 'gray',
+                                    }),
+                                \Filament\Infolists\Components\TextEntry::make('batch_uuid')
+                                    ->label('Batch ID')
+                                    ->placeholder('-'),
+                            ])->columnSpan(1),
+                    ]),
+
+                \Filament\Infolists\Components\Section::make('Detail Perubahan')
+                    ->icon('heroicon-m-arrow-path')
+                    ->schema([
+                        \Filament\Infolists\Components\TextEntry::make('properties')
+                            ->label('Properti Log (JSON)')
+                            ->formatStateUsing(function ($state) {
+                                if (empty($state)) return '-';
+                                try {
+                                    $data = is_array($state) ? $state : json_decode($state, true);
+                                    return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+                                } catch (\Exception $e) {
+                                    return 'Data corrupt or invalid JSON';
+                                }
+                            })
+                            ->fontFamily('mono')
+                            ->wrap(),
+                    ]),
+            ]);
+    }
+
     public static function form(Form $form): Form
     {
         return $form
