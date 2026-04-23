@@ -181,15 +181,19 @@ class AdmsController extends Controller
                 $type = $data[2] ?? '0'; // 0=In, 1=Out, etc.
                 $verify = $data[3] ?? '0';
 
-                // 1. Save to Raw Machine Logs
-                AttendanceMachineLog::create([
-                    'attendance_machine_id' => $machine ? $machine->id : null,
-                    'serial_number' => $sn,
-                    'pin' => $pin,
-                    'timestamp' => $time,
-                    'type' => $type,
-                    'raw_payload' => $line,
-                ]);
+                // 1. Save to Raw Machine Logs (Prevent duplicates)
+                AttendanceMachineLog::updateOrCreate(
+                    [
+                        'serial_number' => $sn,
+                        'pin' => $pin,
+                        'timestamp' => $time,
+                    ],
+                    [
+                        'attendance_machine_id' => $machine ? $machine->id : null,
+                        'type' => $type,
+                        'raw_payload' => $line,
+                    ]
+                );
 
                 // 2. Synchronize to Employee Attendance Records
                 $employee = \App\Models\Employee::where('pin', $pin)->first();
