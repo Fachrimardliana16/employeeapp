@@ -37,11 +37,33 @@ class EmployeeDocumentResource extends Resource
                 Forms\Components\Section::make('Informasi Dokumen')
                     ->schema([
                         Forms\Components\Select::make('master_employee_archive_type_id')
-                            ->label('Jenis Dokumen')
+                            ->label('Jenis Dokumen (Sistem)')
                             ->relationship('archiveType', 'name', fn($query) => $query->where('is_active', true))
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->columnSpanFull()
+                            ->live()
+                            ->afterStateUpdated(fn($state, Forms\Set $set) => $set('document_type', \App\Models\MasterEmployeeArchiveType::find($state)?->name)),
+                        Forms\Components\Select::make('document_type')
+                            ->label('Kategori Dokumen')
+                            ->options([
+                                'KTP' => 'KTP',
+                                'KK' => 'Kartu Keluarga',
+                                'NPWP' => 'NPWP',
+                                'BPJS Kesehatan' => 'BPJS Kesehatan',
+                                'BPJS Ketenagakerjaan' => 'BPJS Ketenagakerjaan',
+                                'Ijazah' => 'Ijazah',
+                                'Transkrip Nilai' => 'Transkrip Nilai',
+                                'Sertifikat' => 'Sertifikat',
+                                'SIM' => 'SIM',
+                                'Akta Kelahiran' => 'Akta Kelahiran',
+                                'Surat Keterangan Sehat' => 'Surat Keterangan Sehat',
+                                'SKCK' => 'SKCK',
+                                'Lainnya' => 'Lainnya',
+                            ])
+                            ->required()
+                            ->searchable()
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('document_name')
                             ->label('Nama Dokumen')
@@ -96,6 +118,8 @@ class EmployeeDocumentResource extends Resource
                             ->default(fn() => Auth::user()->employee?->id),
                         Forms\Components\Hidden::make('users_id')
                             ->default(fn() => auth()->id()),
+                        Forms\Components\Hidden::make('uploaded_by')
+                            ->default('employee'),
                     ]),
             ]);
     }

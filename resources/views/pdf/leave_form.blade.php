@@ -17,16 +17,19 @@
         }
         .watermark {
             position: fixed;
-            top: 45%; /* Diangkat sedikit agar terasa center di area form content */
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70%;
+            top: 25%;
+            left: 0;
+            width: 100%;
+            text-align: center;
             opacity: 0.15;
             z-index: -1000;
         }
+        .watermark img {
+            width: 70%;
+        }
         .header-right {
             float: right;
-            width: 320px;
+            width: 210px;
             text-align: left;
             margin-bottom: 5px; /* Margin diperkecil */
             font-size: 9pt;
@@ -37,7 +40,7 @@
             text-align: center;
             font-weight: bold;
             font-size: 10.5pt;
-            margin-top: 5px; /* Margin diperkecil agar tidak terlalu jauh */
+            margin-top: 5px;
             margin-bottom: 8px;
             text-decoration: underline;
         }
@@ -71,6 +74,9 @@
             text-align: center;
             font-weight: bold;
             font-family: 'DejaVu Sans', sans-serif;
+            line-height: 1;
+            padding: 0;
+            font-size: 11pt;
         }
     </style>
 </head>
@@ -81,7 +87,7 @@
         if (file_exists($logoPath)) {
             $logoData = base64_encode(file_get_contents($logoPath));
         }
-        $checkEmoji = "v"; 
+        $checkEmoji = "&#10003;"; 
         
         $permissionName = strtolower($permission->permission->name ?? '');
         $isTahunan = str_contains($permissionName, 'tahunan');
@@ -97,7 +103,9 @@
     @endphp
     
     @if($logoData)
-        <img class="watermark" src="data:image/png;base64,{{ $logoData }}">
+        <div class="watermark">
+            <img src="data:image/png;base64,{{ $logoData }}">
+        </div>
     @endif
 
     <!-- Header Right -->
@@ -133,7 +141,7 @@
                     </tr>
                     <tr>
                         <td style="border-left: none; border-bottom: none;">Unit Kerja</td>
-                        <td colspan="3" style="border-right: none; border-bottom: none;">{{ $employee->active_organizational_unit->name ?? '-' }}</td>
+                        <td colspan="3" style="border-right: none; border-bottom: none;">{{ optional($employee->active_organizational_unit)->name ?? '-' }}</td>
                     </tr>
                 </table>
 

@@ -59,7 +59,7 @@
           <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--{{ $statusColors[$permission->approval_status] ?? 'gray' }});"></div>
         </div>
         <div class="list-content">
-          <div class="list-title" style="font-weight: 700; color: var(--gray-800);">{{ $permission->permission?->permission_type_name ?? 'Izin' }}</div>
+          <div class="list-title" style="font-weight: 700; color: var(--gray-800);">{{ $permission->permission?->name ?? 'Izin' }}</div>
           <div class="list-subtitle">{{ \Carbon\Carbon::parse($permission->start_permission_date)->format('d/m/Y') }}</div>
         </div>
         <div class="list-meta text-right">

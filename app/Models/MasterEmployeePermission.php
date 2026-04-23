@@ -12,10 +12,8 @@ class MasterEmployeePermission extends Model
 {
     use HasUserTracking, LogsActivityTrait;
     protected $fillable = [
-        'permission_type_name',
-        'permission_description',
-        'max_days_allowed',
-        'is_paid',
+        'name',
+        'desc',
         'is_active',
         'users_id',
     ];

@@ -238,6 +238,25 @@ class EmployeePermissionResource extends Resource
                     ->label('Tanggal Selesai')
                     ->date('d/m/Y')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('duration_days')
+                    ->label('Lama (Hari)')
+                    ->getStateUsing(fn ($record) => \Carbon\Carbon::parse($record->start_permission_date)->diffInDays($record->end_permission_date) + 1),
+                Tables\Columns\TextColumn::make('employee.remaining_leave_balance')
+                    ->label('Sisa Cuti')
+                    ->suffix(' Hari')
+                    ->color('info'),
+                Tables\Columns\TextColumn::make('accumulated_days')
+                    ->label('Akumulasi')
+                    ->getStateUsing(function ($record) {
+                        $currentYear = \Carbon\Carbon::parse($record->start_permission_date)->year;
+                        return EmployeePermission::where('employee_id', $record->employee_id)
+                            ->where('approval_status', 'approved')
+                            ->whereYear('start_permission_date', $currentYear)
+                            ->where('start_permission_date', '<=', $record->start_permission_date)
+                            ->get()
+                            ->sum(fn($p) => \Carbon\Carbon::parse($p->start_permission_date)->diffInDays($p->end_permission_date) + 1) . ' Hari';
+                    })
+                    ->color('warning'),
                 Tables\Columns\TextColumn::make('approval_status')
                     ->label('Status')
                     ->badge()

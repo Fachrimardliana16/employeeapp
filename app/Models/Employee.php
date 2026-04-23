@@ -375,12 +375,12 @@ class Employee extends Model
     {
         $usedLeave = $this->employeePermissions()
             ->whereHas('permission', function ($query) {
-                $query->where('permission_type_name', 'LIKE', '%cuti%')
-                    ->orWhere('permission_type_name', 'LIKE', '%leave%');
+                $query->where('name', 'LIKE', '%cuti%')
+                    ->orWhere('name', 'LIKE', '%leave%');
             })
             ->where('approval_status', 'approved')
             ->whereYear('start_permission_date', now()->year)
-            ->selectRaw('SUM(julianday(end_permission_date) - julianday(start_permission_date) + 1) as total_days')
+            ->selectRaw('SUM(DATEDIFF(end_permission_date, start_permission_date) + 1) as total_days')
             ->value('total_days') ?? 0;
 
         return max(0, ($this->leave_balance ?? 12) - $usedLeave);

@@ -42,7 +42,7 @@ class MobilePermissionController extends Controller
 
     public function create()
     {
-        $permissionTypes = MasterEmployeePermission::orderBy('permission_type_name')->get();
+        $permissionTypes = MasterEmployeePermission::orderBy('name')->get();
         return view('mobile.permissions.create', compact('permissionTypes'));
     }
 

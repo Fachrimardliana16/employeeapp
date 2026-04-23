@@ -45,8 +45,16 @@ class EmployeeDailyReportResource extends Resource
                 Forms\Components\Textarea::make('work_description')
                     ->required()
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('work_status')
-                    ->required(),
+                Forms\Components\Select::make('work_status')
+                    ->label('Status Kerja')
+                    ->options([
+                        'completed' => 'Selesai',
+                        'in_progress' => 'Proses',
+                        'pending' => 'Tertunda',
+                        'cancelled' => 'Dibatalkan',
+                    ])
+                    ->required()
+                    ->default('completed'),
                 Forms\Components\Textarea::make('desc')
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('image')
@@ -56,9 +64,8 @@ class EmployeeDailyReportResource extends Resource
                     ->imageResizeTargetWidth('1024')
                     ->acceptedFileTypes(['image/jpeg', 'image/png'])
                     ->optimize('webp'),
-                Forms\Components\TextInput::make('users_id')
-                    ->required()
-                    ->numeric(),
+                Forms\Components\Hidden::make('users_id')
+                    ->default(auth()->id()),
             ]);
     }
 
@@ -78,10 +85,18 @@ class EmployeeDailyReportResource extends Resource
                     ->label('Status Kerja')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
-                        'Selesai' => 'success',
-                        'Proses' => 'warning',
-                        'Tertunda' => 'danger',
+                        'completed' => 'success',
+                        'in_progress' => 'warning',
+                        'pending' => 'danger',
+                        'cancelled' => 'gray',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'completed' => 'Selesai',
+                        'in_progress' => 'Proses',
+                        'pending' => 'Tertunda',
+                        'cancelled' => 'Batal',
+                        default => $state,
                     }),
                 Tables\Columns\ImageColumn::make('image')
                     ->label('Gambar'),
@@ -109,9 +124,10 @@ class EmployeeDailyReportResource extends Resource
                 Tables\Filters\SelectFilter::make('work_status')
                     ->label('Status Kerja')
                     ->options([
-                        'Selesai' => 'Selesai',
-                        'Proses' => 'Proses',
-                        'Tertunda' => 'Tertunda',
+                        'completed' => 'Selesai',
+                        'in_progress' => 'Proses',
+                        'pending' => 'Tertunda',
+                        'cancelled' => 'Batal',
                     ]),
                 TrashedFilter::make(),
             ])
@@ -119,6 +135,10 @@ class EmployeeDailyReportResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus'),
                     RestoreAction::make(),
                     ForceDeleteAction::make(),
                 ])->label('Aksi')
@@ -128,7 +148,9 @@ class EmployeeDailyReportResource extends Resource
                     ->button(),
             ])
             ->bulkActions([
-                // Disabled
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
@@ -141,7 +163,7 @@ class EmployeeDailyReportResource extends Resource
 
     public static function canCreate(): bool
     {
-        return false;
+        return true;
     }
 
     public static function getEloquentQuery(): Builder
@@ -156,6 +178,8 @@ class EmployeeDailyReportResource extends Resource
     {
         return [
             'index' => Pages\ListEmployeeDailyReports::route('/'),
+            'create' => Pages\CreateEmployeeDailyReport::route('/create'),
+            'edit' => Pages\EditEmployeeDailyReport::route('/{record}/edit'),
         ];
     }
 }

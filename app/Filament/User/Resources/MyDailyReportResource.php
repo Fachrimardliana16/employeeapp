@@ -53,20 +53,31 @@ class MyDailyReportResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Laporan Kerja Harian')
                     ->schema([
-                        Forms\Components\DatePicker::make('report_date')
+                        Forms\Components\DatePicker::make('daily_report_date')
                             ->label('Tanggal')
                             ->required()
                             ->default(now())
                             ->native(false),
 
-                        Forms\Components\Textarea::make('report_content')
+                        Forms\Components\Select::make('work_status')
+                            ->label('Status Kerja')
+                            ->options([
+                                'completed' => 'Selesai',
+                                'in_progress' => 'Sedang Berjalan',
+                                'pending' => 'Tertunda',
+                                'cancelled' => 'Dibatalkan',
+                            ])
+                            ->required()
+                            ->default('completed'),
+
+                        Forms\Components\Textarea::make('work_description')
                             ->label('Isi Laporan')
                             ->required()
                             ->rows(5)
                             ->placeholder('Tuliskan aktivitas dan pencapaian hari ini...')
                             ->columnSpanFull(),
 
-                        Forms\Components\Textarea::make('notes')
+                        Forms\Components\Textarea::make('desc')
                             ->label('Catatan')
                             ->rows(3)
                             ->columnSpanFull(),
@@ -78,11 +89,28 @@ class MyDailyReportResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('report_date')->label('Tanggal')->date('d/m/Y')->sortable(),
-                Tables\Columns\TextColumn::make('report_content')->label('Laporan')->limit(50)->searchable(),
+                Tables\Columns\TextColumn::make('daily_report_date')->label('Tanggal')->date('d/m/Y')->sortable(),
+                Tables\Columns\TextColumn::make('work_status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'completed' => 'success',
+                        'in_progress' => 'warning',
+                        'pending' => 'danger',
+                        'cancelled' => 'gray',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'completed' => 'Selesai',
+                        'in_progress' => 'Proses',
+                        'pending' => 'Tertunda',
+                        'cancelled' => 'Batal',
+                        default => $state,
+                    }),
+                Tables\Columns\TextColumn::make('work_description')->label('Laporan')->limit(50)->searchable(),
                 Tables\Columns\TextColumn::make('created_at')->label('Dibuat')->dateTime('d/m/Y H:i')->sortable(),
             ])
-            ->defaultSort('report_date', 'desc')
+            ->defaultSort('daily_report_date', 'desc')
             ->filters([])
             ->actions([
                 Tables\Actions\ActionGroup::make([

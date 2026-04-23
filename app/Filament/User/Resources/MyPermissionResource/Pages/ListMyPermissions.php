@@ -17,4 +17,11 @@ class ListMyPermissions extends ListRecords
                 ->icon('heroicon-o-plus-circle'),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            MyPermissionResource\Widgets\PermissionStatsOverview::class,
+        ];
+    }
 }

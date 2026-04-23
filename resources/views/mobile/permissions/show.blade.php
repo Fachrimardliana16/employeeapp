@@ -16,7 +16,7 @@
       ID Izin: #{{ str_pad($permission->id, 6, '0', STR_PAD_LEFT) }}
     </div>
     <div style="font-size: 1.25rem; font-weight: 900; color: white; margin-bottom: 1rem; letter-spacing: -0.5px;">
-      {{ $permission->permission?->permission_type_name ?? 'Entri Izin' }}
+      {{ $permission->permission?->name ?? 'Entri Izin' }}
     </div>
     <span class="badge badge-{{ $statusColors[$permission->approval_status] ?? 'gray' }}" style="font-size: 0.65rem; padding: 4px 12px; font-weight: 900; letter-spacing: 1px;">
       {{ $statusLabels[$permission->approval_status] ?? $permission->approval_status }}

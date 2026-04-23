@@ -16,4 +16,11 @@ class ListEmployeePermissions extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            EmployeePermissionResource\Widgets\EmployeePermissionStatsOverview::class,
+        ];
+    }
 }

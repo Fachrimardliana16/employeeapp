@@ -20,7 +20,7 @@
           <option value="">-- PILIH JENIS --</option>
           @foreach($permissionTypes as $type)
             <option value="{{ $type->id }}" {{ old('permission_id') == $type->id ? 'selected' : '' }}>
-              {{ $type->permission_type_name }}
+              {{ $type->name }}
             </option>
           @endforeach
         </select>
