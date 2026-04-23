@@ -102,6 +102,14 @@ class AttendanceMachineResource extends Resource
                             'status' => 'pending',
                         ]);
 
+                        // Log activity for the button click
+                        if (function_exists('activity')) {
+                            activity()
+                                ->performedOn($record)
+                                ->causedBy(auth()->user())
+                                ->log('Menjalankan perintah Tarik Data Absensi (ATTLOG) untuk mesin: ' . $record->name);
+                        }
+
                         \Filament\Notifications\Notification::make()
                             ->title('Perintah Terkirim')
                             ->body('Perintah penarikan data telah dijadwalkan untuk mesin ' . $record->name)
