@@ -61,7 +61,7 @@ class AdmsController extends Controller
                 Log::info("ADMS ATTLOG Data Received", [
                     'SN' => $sn,
                     'content_length' => strlen($content),
-                    'content_preview' => substr($content, 0, 200),
+                    'content_payload' => $content,
                 ]);
                 $this->parseAttendanceLogs($machine, $sn, $content);
             }
