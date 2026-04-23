@@ -88,6 +88,26 @@ class AttendanceMachineResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\Action::make('sync_users')
+                    ->label('Tarik Data User')
+                    ->icon('heroicon-o-users')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Tarik Daftar ID/User')
+                    ->modalDescription('Perintah akan dikirim ke mesin untuk mengirim daftar ID (PIN) dan Nama yang terdaftar di dalamnya. Berguna jika ada perubahan ID langsung di mesin.')
+                    ->action(function (AttendanceMachine $record) {
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => 'DATA QUERY USERINFO',
+                            'status' => 'pending',
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perintah Terkirim')
+                            ->body('Perintah penarikan data User telah dijadwalkan.')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\Action::make('sync_logs')
                     ->label('Tarik Data')
                     ->icon('heroicon-o-arrow-path')

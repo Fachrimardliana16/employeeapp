@@ -61,9 +61,17 @@ class AdmsController extends Controller
                 Log::info("ADMS ATTLOG Data Received", [
                     'SN' => $sn,
                     'content_length' => strlen($content),
-                    'content_payload' => $content,
                 ]);
                 $this->parseAttendanceLogs($machine, $sn, $content);
+            }
+
+            if ($table === 'USER') {
+                Log::info("ADMS USER Data Received", [
+                    'SN' => $sn,
+                    'content_length' => strlen($content),
+                    'content_payload' => $content,
+                ]);
+                $this->parseUserLogs($machine, $sn, $content);
             }
             // OPERLOG = operation logs (menu access, settings changes) - ignore silently
             // Other tables (FIRST, etc.) - ignore silently
@@ -235,6 +243,37 @@ class AdmsController extends Controller
                         'office_location_id' => $machine ? $machine->master_office_location_id : null,
                     ]
                 );
+            }
+        }
+    }
+
+    /**
+     * Parse the raw user info from the machine.
+     * Format: PIN\tName\tPassword\tGroup\tPrivilege\tCardNo
+     */
+    private function parseUserLogs($machine, $sn, $content)
+    {
+        $lines = explode("\n", $content);
+        
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+
+            $data = explode("\t", $line);
+            
+            if (count($data) >= 2) {
+                $pin = $data[0];
+                $name = $data[1];
+
+                // Logic: If we find an employee with the SAME NAME but WITHOUT PIN, 
+                // or with a different PIN, we might want to update it.
+                // For safety, let's only update if the employee has NO PIN yet.
+                $employee = \App\Models\Employee::where('name', 'LIKE', $name)->first();
+                
+                if ($employee && empty($employee->pin)) {
+                    $employee->update(['pin' => $pin]);
+                    Log::info("Synced PIN {$pin} from machine to employee: {$name}");
+                }
             }
         }
     }

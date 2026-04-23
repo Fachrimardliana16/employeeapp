@@ -306,6 +306,43 @@ class EmployeeAttendanceRecordResource extends Resource
                     }),
                 Tables\Filters\TrashedFilter::make(),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('sync_names')
+                    ->label('Sinkronkan Nama')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sinkronkan Nama Berdasarkan PIN')
+                    ->modalDescription('Fitur ini akan mencocokkan ulang data yang masih bertuliskan "Unknown" dengan Nama Pegawai terbaru berdasarkan Nomor PIN yang sudah Anda daftarkan di menu Pegawai.')
+                    ->action(function () {
+                        $employees = \App\Models\Employee::whereNotNull('pin')->pluck('name', 'pin')->toArray();
+                        $totalUpdated = 0;
+                        
+                        foreach ($employees as $pin => $name) {
+                            $count = \App\Models\EmployeeAttendanceRecord::where('pin', $pin)
+                                ->where(function($query) {
+                                    $query->where('employee_name', 'LIKE', 'Unknown%')
+                                          ->orWhereNull('employee_name');
+                                })
+                                ->update(['employee_name' => $name]);
+                            $totalUpdated += $count;
+                        }
+
+                        if ($totalUpdated > 0) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Sinkronisasi Berhasil')
+                                ->body("Berhasil memperbarui {$totalUpdated} data menjadi nama pegawai yang tepat.")
+                                ->success()
+                                ->send();
+                        } else {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Tidak Ada Perubahan')
+                                ->body("Semua data sudah sesuai atau tidak ada PIN yang cocok ditemukan.")
+                                ->info()
+                                ->send();
+                        }
+                    }),
+            ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
