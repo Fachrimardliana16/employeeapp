@@ -136,6 +136,43 @@ class AttendanceMachineResource extends Resource
                             ->success()
                             ->send();
                     }),
+                Tables\Actions\Action::make('sync_time')
+                    ->label('Sinkronisasi Waktu')
+                    ->icon('heroicon-o-clock')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sinkronisasi Waktu Mesin')
+                    ->modalDescription('Perintah akan dikirim ke mesin untuk menyesuaikan jam mesin dengan waktu server (WIB). Gunakan jika jam mesin tidak sesuai.')
+                    ->action(function (AttendanceMachine $record) {
+                        // Send correct WIB time to the machine
+                        $now = now()->timezone('Asia/Jakarta');
+                        $dateTimeStr = $now->format('Y-m-d H:i:s');
+
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => "SET OPTIONS TimeZone=7",
+                            'status' => 'pending',
+                        ]);
+
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => "SET OPTIONS Date={$dateTimeStr}",
+                            'status' => 'pending',
+                        ]);
+
+                        if (function_exists('activity')) {
+                            activity()
+                                ->performedOn($record)
+                                ->causedBy(auth()->user())
+                                ->log('Menjalankan Sinkronisasi Waktu untuk mesin: ' . $record->name . ' (' . $dateTimeStr . ')');
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perintah Terkirim')
+                            ->body('Perintah sinkronisasi waktu (' . $dateTimeStr . ') telah dijadwalkan untuk mesin ' . $record->name)
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

@@ -79,8 +79,24 @@ class AdmsController extends Controller
             return response("OK");
         }
 
-        // Handshake response
-        return response("OK");
+        // Handshake response - MUST include TimeZone for proper time sync.
+        // Without TimeZone, the machine defaults to its firmware timezone (often GMT+8),
+        // causing a +1 hour clock drift on machines like Solution X105-ID.
+        $options = implode("\n", [
+            "GET OPTION FROM: {$sn}",
+            "Stamp=9999",
+            "OpStamp=9999",
+            "ErrorDelay=60",
+            "Delay=15",
+            "TransTimes=00:00;14:05",
+            "TransInterval=1",
+            "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
+            "TimeZone=7",
+            "Realtime=1",
+            "Encrypt=0",
+        ]);
+
+        return response($options);
     }
 
     /**
