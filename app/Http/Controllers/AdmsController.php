@@ -160,8 +160,9 @@ class AdmsController extends Controller
     {
         $sn = $request->query('SN');
         $id = $request->query('ID');
+        $content = $request->getContent();
         
-        Log::debug("ADMS devicecmd Feedback", ['SN' => $sn, 'ID' => $id, 'Return' => $request->getContent()]);
+        Log::debug("ADMS devicecmd Feedback", ['SN' => $sn, 'ID' => $id, 'Return' => $content]);
 
         if ($id) {
             $command = AttendanceMachineCommand::find($id);
@@ -169,12 +170,84 @@ class AdmsController extends Controller
                 $command->update([
                     'status' => 'completed',
                     'completed_at' => now(),
-                    'response_payload' => $request->getContent()
+                    'response_payload' => $content,
                 ]);
+
+                // If this was an INFO command, parse the machine's datetime for sync verification
+                if (str_contains($command->command, 'INFO')) {
+                    $this->parseInfoResponse($sn, $content);
+                }
             }
         }
 
+        // Also handle unsolicited INFO responses (machine may send without command ID)
+        if ($sn && str_contains($content, 'DateTime')) {
+            $this->parseInfoResponse($sn, $content);
+        }
+
         return response("OK");
+    }
+
+    /**
+     * Parse INFO response from machine to extract DateTime and calculate drift.
+     * Typical INFO response format varies by firmware:
+     *   - "~ServerVer=...,DateTime=2026-04-27 19:51:09,..."
+     *   - Key=Value pairs separated by comma or newline
+     *   - "Return=0\nDateTime=2026-04-27 19:51:09"
+     */
+    private function parseInfoResponse(string $sn, string $content): void
+    {
+        $machine = AttendanceMachine::where('serial_number', $sn)->first();
+        if (!$machine) return;
+
+        $machineDateTime = null;
+
+        // Try multiple patterns to extract DateTime from INFO response
+        // Pattern 1: DateTime=YYYY-MM-DD HH:MM:SS (standard)
+        if (preg_match('/DateTime[=:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/', $content, $matches)) {
+            $machineDateTime = $matches[1];
+        }
+        // Pattern 2: Date=YYYY-MM-DD and Time=HH:MM:SS (split)
+        elseif (preg_match('/Date[=:]\s*(\d{4}-\d{2}-\d{2})/', $content, $dateMatch) &&
+                preg_match('/Time[=:]\s*(\d{2}:\d{2}:\d{2})/', $content, $timeMatch)) {
+            $machineDateTime = $dateMatch[1] . ' ' . $timeMatch[1];
+        }
+        // Pattern 3: Loose datetime anywhere in content
+        elseif (preg_match('/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/', $content, $matches)) {
+            $machineDateTime = $matches[1];
+        }
+
+        if ($machineDateTime) {
+            try {
+                $serverNow = now()->timezone('Asia/Jakarta');
+                $machineTime = \Carbon\Carbon::parse($machineDateTime);
+                
+                // Calculate drift: positive = machine ahead, negative = machine behind
+                $driftSeconds = $machineTime->diffInSeconds($serverNow, false);
+                // diffInSeconds with absolute=false: server - machine
+                // We want machine - server, so negate:
+                $driftSeconds = -$driftSeconds;
+
+                $machine->update([
+                    'machine_datetime' => $machineTime,
+                    'time_checked_at' => $serverNow,
+                    'time_drift_seconds' => $driftSeconds,
+                ]);
+
+                Log::info("ADMS Time Sync Check", [
+                    'SN' => $sn,
+                    'machine_time' => $machineDateTime,
+                    'server_time' => $serverNow->toDateTimeString(),
+                    'drift_seconds' => $driftSeconds,
+                ]);
+            } catch (\Exception $e) {
+                Log::warning("ADMS Failed to parse machine datetime", [
+                    'SN' => $sn,
+                    'raw_datetime' => $machineDateTime,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**

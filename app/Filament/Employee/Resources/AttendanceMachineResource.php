@@ -79,6 +79,15 @@ class AttendanceMachineResource extends Resource
                     })
                     ->formatStateUsing(fn ($record): string => $record->is_online ? 'Online' : 'Offline')
                     ->label('Status'),
+                Tables\Columns\TextColumn::make('time_drift_seconds')
+                    ->badge()
+                    ->color(fn ($record): string => $record->time_sync_color)
+                    ->formatStateUsing(fn ($record): string => $record->time_drift_label)
+                    ->label('Sinkronisasi Waktu')
+                    ->tooltip(fn ($record): string => $record->time_checked_at
+                        ? 'Dicek: ' . $record->time_checked_at->format('d/m/Y H:i:s') . ' | Jam Mesin: ' . ($record->machine_datetime?->format('d/m/Y H:i:s') ?? '-')
+                        : 'Belum pernah dicek. Klik tombol "Cek Waktu" untuk memverifikasi.'
+                    ),
                 Tables\Columns\TextColumn::make('last_heard_at')
                     ->dateTime()
                     ->sortable()
@@ -142,21 +151,29 @@ class AttendanceMachineResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Sinkronisasi Waktu Mesin')
-                    ->modalDescription('Perintah akan dikirim ke mesin untuk menyesuaikan jam mesin dengan waktu server (WIB). Gunakan jika jam mesin tidak sesuai.')
+                    ->modalDescription('Perintah akan dikirim ke mesin untuk: (1) Set TimeZone ke WIB, (2) Set jam mesin = jam server, (3) Verifikasi hasil. Tunggu ±30 detik untuk melihat hasilnya di kolom Sinkronisasi Waktu.')
                     ->action(function (AttendanceMachine $record) {
-                        // Send correct WIB time to the machine
                         $now = now()->timezone('Asia/Jakarta');
                         $dateTimeStr = $now->format('Y-m-d H:i:s');
 
+                        // Step 1: Set timezone to GMT+7 (WIB)
                         \App\Models\AttendanceMachineCommand::create([
                             'attendance_machine_id' => $record->id,
-                            'command' => "SET OPTIONS TimeZone=7",
+                            'command' => 'SET OPTIONS TimeZone=7',
                             'status' => 'pending',
                         ]);
 
+                        // Step 2: Set the correct date/time
                         \App\Models\AttendanceMachineCommand::create([
                             'attendance_machine_id' => $record->id,
                             'command' => "SET OPTIONS Date={$dateTimeStr}",
+                            'status' => 'pending',
+                        ]);
+
+                        // Step 3: Request INFO to verify the machine's time after sync
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => 'INFO',
                             'status' => 'pending',
                         ]);
 
@@ -164,13 +181,43 @@ class AttendanceMachineResource extends Resource
                             activity()
                                 ->performedOn($record)
                                 ->causedBy(auth()->user())
-                                ->log('Menjalankan Sinkronisasi Waktu untuk mesin: ' . $record->name . ' (' . $dateTimeStr . ')');
+                                ->log('Sinkronisasi Waktu + Verifikasi untuk mesin: ' . $record->name . ' (Target: ' . $dateTimeStr . ')');
                         }
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Perintah Terkirim')
-                            ->body('Perintah sinkronisasi waktu (' . $dateTimeStr . ') telah dijadwalkan untuk mesin ' . $record->name)
+                            ->title('Perintah Terkirim (3 Langkah)')
+                            ->body('1. Set TimeZone=WIB ✓ | 2. Set Jam=' . $dateTimeStr . ' ✓ | 3. Verifikasi ✓ — Tunggu ±30 detik, lalu lihat kolom "Sinkronisasi Waktu".')
                             ->success()
+                            ->duration(10000)
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('check_time')
+                    ->label('Cek Waktu')
+                    ->icon('heroicon-o-magnifying-glass-circle')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->modalHeading('Cek Waktu Mesin')
+                    ->modalDescription('Perintah akan dikirim untuk mengambil jam mesin saat ini. Hasilnya akan muncul di kolom "Sinkronisasi Waktu" dalam ±15 detik. Tidak mengubah apapun di mesin.')
+                    ->action(function (AttendanceMachine $record) {
+                        // Only send INFO to check, don't change anything
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => 'INFO',
+                            'status' => 'pending',
+                        ]);
+
+                        if (function_exists('activity')) {
+                            activity()
+                                ->performedOn($record)
+                                ->causedBy(auth()->user())
+                                ->log('Cek Waktu Mesin (INFO) untuk: ' . $record->name);
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perintah Cek Waktu Terkirim')
+                            ->body('Menunggu respons dari mesin ' . $record->name . '. Lihat kolom "Sinkronisasi Waktu" dalam ±15 detik.')
+                            ->info()
+                            ->duration(8000)
                             ->send();
                     }),
                 Tables\Actions\EditAction::make(),
