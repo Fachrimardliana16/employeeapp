@@ -79,10 +79,10 @@ class AttendanceMachineResource extends Resource
                     })
                     ->formatStateUsing(fn ($record): string => $record->is_online ? 'Online' : 'Offline')
                     ->label('Status'),
-                Tables\Columns\TextColumn::make('time_drift_seconds')
+                Tables\Columns\TextColumn::make('time_sync_status')
+                    ->getStateUsing(fn ($record): string => $record->time_drift_label)
                     ->badge()
                     ->color(fn ($record): string => $record->time_sync_color)
-                    ->formatStateUsing(fn ($record): string => $record->time_drift_label)
                     ->label('Sinkronisasi Waktu')
                     ->tooltip(fn ($record): string => $record->time_checked_at
                         ? 'Dicek: ' . $record->time_checked_at->format('d/m/Y H:i:s') . ' | Jam Mesin: ' . ($record->machine_datetime?->format('d/m/Y H:i:s') ?? '-')
