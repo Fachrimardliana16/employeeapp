@@ -86,8 +86,48 @@ class AttendanceMachineResource extends Resource
                     ->label('Sinkronisasi Waktu')
                     ->tooltip(fn ($record): string => $record->time_checked_at
                         ? 'Dicek: ' . $record->time_checked_at->format('d/m/Y H:i:s') . ' | Jam Mesin: ' . ($record->machine_datetime?->format('d/m/Y H:i:s') ?? '-')
-                        : 'Belum pernah dicek. Klik tombol "Cek Waktu" untuk memverifikasi.'
+                        : 'Belum pernah dicek. Jam mesin akan dicek otomatis saat pegawai scan.'
                     ),
+                Tables\Columns\TextColumn::make('last_command_status')
+                    ->getStateUsing(function ($record): string {
+                        $last = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $record->id)
+                            ->latest('id')->first();
+                        if (!$last) return 'Tidak ada';
+                        return match ($last->status) {
+                            'pending' => '⏳ Menunggu',
+                            'sent' => '📤 Terkirim',
+                            'completed' => '✅ Berhasil',
+                            'failed' => '❌ Gagal',
+                            default => $last->status,
+                        };
+                    })
+                    ->badge()
+                    ->color(function ($record): string {
+                        $last = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $record->id)
+                            ->latest('id')->first();
+                        if (!$last) return 'gray';
+                        return match ($last->status) {
+                            'pending' => 'gray',
+                            'sent' => 'warning',
+                            'completed' => 'success',
+                            'failed' => 'danger',
+                            default => 'gray',
+                        };
+                    })
+                    ->label('Perintah Terakhir')
+                    ->tooltip(function ($record): string {
+                        $last = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $record->id)
+                            ->latest('id')->first();
+                        if (!$last) return 'Belum ada perintah yang dikirim.';
+                        $info = $last->command . ' | ' . $last->status;
+                        if ($last->response_payload) {
+                            $info .= ' | ' . \Illuminate\Support\Str::limit($last->response_payload, 80);
+                        }
+                        if ($last->created_at) {
+                            $info .= ' | ' . $last->created_at->format('d/m H:i:s');
+                        }
+                        return $info;
+                    }),
                 Tables\Columns\TextColumn::make('last_heard_at')
                     ->dateTime()
                     ->sortable()
@@ -170,10 +210,10 @@ class AttendanceMachineResource extends Resource
                         }
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Perintah Restart Terkirim')
-                            ->body('Mesin ' . $record->name . ' akan restart dalam ±15 detik. Setelah restart, jam akan otomatis terkoreksi ke WIB. Status mesin akan sementara "Offline" lalu kembali "Online".')
-                            ->success()
-                            ->duration(15000)
+                            ->title('Perintah Terkirim')
+                            ->body('Perintah telah masuk antrean. Silakan pantau kolom "Perintah Terakhir". Jika dalam 2 menit status berubah menjadi "❌ Gagal (TIMEOUT)", berarti mesin di cabang ini tidak mendukung perintah jarak jauh dan harus direstart manual dengan cabut-colok listrik.')
+                            ->warning()
+                            ->duration(20000)
                             ->send();
                     }),
                 Tables\Actions\EditAction::make(),

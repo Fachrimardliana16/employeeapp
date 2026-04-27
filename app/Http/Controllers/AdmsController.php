@@ -132,8 +132,18 @@ class AdmsController extends Controller
                 ]);
             }
 
-            // Check for pending commands
+            // Check for pending commands and timeout stale ones
             if ($machine) {
+                // --- Timeout Detection: mark 'sent' commands older than 2 min as 'failed' ---
+                AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
+                    ->where('status', 'sent')
+                    ->where('sent_at', '<', now()->subMinutes(2))
+                    ->update([
+                        'status' => 'failed',
+                        'completed_at' => now(),
+                        'response_payload' => 'TIMEOUT: Mesin tidak merespons dalam 2 menit. Kemungkinan mesin tidak mendukung perintah ini.',
+                    ]);
+
                 $pendingCommand = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
                     ->where('status', 'pending')
                     ->orderBy('created_at', 'asc')
