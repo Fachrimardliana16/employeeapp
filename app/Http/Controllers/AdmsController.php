@@ -146,6 +146,35 @@ class AdmsController extends Controller
                     // Return command in ZKTeco format: C:ID:COMMAND
                     return response("C:{$pendingCommand->id}:{$pendingCommand->command}");
                 }
+
+                // --- Drift Detection from DB (runs max once per 5 minutes) ---
+                // Compare latest ATTLOG timestamp (machine clock) vs created_at (server clock)
+                $shouldCheck = !$machine->time_checked_at || 
+                               $machine->time_checked_at->diffInMinutes(now()) >= 5;
+
+                if ($shouldCheck) {
+                    $latestLog = AttendanceMachineLog::where('attendance_machine_id', $machine->id)
+                        ->whereNotNull('timestamp')
+                        ->where('created_at', '>=', now()->subDay()) // Only recent logs
+                        ->orderByDesc('created_at')
+                        ->first();
+
+                    if ($latestLog && $latestLog->timestamp && $latestLog->created_at) {
+                        // timestamp = machine's clock when employee scanned
+                        // created_at = server's clock when data was received
+                        $machineTime = \Carbon\Carbon::parse($latestLog->timestamp);
+                        $serverTime = $latestLog->created_at;
+
+                        $driftSeconds = $machineTime->diffInSeconds($serverTime, false);
+                        $driftSeconds = -$driftSeconds; // positive = machine ahead
+
+                        $machine->update([
+                            'machine_datetime' => $machineTime,
+                            'time_checked_at' => now(),
+                            'time_drift_seconds' => $driftSeconds,
+                        ]);
+                    }
+                }
             }
         }
 
@@ -338,6 +367,14 @@ class AdmsController extends Controller
                 );
             }
         }
+
+        // --- Time Drift Detection from ATTLOG ---
+        // Since Solution X105-ID doesn't support devicecmd feedback (INFO command),
+        // we detect drift by comparing the latest ATTLOG timestamp with server time.
+        // If a scan happened within the last 5 minutes, it's "live" and reflects the machine's clock.
+        if ($machine) {
+            $this->detectTimeDriftFromLogs($machine, $content);
+        }
     }
 
     /**
@@ -368,6 +405,68 @@ class AdmsController extends Controller
                     Log::info("Synced PIN {$pin} from machine to employee: {$name}");
                 }
             }
+        }
+    }
+
+    /**
+     * Detect time drift by analyzing the most recent ATTLOG timestamp.
+     * 
+     * Strategy: If the latest log timestamp is very close to "now" (within ~2 hours
+     * to account for possible drift), it's a live scan and we can measure drift.
+     * The machine sends ATTLOG in real-time when Realtime=1, so the latest entry's
+     * timestamp reflects the machine's current clock.
+     */
+    private function detectTimeDriftFromLogs(AttendanceMachine $machine, string $content): void
+    {
+        try {
+            $lines = explode("\n", $content);
+            $latestTimestamp = null;
+
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (empty($line)) continue;
+
+                $data = explode("\t", $line);
+                if (count($data) >= 2) {
+                    $time = \Carbon\Carbon::parse($data[1]);
+                    if (!$latestTimestamp || $time->gt($latestTimestamp)) {
+                        $latestTimestamp = $time;
+                    }
+                }
+            }
+
+            if (!$latestTimestamp) return;
+
+            $serverNow = now()->timezone('Asia/Jakarta');
+            
+            // Only consider as "live" if the log is within 2 hours of server time
+            // (to account for drift up to ~2 hours but reject old historical data)
+            $absDiffMinutes = abs($serverNow->diffInMinutes($latestTimestamp));
+            
+            if ($absDiffMinutes <= 120) {
+                // This is a live scan — calculate drift
+                $driftSeconds = $latestTimestamp->diffInSeconds($serverNow, false);
+                $driftSeconds = -$driftSeconds; // positive = machine ahead
+
+                $machine->update([
+                    'machine_datetime' => $latestTimestamp,
+                    'time_checked_at' => $serverNow,
+                    'time_drift_seconds' => $driftSeconds,
+                ]);
+
+                Log::info("ADMS Time Drift (from ATTLOG)", [
+                    'SN' => $machine->serial_number,
+                    'machine_time' => $latestTimestamp->toDateTimeString(),
+                    'server_time' => $serverNow->toDateTimeString(),
+                    'drift_seconds' => $driftSeconds,
+                    'drift_label' => $machine->fresh()->time_drift_label,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::warning("ADMS Drift detection failed", [
+                'SN' => $machine->serial_number,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
