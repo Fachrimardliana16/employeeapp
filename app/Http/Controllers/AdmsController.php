@@ -23,66 +23,9 @@ class AdmsController extends Controller
             return response("SN NOT FOUND", 400);
         }
 
-        $machine = AttendanceMachine::where('serial_number', $sn)->first();
-        
-        if (!$machine) {
-            // Find a valid office location ID dynamically
-            $locationId = \App\Models\MasterOfficeLocation::first()?->id;
-            
-            if (!$locationId) {
-                Log::error("ADMS Error: No office locations found in database. Cannot auto-register machine.");
-                return response("LOCATION ERROR", 500);
-            }
-
-            // Auto-register unknown machine
-            $machine = AttendanceMachine::create([
-                'serial_number' => $sn,
-                'name' => 'Auto Registered: ' . $sn,
-                'master_office_location_id' => $locationId,
-                'status' => 'online',
-                'ip_address' => $request->ip(),
-                'last_heard_at' => now(),
-            ]);
-            Log::info("Auto-registered new attendance machine: " . $sn);
-        } else {
-            $machine->update([
-                'last_heard_at' => now(),
-                'ip_address' => $request->ip(),
-                'status' => 'online',
-            ]);
-        }
-
-        // If it's a POST, it's data
-        if ($request->isMethod('post')) {
-            $table = $request->query('table');
-            $content = $request->getContent();
-
-            if ($table === 'ATTLOG') {
-                Log::info("ADMS ATTLOG Data Received", [
-                    'SN' => $sn,
-                    'content_length' => strlen($content),
-                ]);
-                $this->parseAttendanceLogs($machine, $sn, $content);
-            }
-
-            if ($table === 'USER') {
-                Log::info("ADMS USER Data Received", [
-                    'SN' => $sn,
-                    'content_length' => strlen($content),
-                    'content_payload' => $content,
-                ]);
-                $this->parseUserLogs($machine, $sn, $content);
-            }
-            // OPERLOG = operation logs (menu access, settings changes) - ignore silently
-            // Other tables (FIRST, etc.) - ignore silently
-
-            return response("OK");
-        }
-
-        // Handshake response - MUST include TimeZone for proper time sync.
-        // Without TimeZone, the machine defaults to its firmware timezone (often GMT+8),
-        // causing a +1 hour clock drift on machines like Solution X105-ID.
-        $options = implode("\n", [
+        // Handshake options — ALWAYS sent, even if DB is down.
+        // This ensures the machine always receives TimeZone=7 (WIB).
+        $handshakeOptions = implode("\n", [
             "GET OPTION FROM: {$sn}",
             "Stamp=9999",
             "OpStamp=9999",
@@ -96,7 +39,66 @@ class AdmsController extends Controller
             "Encrypt=0",
         ]);
 
-        return response($options);
+        // DB operations wrapped in try-catch — if DB is temporarily unreachable,
+        // we still send the handshake with TimeZone=7 so the machine clock stays correct.
+        try {
+            $machine = AttendanceMachine::where('serial_number', $sn)->first();
+            
+            if (!$machine) {
+                $locationId = \App\Models\MasterOfficeLocation::first()?->id;
+                
+                if ($locationId) {
+                    $machine = AttendanceMachine::create([
+                        'serial_number' => $sn,
+                        'name' => 'Auto Registered: ' . $sn,
+                        'master_office_location_id' => $locationId,
+                        'status' => 'online',
+                        'ip_address' => $request->ip(),
+                        'last_heard_at' => now(),
+                    ]);
+                    Log::info("Auto-registered new attendance machine: " . $sn);
+                }
+            } else {
+                $machine->update([
+                    'last_heard_at' => now(),
+                    'ip_address' => $request->ip(),
+                    'status' => 'online',
+                ]);
+            }
+
+            // If it's a POST, it's data
+            if ($request->isMethod('post')) {
+                $table = $request->query('table');
+                $content = $request->getContent();
+
+                if ($table === 'ATTLOG') {
+                    Log::info("ADMS ATTLOG Data Received", [
+                        'SN' => $sn,
+                        'content_length' => strlen($content),
+                    ]);
+                    $this->parseAttendanceLogs($machine, $sn, $content);
+                }
+
+                if ($table === 'USER') {
+                    Log::info("ADMS USER Data Received", [
+                        'SN' => $sn,
+                        'content_length' => strlen($content),
+                        'content_payload' => $content,
+                    ]);
+                    $this->parseUserLogs($machine, $sn, $content);
+                }
+
+                return response("OK");
+            }
+        } catch (\Exception $e) {
+            Log::error("ADMS cdata DB Error (handshake still sent)", [
+                'SN' => $sn,
+                'error' => $e->getMessage(),
+            ]);
+            // Fall through to return handshake — TimeZone=7 is more important than DB
+        }
+
+        return response($handshakeOptions);
     }
 
     /**
