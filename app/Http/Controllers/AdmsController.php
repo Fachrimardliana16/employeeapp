@@ -330,70 +330,47 @@ class AdmsController extends Controller
             if (empty($line)) continue;
 
             try {
-                // ADMS format is tab separated: PIN	TIME	STATUS	VERIFY	SOURCE	RESERVED
                 $data = explode("\t", $line);
+                if (count($data) < 2) continue;
+
+                $pin = $data[0];
+                $time = $data[1];
+                $type = $data[2] ?? '0'; 
+                $verify = $data[3] ?? '0';
+
+                // 1. Raw Log
+                AttendanceMachineLog::updateOrCreate(
+                    ['serial_number' => $sn, 'pin' => $pin, 'timestamp' => $time],
+                    ['attendance_machine_id' => $machine ? $machine->id : null, 'type' => $type, 'raw_payload' => $line]
+                );
+
+                // 2. Process Time & State
+                $attendanceTime = \Carbon\Carbon::parse($time);
+                $state = match($type) {
+                    '0' => 'check_in', '1' => 'check_out', '2' => 'break_out', 
+                    '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+                };
+
+                // 3. Sync to Main Table
+                $employee = \App\Models\Employee::where('pin', $pin)->first();
+                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                    ['pin' => $pin, 'attendance_time' => $attendanceTime->toDateTimeString(), 'state' => $state],
+                    [
+                        'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$pin})",
+                        'attendance_status' => 'on_time', 
+                        'verification' => $verify,
+                        'device' => $machine ? $machine->name : $sn,
+                        'office_location_id' => $machine ? $machine->master_office_location_id : null,
+                    ]
+                );
                 
-                if (count($data) >= 2) {
-                    $pin = $data[0];
-                    $time = $data[1];
-                    $type = $data[2] ?? '0'; 
-                    $verify = $data[3] ?? '0';
-
-                    // 1. Save to Raw Machine Logs
-                    AttendanceMachineLog::updateOrCreate(
-                        [
-                            'serial_number' => $sn,
-                            'pin' => $pin,
-                            'timestamp' => $time,
-                        ],
-                        [
-                            'attendance_machine_id' => $machine ? $machine->id : null,
-                            'type' => $type,
-                            'raw_payload' => $line,
-                        ]
-                    );
-
-                    $attendanceTime = \Carbon\Carbon::parse($time);
-                    $state = match($type) {
-                        '0' => 'check_in',
-                        '1' => 'check_out',
-                        '2' => 'break_out',
-                        '3' => 'break_in',
-                        '4' => 'ot_in',
-                        '5' => 'ot_out',
-                        default => 'check_in'
-                    };
-
-                    $employee = \App\Models\Employee::where('pin', $pin)->first();
-
-                    // 2. Update Main Attendance Record (for reporting)
-                    \App\Models\EmployeeAttendanceRecord::updateOrCreate(
-                        [
-                            'pin' => $pin,
-                            'attendance_time' => $attendanceTime->toDateTimeString(),
-                            'state' => $state,
-                        ],
-                        [
-                            'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$pin})",
-                            'attendance_status' => 'on_time', 
-                            'verification' => $verify,
-                            'device' => $machine ? $machine->name : $sn,
-                            'office_location_id' => $machine ? $machine->master_office_location_id : null,
-                        ]
-                    );
-                    
-                    $processedCount++;
-                }
+                $processedCount++;
             } catch (\Exception $e) {
-                Log::error("Failed to process individual ADMS log line", [
-                    'SN' => $sn,
-                    'line' => $line,
-                    'error' => $e->getMessage()
-                ]);
+                Log::error("ADMS Line Error: " . $e->getMessage());
             }
         }
 
-        Log::info("ADMS logs processed for {$sn}: {$processedCount} lines.");
+        Log::info("ADMS processed {$sn}: {$processedCount} lines.");
 
         if ($machine) {
             $this->detectTimeDriftFromLogs($machine, $content);
