@@ -353,22 +353,35 @@ class AdmsController extends Controller
                         ]
                     );
 
-                        // 3. Update Main Attendance Record (for reporting)
-                        \App\Models\EmployeeAttendanceRecord::updateOrCreate(
-                            [
-                                'pin' => $pin,
-                                'attendance_time' => $attendanceTime->toDateTimeString(),
-                                'state' => $state,
-                            ],
-                            [
-                                'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$pin})",
-                                'attendance_status' => 'on_time', // Simplified status for performance
-                                'verification' => $verify,
-                                'device' => $machine ? $machine->name : $sn,
-                                'office_location_id' => $machine ? $machine->master_office_location_id : null,
-                            ]
-                        );
-                    }
+                    $attendanceTime = \Carbon\Carbon::parse($time);
+                    $state = match($type) {
+                        '0' => 'check_in',
+                        '1' => 'check_out',
+                        '2' => 'break_out',
+                        '3' => 'break_in',
+                        '4' => 'ot_in',
+                        '5' => 'ot_out',
+                        default => 'check_in'
+                    };
+
+                    $employee = \App\Models\Employee::where('pin', $pin)->first();
+
+                    // 2. Update Main Attendance Record (for reporting)
+                    \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                        [
+                            'pin' => $pin,
+                            'attendance_time' => $attendanceTime->toDateTimeString(),
+                            'state' => $state,
+                        ],
+                        [
+                            'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$pin})",
+                            'attendance_status' => 'on_time', 
+                            'verification' => $verify,
+                            'device' => $machine ? $machine->name : $sn,
+                            'office_location_id' => $machine ? $machine->master_office_location_id : null,
+                        ]
+                    );
+                    
                     $processedCount++;
                 }
             } catch (\Exception $e) {
@@ -382,7 +395,6 @@ class AdmsController extends Controller
 
         Log::info("ADMS logs processed for {$sn}: {$processedCount} lines.");
 
-        // Update drift detection for machines that don't support INFO commands
         if ($machine) {
             $this->detectTimeDriftFromLogs($machine, $content);
         }
