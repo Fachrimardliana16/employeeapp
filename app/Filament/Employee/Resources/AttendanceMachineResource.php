@@ -67,6 +67,13 @@ class AttendanceMachineResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->label('SN'),
+                Tables\Columns\TextColumn::make('device_model')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('Tidak diketahui')
+                    ->badge()
+                    ->color('info')
+                    ->label('Tipe Mesin'),
                 Tables\Columns\TextColumn::make('officeLocation.name')
                     ->searchable()
                     ->sortable()
@@ -137,125 +144,127 @@ class AttendanceMachineResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\Action::make('sync_users')
-                    ->label('Tarik Data User')
-                    ->icon('heroicon-o-users')
-                    ->color('info')
-                    ->requiresConfirmation()
-                    ->modalHeading('Tarik Daftar ID/User')
-                    ->modalDescription('Perintah akan dikirim ke mesin untuk mengirim daftar ID (PIN) dan Nama yang terdaftar di dalamnya. Berguna jika ada perubahan ID langsung di mesin.')
-                    ->action(function (AttendanceMachine $record) {
-                        \App\Models\AttendanceMachineCommand::create([
-                            'attendance_machine_id' => $record->id,
-                            'command' => 'DATA QUERY USERINFO',
-                            'status' => 'pending',
-                        ]);
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('sync_users')
+                        ->label('Tarik Data User')
+                        ->icon('heroicon-o-users')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('Tarik Daftar ID/User')
+                        ->modalDescription('Perintah akan dikirim ke mesin untuk mengirim daftar ID (PIN) dan Nama yang terdaftar di dalamnya. Berguna jika ada perubahan ID langsung di mesin.')
+                        ->action(function (AttendanceMachine $record) {
+                            \App\Models\AttendanceMachineCommand::create([
+                                'attendance_machine_id' => $record->id,
+                                'command' => 'DATA QUERY USERINFO',
+                                'status' => 'pending',
+                            ]);
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Perintah Terkirim')
-                            ->body('Perintah penarikan data User telah dijadwalkan.')
-                            ->success()
-                            ->send();
-                    }),
-                Tables\Actions\Action::make('sync_logs')
-                    ->label('Tarik Data')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->modalHeading('Tarik Log Absensi')
-                    ->modalDescription('Perintah akan dikirim ke mesin. Mesin akan mulai mengirim log absensi pada koneksi heartbeat berikutnya.')
-                    ->action(function (AttendanceMachine $record) {
-                        \App\Models\AttendanceMachineCommand::create([
-                            'attendance_machine_id' => $record->id,
-                            'command' => 'DATA QUERY ATTLOG',
-                            'status' => 'pending',
-                        ]);
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body('Perintah penarikan data User telah dijadwalkan.')
+                                ->success()
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('sync_logs')
+                        ->label('Tarik Data')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('Tarik Log Absensi')
+                        ->modalDescription('Perintah akan dikirim ke mesin. Mesin akan mulai mengirim log absensi pada koneksi heartbeat berikutnya.')
+                        ->action(function (AttendanceMachine $record) {
+                            \App\Models\AttendanceMachineCommand::create([
+                                'attendance_machine_id' => $record->id,
+                                'command' => 'DATA QUERY ATTLOG',
+                                'status' => 'pending',
+                            ]);
 
-                        // Log activity for the button click
-                        if (function_exists('activity')) {
-                            activity()
-                                ->performedOn($record)
-                                ->causedBy(auth()->user())
-                                ->log('Menjalankan perintah Tarik Data Absensi (ATTLOG) untuk mesin: ' . $record->name);
-                        }
+                            // Log activity for the button click
+                            if (function_exists('activity')) {
+                                activity()
+                                    ->performedOn($record)
+                                    ->causedBy(auth()->user())
+                                    ->log('Menjalankan perintah Tarik Data Absensi (ATTLOG) untuk mesin: ' . $record->name);
+                            }
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Perintah Terkirim')
-                            ->body('Perintah penarikan data telah dijadwalkan untuk mesin ' . $record->name)
-                            ->success()
-                            ->send();
-                    }),
-                Tables\Actions\Action::make('sync_time')
-                    ->label('Perbaiki Jam & Restart')
-                    ->icon('heroicon-o-clock')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading('Perbaiki Jam Mesin (Remote Restart)')
-                    ->modalDescription('Mesin akan di-RESTART dari jarak jauh. Setelah restart, mesin akan konek ulang dan menerima TimeZone=WIB dari server. Jam mesin akan otomatis terkoreksi. Proses ini memakan waktu ±1-2 menit. Data absensi di mesin TIDAK akan hilang.')
-                    ->modalSubmitActionLabel('Ya, Restart Mesin')
-                    ->action(function (AttendanceMachine $record) {
-                        // Send REBOOT command — machine will restart, re-handshake,
-                        // and receive TimeZone=7 from server, correcting its clock.
-                        \App\Models\AttendanceMachineCommand::create([
-                            'attendance_machine_id' => $record->id,
-                            'command' => 'REBOOT',
-                            'status' => 'pending',
-                        ]);
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body('Perintah penarikan data telah dijadwalkan untuk mesin ' . $record->name)
+                                ->success()
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('sync_time')
+                        ->label('Perbaiki Jam & Restart')
+                        ->icon('heroicon-o-clock')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Perbaiki Jam Mesin (Remote Restart)')
+                        ->modalDescription('Mesin akan di-RESTART dari jarak jauh. Setelah restart, mesin akan konek ulang dan menerima TimeZone=WIB dari server. Jam mesin akan otomatis terkoreksi. Proses ini memakan waktu ±1-2 menit. Data absensi di mesin TIDAK akan hilang.')
+                        ->modalSubmitActionLabel('Ya, Restart Mesin')
+                        ->action(function (AttendanceMachine $record) {
+                            // Send REBOOT command — machine will restart, re-handshake,
+                            // and receive TimeZone=7 from server, correcting its clock.
+                            \App\Models\AttendanceMachineCommand::create([
+                                'attendance_machine_id' => $record->id,
+                                'command' => 'REBOOT',
+                                'status' => 'pending',
+                            ]);
 
-                        if (function_exists('activity')) {
-                            activity()
-                                ->performedOn($record)
-                                ->causedBy(auth()->user())
-                                ->log('Remote Restart untuk perbaikan jam mesin: ' . $record->name);
-                        }
+                            if (function_exists('activity')) {
+                                activity()
+                                    ->performedOn($record)
+                                    ->causedBy(auth()->user())
+                                    ->log('Remote Restart untuk perbaikan jam mesin: ' . $record->name);
+                            }
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Perintah Terkirim')
-                            ->body('Perintah telah masuk antrean. Silakan pantau kolom "Perintah Terakhir". Jika dalam 2 menit status berubah menjadi "❌ Gagal (TIMEOUT)", berarti mesin di cabang ini tidak mendukung perintah jarak jauh dan harus direstart manual dengan cabut-colok listrik.')
-                            ->warning()
-                            ->duration(20000)
-                            ->send();
-                    }),
-                Tables\Actions\Action::make('force_set_time')
-                    ->label('Paksa Set Waktu')
-                    ->icon('heroicon-o-variable')
-                    ->color('info')
-                    ->requiresConfirmation()
-                    ->modalHeading('Paksa Sinkron Waktu (Tanpa Restart)')
-                    ->modalDescription('Perintah akan dikirim untuk mengubah jam mesin secara paksa mengikuti jam server detik ini juga. Gunakan ini jika "Perbaiki Jam & Restart" tidak mengubah waktu.')
-                    ->modalSubmitActionLabel('Kirim Perintah Set Waktu')
-                    ->action(function (AttendanceMachine $record) {
-                        $now = now()->format('Y-m-d H:i:s');
-                        \App\Models\AttendanceMachineCommand::create([
-                            'attendance_machine_id' => $record->id,
-                            'command' => "SET OPTIONS DateTime={$now}",
-                            'status' => 'pending',
-                        ]);
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body('Perintah telah masuk antrean. Silakan pantau kolom "Perintah Terakhir". Jika dalam 2 menit status berubah menjadi "❌ Gagal (TIMEOUT)", berarti mesin di cabang ini tidak mendukung perintah jarak jauh dan harus direstart manual dengan cabut-colok listrik.')
+                                ->warning()
+                                ->duration(20000)
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('force_set_time')
+                        ->label('Paksa Set Waktu')
+                        ->icon('heroicon-o-variable')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('Paksa Sinkron Waktu (Tanpa Restart)')
+                        ->modalDescription('Perintah akan dikirim untuk mengubah jam mesin secara paksa mengikuti jam server detik ini juga. Gunakan ini jika "Perbaiki Jam & Restart" tidak mengubah waktu.')
+                        ->modalSubmitActionLabel('Kirim Perintah Set Waktu')
+                        ->action(function (AttendanceMachine $record) {
+                            $now = now()->format('Y-m-d H:i:s');
+                            \App\Models\AttendanceMachineCommand::create([
+                                'attendance_machine_id' => $record->id,
+                                'command' => "SET OPTIONS DateTime={$now}",
+                                'status' => 'pending',
+                            ]);
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Perintah Terkirim')
-                            ->body('Perintah paksa set waktu (' . $now . ') telah dijadwalkan.')
-                            ->info()
-                            ->send();
-                    }),
-                Tables\Actions\Action::make('refresh_info')
-                    ->label('Cek Jam Detik Ini')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('gray')
-                    ->modalHeading('Refresh Informasi & Waktu Mesin')
-                    ->modalDescription('Server akan meminta informasi terbaru (termasuk jam internal mesin) saat ini juga. Gunakan ini setelah Anda memperbaiki jam secara manual agar angka selisih di dashboard terupdate.')
-                    ->action(function (AttendanceMachine $record) {
-                        \App\Models\AttendanceMachineCommand::create([
-                            'attendance_machine_id' => $record->id,
-                            'command' => "DATA QUERY INFO",
-                            'status' => 'pending',
-                        ]);
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body('Perintah paksa set waktu (' . $now . ') telah dijadwalkan.')
+                                ->info()
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('refresh_info')
+                        ->label('Cek Jam Detik Ini')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('gray')
+                        ->modalHeading('Refresh Informasi & Waktu Mesin')
+                        ->modalDescription('Server akan meminta informasi terbaru (termasuk jam internal mesin) saat ini juga. Gunakan ini setelah Anda memperbaiki jam secara manual agar angka selisih di dashboard terupdate.')
+                        ->action(function (AttendanceMachine $record) {
+                            \App\Models\AttendanceMachineCommand::create([
+                                'attendance_machine_id' => $record->id,
+                                'command' => "DATA QUERY INFO",
+                                'status' => 'pending',
+                            ]);
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Perintah Terkirim')
-                            ->body('Permintaan info jam telah dikirim. Silakan tunggu ±15 detik lalu refresh halaman.')
-                            ->send();
-                    }),
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body('Permintaan info jam telah dikirim. Silakan tunggu ±15 detik lalu refresh halaman.')
+                                ->send();
+                        }),
+                ])->label('Aksi')->icon('heroicon-m-ellipsis-vertical'),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])

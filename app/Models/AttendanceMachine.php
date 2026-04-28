@@ -21,6 +21,7 @@ class AttendanceMachine extends Model
         'machine_datetime',
         'time_checked_at',
         'time_drift_seconds',
+        'device_model',
     ];
 
     protected $casts = [

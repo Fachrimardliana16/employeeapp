@@ -283,15 +283,25 @@ class AdmsController extends Controller
         if (!$machine) return;
 
         $machineDateTime = null;
+        $deviceModel = null;
+        $updateData = [];
+
+        // Extract DeviceName / Model
+        if (preg_match('/DeviceName[=:]\s*([^\r\n]+)/i', $content, $matches)) {
+            $deviceModel = trim($matches[1]);
+            if ($deviceModel && $machine->device_model !== $deviceModel) {
+                $updateData['device_model'] = $deviceModel;
+            }
+        }
 
         // Try multiple patterns to extract DateTime from INFO response
         // Pattern 1: DateTime=YYYY-MM-DD HH:MM:SS (standard)
-        if (preg_match('/DateTime[=:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/', $content, $matches)) {
+        if (preg_match('/DateTime[=:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i', $content, $matches)) {
             $machineDateTime = $matches[1];
         }
         // Pattern 2: Date=YYYY-MM-DD and Time=HH:MM:SS (split)
-        elseif (preg_match('/Date[=:]\s*(\d{4}-\d{2}-\d{2})/', $content, $dateMatch) &&
-                preg_match('/Time[=:]\s*(\d{2}:\d{2}:\d{2})/', $content, $timeMatch)) {
+        elseif (preg_match('/Date[=:]\s*(\d{4}-\d{2}-\d{2})/i', $content, $dateMatch) &&
+                preg_match('/Time[=:]\s*(\d{2}:\d{2}:\d{2})/i', $content, $timeMatch)) {
             $machineDateTime = $dateMatch[1] . ' ' . $timeMatch[1];
         }
         // Pattern 3: Loose datetime anywhere in content
@@ -308,17 +318,16 @@ class AdmsController extends Controller
                 // positive = machine ahead, negative = machine behind
                 $driftSeconds = $serverNow->diffInSeconds($machineTime, false);
 
-                $machine->update([
-                    'machine_datetime' => $machineTime,
-                    'time_checked_at' => $serverNow,
-                    'time_drift_seconds' => $driftSeconds,
-                ]);
+                $updateData['machine_datetime'] = $machineTime;
+                $updateData['time_checked_at'] = $serverNow;
+                $updateData['time_drift_seconds'] = $driftSeconds;
 
                 Log::info("ADMS Time Sync Check", [
                     'SN' => $sn,
                     'machine_time' => $machineDateTime,
                     'server_time' => $serverNow->toDateTimeString(),
                     'drift_seconds' => $driftSeconds,
+                    'device_model' => $deviceModel,
                 ]);
             } catch (\Exception $e) {
                 Log::warning("ADMS Failed to parse machine datetime", [
@@ -327,6 +336,10 @@ class AdmsController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+
+        if (!empty($updateData)) {
+            $machine->update($updateData);
         }
     }
 
