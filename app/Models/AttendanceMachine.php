@@ -46,21 +46,21 @@ class AttendanceMachine extends Model
 
         $abs = abs($this->time_drift_seconds);
 
-        if ($abs <= 5) {
+        if ($abs === 0) {
             return '✅ Sinkron';
         }
 
         $direction = $this->time_drift_seconds > 0 ? 'lebih cepat' : 'lebih lambat';
 
+        $minutes = intdiv($abs, 60);
+        $seconds = $abs % 60;
+
         if ($abs < 60) {
             return "⚠️ {$abs} detik {$direction}";
         }
 
-        $minutes = intdiv($abs, 60);
-        $seconds = $abs % 60;
-
         if ($abs < 3600) {
-            return "❌ {$minutes} menit {$seconds} detik {$direction}";
+            return "⚠️ {$minutes} menit {$seconds} detik {$direction}";
         }
 
         $hours = intdiv($abs, 3600);
@@ -79,9 +79,9 @@ class AttendanceMachine extends Model
 
         $abs = abs($this->time_drift_seconds);
 
-        if ($abs <= 5) return 'success';    // ≤5 detik = sinkron
-        if ($abs <= 60) return 'warning';   // ≤1 menit = warning
-        return 'danger';                     // >1 menit = bahaya
+        if ($abs === 0) return 'success';    // Hanya 0 detik yang hijau
+        if ($abs < 3600) return 'warning';   // Selisih berapapun di bawah 1 jam = warning (kuning)
+        return 'danger';                     // >1 jam = bahaya (merah)
     }
 
     public function officeLocation(): BelongsTo
