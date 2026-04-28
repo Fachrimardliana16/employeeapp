@@ -21,13 +21,14 @@ class AdmsController extends Controller
             "Stamp=9999",
             "OpStamp=9999",
             "ErrorDelay=60",
-            "Delay=15",
+            "Delay=1",
             "TransTimes=00:00;14:05",
             "TransInterval=1",
             "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
             "TimeZone=7",
             "GMTPlus=7",
             "Realtime=1",
+            "PushVersion=3.0",
             "Encrypt=0",
         ]);
     }
@@ -322,52 +323,79 @@ class AdmsController extends Controller
     private function parseAttendanceLogs($machine, $sn, $content)
     {
         $lines = explode("\n", $content);
+        $processedCount = 0;
         
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
 
-            // ADMS format is tab separated: PIN	TIME	STATUS	VERIFY	SOURCE	RESERVED
-            $data = explode("\t", $line);
-            
-            if (count($data) >= 2) {
-                $pin = $data[0];
-                $time = $data[1];
-                $type = $data[2] ?? '0'; // 0=In, 1=Out, etc.
-                $verify = $data[3] ?? '0';
-
-                // 1. Save to Raw Machine Logs (Prevent duplicates)
-                AttendanceMachineLog::updateOrCreate(
-                    [
-                        'serial_number' => $sn,
-                        'pin' => $pin,
-                        'timestamp' => $time,
-                    ],
-                    [
-                        'attendance_machine_id' => $machine ? $machine->id : null,
-                        'type' => $type,
-                        'raw_payload' => $line,
-                    ]
-                );
-
-                // 2. Synchronize to Employee Attendance Records
-                $employee = \App\Models\Employee::where('pin', $pin)->first();
-                $attendanceTime = \Carbon\Carbon::parse($time);
-                $dayName = strtolower($attendanceTime->format('l'));
+            try {
+                // ADMS format is tab separated: PIN	TIME	STATUS	VERIFY	SOURCE	RESERVED
+                $data = explode("\t", $line);
                 
-                // Map machine type to system state
-                $state = match($type) {
-                    '0' => 'check_in',
-                    '1' => 'check_out',
-                    '2' => 'break_out',
-                    '3' => 'break_in',
-                    '4' => 'ot_in',
-                    '5' => 'ot_out',
-                    default => 'check_in'
-                };
+                if (count($data) >= 2) {
+                    $pin = $data[0];
+                    $time = $data[1];
+                    $type = $data[2] ?? '0'; 
+                    $verify = $data[3] ?? '0';
 
-                // Fetch Schedule for status calculation
-                $schedule = \App\Models\AttendanceSchedule::where('is_active', true)
+                    // 1. Save to Raw Machine Logs
+                    AttendanceMachineLog::updateOrCreate(
+                        [
+                            'serial_number' => $sn,
+                            'pin' => $pin,
+                            'timestamp' => $time,
+                        ],
+                        [
+                            'attendance_machine_id' => $machine ? $machine->id : null,
+                            'type' => $type,
+                            'raw_payload' => $line,
+                        ]
+                    );
+
+                    // 2. Synchronize to Employee Attendance Records
+                    $employee = \App\Models\Employee::where('pin', $pin)->first();
+                    if ($employee) {
+                        $attendanceTime = \Carbon\Carbon::parse($time);
+                        
+                        $state = match($type) {
+                            '0' => 'check_in',
+                            '1' => 'check_out',
+                            '2' => 'break_out',
+                            '3' => 'break_in',
+                            '4' => 'ot_in',
+                            '5' => 'ot_out',
+                            default => 'check_in'
+                        };
+
+                        // Fast update/create for attendance
+                        \App\Models\Attendance::updateOrCreate(
+                            [
+                                'employee_id' => $employee->id,
+                                'date' => $attendanceTime->toDateString(),
+                                'state' => $state,
+                            ],
+                            [
+                                'attendance_machine_id' => $machine ? $machine->id : null,
+                                'time' => $attendanceTime->toTimeString(),
+                                'raw_data' => $line,
+                            ]
+                        );
+                    }
+                    $processedCount++;
+                }
+            } catch (\Exception $e) {
+                Log::error("Failed to process individual ADMS log line", [
+                    'SN' => $sn,
+                    'line' => $line,
+                    'error' => $e->getMessage()
+                ]);
+                // Continue to next line even if this one failed due to DB timeout
+            }
+        }
+
+        Log::info("ADMS logs processed for {$sn}: {$processedCount} lines.");
+    }
                     ->where('day', $dayName)
                     ->first();
 
