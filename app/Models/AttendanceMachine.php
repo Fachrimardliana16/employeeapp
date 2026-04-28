@@ -46,7 +46,8 @@ class AttendanceMachine extends Model
 
         $abs = abs($this->time_drift_seconds);
 
-        if ($abs === 0) {
+        // Toleransi ketat maksimal 20 detik untuk presisi tinggi
+        if ($abs <= 20) {
             return '✅ Sinkron';
         }
 
@@ -79,8 +80,8 @@ class AttendanceMachine extends Model
 
         $abs = abs($this->time_drift_seconds);
 
-        if ($abs === 0) return 'success';    // Hanya 0 detik yang hijau
-        if ($abs < 3600) return 'warning';   // Selisih berapapun di bawah 1 jam = warning (kuning)
+        if ($abs <= 20) return 'success';    // Toleransi 20 detik (hijau)
+        if ($abs < 3600) return 'warning';   // >20 detik tapi <1 jam = warning (kuning)
         return 'danger';                     // >1 jam = bahaya (merah)
     }
 
