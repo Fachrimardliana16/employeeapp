@@ -238,6 +238,24 @@ class AttendanceMachineResource extends Resource
                             ->info()
                             ->send();
                     }),
+                Tables\Actions\Action::make('refresh_info')
+                    ->label('Cek Jam Detik Ini')
+                    ->icon('heroicon-o-arrow-path-focus')
+                    ->color('gray')
+                    ->modalHeading('Refresh Informasi & Waktu Mesin')
+                    ->modalDescription('Server akan meminta informasi terbaru (termasuk jam internal mesin) saat ini juga. Gunakan ini setelah Anda memperbaiki jam secara manual agar angka selisih di dashboard terupdate.')
+                    ->action(function (AttendanceMachine $record) {
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => "DATA QUERY INFO",
+                            'status' => 'pending',
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perintah Terkirim')
+                            ->body('Permintaan info jam telah dikirim. Silakan tunggu ±15 detik lalu refresh halaman.')
+                            ->send();
+                    }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
