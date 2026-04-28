@@ -11,6 +11,28 @@ use Illuminate\Support\Facades\Log;
 class AdmsController extends Controller
 {
     /**
+     * Get the standard handshake options to send to machines.
+     * Always includes TimeZone=7 (WIB).
+     */
+    private function getHandshakeOptions(string $sn): string
+    {
+        return implode("\n", [
+            "GET OPTION FROM: {$sn}",
+            "Stamp=9999",
+            "OpStamp=9999",
+            "ErrorDelay=60",
+            "Delay=15",
+            "TransTimes=00:00;14:05",
+            "TransInterval=1",
+            "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
+            "TimeZone=7",
+            "GMTPlus=7",
+            "Realtime=1",
+            "Encrypt=0",
+        ]);
+    }
+
+    /**
      * Handle the handshake and data upload from machines.
      * URL: /iclock/cdata
      */
@@ -22,22 +44,6 @@ class AdmsController extends Controller
         if (!$sn) {
             return response("SN NOT FOUND", 400);
         }
-
-        // Handshake options — ALWAYS sent, even if DB is down.
-        // This ensures the machine always receives TimeZone=7 (WIB).
-        $handshakeOptions = implode("\n", [
-            "GET OPTION FROM: {$sn}",
-            "Stamp=9999",
-            "OpStamp=9999",
-            "ErrorDelay=60",
-            "Delay=15",
-            "TransTimes=00:00;14:05",
-            "TransInterval=1",
-            "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
-            "TimeZone=7",
-            "Realtime=1",
-            "Encrypt=0",
-        ]);
 
         // DB operations wrapped in try-catch — if DB is temporarily unreachable,
         // we still send the handshake with TimeZone=7 so the machine clock stays correct.
@@ -98,7 +104,7 @@ class AdmsController extends Controller
             // Fall through to return handshake — TimeZone=7 is more important than DB
         }
 
-        return response($handshakeOptions);
+        return response($this->getHandshakeOptions($sn));
     }
 
     /**
@@ -110,7 +116,11 @@ class AdmsController extends Controller
         $sn = $request->query('SN');
         Log::debug("ADMS getrequest Heartbeat", ['SN' => $sn, 'IP' => $request->ip()]);
         
-        if ($sn) {
+        if (!$sn) {
+            return response("OK");
+        }
+
+        try {
             $machine = AttendanceMachine::where('serial_number', $sn)->first();
             if (!$machine) {
                 $locationId = \App\Models\MasterOfficeLocation::first()?->id;
@@ -188,9 +198,16 @@ class AdmsController extends Controller
                     }
                 }
             }
-        }
 
-        return response("OK");
+            return response("OK");
+        } catch (\Exception $e) {
+            Log::error("ADMS getrequest DB Error (handshake fallback sent)", [
+                'SN' => $sn,
+                'error' => $e->getMessage(),
+            ]);
+            // If DB is down, fallback to handshake to ensure time sync is maintained
+            return response($this->getHandshakeOptions($sn));
+        }
     }
 
     /**
@@ -205,25 +222,33 @@ class AdmsController extends Controller
         
         Log::debug("ADMS devicecmd Feedback", ['SN' => $sn, 'ID' => $id, 'Return' => $content]);
 
-        if ($id) {
-            $command = AttendanceMachineCommand::find($id);
-            if ($command) {
-                $command->update([
-                    'status' => 'completed',
-                    'completed_at' => now(),
-                    'response_payload' => $content,
-                ]);
+        try {
+            if ($id) {
+                $command = AttendanceMachineCommand::find($id);
+                if ($command) {
+                    $command->update([
+                        'status' => 'completed',
+                        'completed_at' => now(),
+                        'response_payload' => $content,
+                    ]);
 
-                // If this was an INFO command, parse the machine's datetime for sync verification
-                if (str_contains($command->command, 'INFO')) {
-                    $this->parseInfoResponse($sn, $content);
+                    // If this was an INFO command, parse the machine's datetime for sync verification
+                    if (str_contains($command->command, 'INFO')) {
+                        $this->parseInfoResponse($sn, $content);
+                    }
                 }
             }
-        }
 
-        // Also handle unsolicited INFO responses (machine may send without command ID)
-        if ($sn && str_contains($content, 'DateTime')) {
-            $this->parseInfoResponse($sn, $content);
+            // Also handle unsolicited INFO responses (machine may send without command ID)
+            if ($sn && str_contains($content, 'DateTime')) {
+                $this->parseInfoResponse($sn, $content);
+            }
+        } catch (\Exception $e) {
+            Log::error("ADMS devicecmd DB Error", [
+                'SN' => $sn,
+                'ID' => $id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return response("OK");

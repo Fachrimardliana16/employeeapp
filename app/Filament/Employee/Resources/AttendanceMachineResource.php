@@ -216,6 +216,28 @@ class AttendanceMachineResource extends Resource
                             ->duration(20000)
                             ->send();
                     }),
+                Tables\Actions\Action::make('force_set_time')
+                    ->label('Paksa Set Waktu')
+                    ->icon('heroicon-o-variable')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Paksa Sinkron Waktu (Tanpa Restart)')
+                    ->modalDescription('Perintah akan dikirim untuk mengubah jam mesin secara paksa mengikuti jam server detik ini juga. Gunakan ini jika "Perbaiki Jam & Restart" tidak mengubah waktu.')
+                    ->modalSubmitActionLabel('Kirim Perintah Set Waktu')
+                    ->action(function (AttendanceMachine $record) {
+                        $now = now()->format('Y-m-d H:i:s');
+                        \App\Models\AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $record->id,
+                            'command' => "SET OPTIONS DateTime={$now}",
+                            'status' => 'pending',
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perintah Terkirim')
+                            ->body('Perintah paksa set waktu (' . $now . ') telah dijadwalkan.')
+                            ->info()
+                            ->send();
+                    }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
