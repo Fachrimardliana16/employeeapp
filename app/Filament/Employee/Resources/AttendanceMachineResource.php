@@ -240,7 +240,7 @@ class AttendanceMachineResource extends Resource
                     }),
                 Tables\Actions\Action::make('refresh_info')
                     ->label('Cek Jam Detik Ini')
-                    ->icon('heroicon-o-arrow-path-focus')
+                    ->icon('heroicon-o-arrow-path')
                     ->color('gray')
                     ->modalHeading('Refresh Informasi & Waktu Mesin')
                     ->modalDescription('Server akan meminta informasi terbaru (termasuk jam internal mesin) saat ini juga. Gunakan ini setelah Anda memperbaiki jam secara manual agar angka selisih di dashboard terupdate.')
