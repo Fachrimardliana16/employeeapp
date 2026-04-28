@@ -216,6 +216,7 @@ class AttendanceMachineResource extends Resource
                             ->duration(20000)
                             ->send();
                     }),
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -228,7 +229,7 @@ class AttendanceMachineResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\CommandsRelationManager::class,
         ];
     }
 
@@ -237,6 +238,7 @@ class AttendanceMachineResource extends Resource
         return [
             'index' => Pages\ListAttendanceMachines::route('/'),
             'create' => Pages\CreateAttendanceMachine::route('/create'),
+            'view' => Pages\ViewAttendanceMachine::route('/{record}'),
             'edit' => Pages\EditAttendanceMachine::route('/{record}/edit'),
         ];
     }

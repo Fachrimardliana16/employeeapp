@@ -93,4 +93,9 @@ class AttendanceMachine extends Model
     {
         return $this->hasMany(AttendanceMachineLog::class, 'attendance_machine_id');
     }
+
+    public function commands(): HasMany
+    {
+        return $this->hasMany(AttendanceMachineCommand::class, 'attendance_machine_id');
+    }
 }
