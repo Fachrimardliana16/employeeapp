@@ -170,32 +170,47 @@ class AdmsController extends Controller
                     return response("C:{$pendingCommand->id}:{$pendingCommand->command}");
                 }
 
-                // --- Drift Detection from DB (runs max once per 5 minutes) ---
-                // Compare latest ATTLOG timestamp (machine clock) vs created_at (server clock)
-                $shouldCheck = !$machine->time_checked_at || 
-                               $machine->time_checked_at->diffInMinutes(now()) >= 5;
+                // --- Realtime Time Sync Check (Auto-polling every 1 minute) ---
+                $shouldAskTime = !$machine->time_checked_at || 
+                                 $machine->time_checked_at->diffInMinutes(now()) >= 1;
 
-                if ($shouldCheck) {
+                if ($shouldAskTime) {
+                    // 1. Actively ask the machine for its current time
+                    $alreadyAsked = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
+                        ->where('command', 'DATA QUERY INFO')
+                        ->where('status', 'pending')
+                        ->exists();
+
+                    if (!$alreadyAsked) {
+                        AttendanceMachineCommand::create([
+                            'attendance_machine_id' => $machine->id,
+                            'command' => "DATA QUERY INFO",
+                            'status' => 'pending',
+                        ]);
+                    }
+
+                    // 2. Passive Fallback: Check recent logs in case machine doesn't reply to INFO
                     $latestLog = AttendanceMachineLog::where('attendance_machine_id', $machine->id)
                         ->whereNotNull('timestamp')
-                        ->where('created_at', '>=', now()->subDay()) // Only recent logs
+                        ->where('created_at', '>=', now()->subDay()) 
                         ->orderByDesc('created_at')
                         ->first();
 
                     if ($latestLog && $latestLog->timestamp && $latestLog->created_at) {
-                        // timestamp = machine's clock when employee scanned
-                        // created_at = server's clock when data was received
                         $machineTime = \Carbon\Carbon::parse($latestLog->timestamp);
                         $serverTime = $latestLog->created_at;
 
-                        $driftSeconds = $machineTime->diffInSeconds($serverTime, false);
-                        $driftSeconds = -$driftSeconds; // positive = machine ahead
+                        // Calculate drift: machine - server
+                        $driftSeconds = $serverTime->diffInSeconds($machineTime, false);
 
                         $machine->update([
                             'machine_datetime' => $machineTime,
-                            'time_checked_at' => now(),
+                            'time_checked_at' => now(), // Mark as checked
                             'time_drift_seconds' => $driftSeconds,
                         ]);
+                    } else {
+                        // Mark as checked to prevent loop
+                        $machine->update(['time_checked_at' => now()]);
                     }
                 }
             }
@@ -289,11 +304,9 @@ class AdmsController extends Controller
                 $serverNow = now()->timezone('Asia/Jakarta');
                 $machineTime = \Carbon\Carbon::parse($machineDateTime);
                 
-                // Calculate drift: positive = machine ahead, negative = machine behind
-                $driftSeconds = $machineTime->diffInSeconds($serverNow, false);
-                // diffInSeconds with absolute=false: server - machine
-                // We want machine - server, so negate:
-                $driftSeconds = -$driftSeconds;
+                // Calculate drift: machine - server
+                // positive = machine ahead, negative = machine behind
+                $driftSeconds = $serverNow->diffInSeconds($machineTime, false);
 
                 $machine->update([
                     'machine_datetime' => $machineTime,
