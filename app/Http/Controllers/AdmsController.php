@@ -353,32 +353,19 @@ class AdmsController extends Controller
                         ]
                     );
 
-                    // 2. Synchronize to Employee Attendance Records
-                    $employee = \App\Models\Employee::where('pin', $pin)->first();
-                    if ($employee) {
-                        $attendanceTime = \Carbon\Carbon::parse($time);
-                        
-                        $state = match($type) {
-                            '0' => 'check_in',
-                            '1' => 'check_out',
-                            '2' => 'break_out',
-                            '3' => 'break_in',
-                            '4' => 'ot_in',
-                            '5' => 'ot_out',
-                            default => 'check_in'
-                        };
-
-                        // Fast update/create for attendance
-                        \App\Models\Attendance::updateOrCreate(
+                        // 3. Update Main Attendance Record (for reporting)
+                        \App\Models\EmployeeAttendanceRecord::updateOrCreate(
                             [
-                                'employee_id' => $employee->id,
-                                'date' => $attendanceTime->toDateString(),
+                                'pin' => $pin,
+                                'attendance_time' => $attendanceTime->toDateTimeString(),
                                 'state' => $state,
                             ],
                             [
-                                'attendance_machine_id' => $machine ? $machine->id : null,
-                                'time' => $attendanceTime->toTimeString(),
-                                'raw_data' => $line,
+                                'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$pin})",
+                                'attendance_status' => 'on_time', // Simplified status for performance
+                                'verification' => $verify,
+                                'device' => $machine ? $machine->name : $sn,
+                                'office_location_id' => $machine ? $machine->master_office_location_id : null,
                             ]
                         );
                     }
@@ -390,53 +377,12 @@ class AdmsController extends Controller
                     'line' => $line,
                     'error' => $e->getMessage()
                 ]);
-                // Continue to next line even if this one failed due to DB timeout
             }
         }
 
         Log::info("ADMS logs processed for {$sn}: {$processedCount} lines.");
-    }
-                    ->where('day', $dayName)
-                    ->first();
 
-                $status = 'on_time';
-                if ($schedule) {
-                    if ($state === 'check_in' && $schedule->check_in_end) {
-                        $checkInTime = $attendanceTime->format('H:i:s');
-                        if ($checkInTime > $schedule->check_in_end) {
-                            $status = 'late';
-                        }
-                    } elseif ($state === 'check_out' && $schedule->check_out_start) {
-                        $checkOutTime = $attendanceTime->format('H:i:s');
-                        if ($checkOutTime < $schedule->check_out_start) {
-                            $status = 'early';
-                        }
-                    }
-                }
-
-                // Create or Update Main Attendance Record
-                // We use updateOrCreate to prevent exact duplicate logs in the main table if machine re-sends
-                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
-                    [
-                        'pin' => $pin,
-                        'attendance_time' => $attendanceTime->toDateTimeString(),
-                        'state' => $state,
-                    ],
-                    [
-                        'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$pin})",
-                        'attendance_status' => $status,
-                        'verification' => $verify,
-                        'device' => $machine ? $machine->name : $sn,
-                        'office_location_id' => $machine ? $machine->master_office_location_id : null,
-                    ]
-                );
-            }
-        }
-
-        // --- Time Drift Detection from ATTLOG ---
-        // Since Solution X105-ID doesn't support devicecmd feedback (INFO command),
-        // we detect drift by comparing the latest ATTLOG timestamp with server time.
-        // If a scan happened within the last 5 minutes, it's "live" and reflects the machine's clock.
+        // Update drift detection for machines that don't support INFO commands
         if ($machine) {
             $this->detectTimeDriftFromLogs($machine, $content);
         }
