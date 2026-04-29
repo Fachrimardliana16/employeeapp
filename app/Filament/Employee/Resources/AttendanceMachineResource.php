@@ -44,11 +44,11 @@ class AttendanceMachineResource extends Resource
                             ->searchable()
                             ->preload()
                             ->label('Lokasi Kantor'),
-                                Forms\Components\Placeholder::make('last_heard_at')
-                            ->content(fn ($record) => $record?->last_heard_at?->diffForHumans() ?? '-')
+                        Forms\Components\Placeholder::make('last_heard_at')
+                            ->content(fn($record) => $record?->last_heard_at?->diffForHumans() ?? '-')
                             ->label('Terakhir Aktif'),
                         Forms\Components\Placeholder::make('ip_address')
-                            ->content(fn ($record) => $record?->ip_address ?? '-')
+                            ->content(fn($record) => $record?->ip_address ?? '-')
                             ->label('Alamat IP'),
                     ])->columns(2),
                 Forms\Components\Section::make('Pengaturan Waktu Mesin')
@@ -66,22 +66,22 @@ class AttendanceMachineResource extends Resource
                             ->default(7)
                             ->minValue(-12)
                             ->maxValue(14)
-                            ->visible(fn (Forms\Get $get) => (bool) $get('auto_sync_time')),
+                            ->visible(fn(Forms\Get $get) => (bool) $get('auto_sync_time')),
                     ])->columns(2),
                 Forms\Components\Section::make('Statistik Komunikasi')
                     ->description('Informasi komunikasi antara mesin dan server.')
                     ->schema([
                         Forms\Components\Placeholder::make('communication_success_count')
-                            ->content(fn ($record) => number_format($record?->communication_success_count ?? 0))
+                            ->content(fn($record) => number_format($record?->communication_success_count ?? 0))
                             ->label('Komunikasi Berhasil'),
                         Forms\Components\Placeholder::make('communication_error_count')
-                            ->content(fn ($record) => number_format($record?->communication_error_count ?? 0))
+                            ->content(fn($record) => number_format($record?->communication_error_count ?? 0))
                             ->label('Komunikasi Gagal'),
                         Forms\Components\Placeholder::make('last_error_at')
-                            ->content(fn ($record) => $record?->last_error_at?->format('d/m/Y H:i:s') ?? '-')
+                            ->content(fn($record) => $record?->last_error_at?->format('d/m/Y H:i:s') ?? '-')
                             ->label('Error Terakhir'),
                         Forms\Components\Placeholder::make('last_error_message')
-                            ->content(fn ($record) => $record?->last_error_message ?? '-')
+                            ->content(fn($record) => $record?->last_error_message ?? '-')
                             ->label('Pesan Error Terakhir'),
                     ])->columns(2)->hiddenOn('create'),
             ]);
@@ -113,20 +113,21 @@ class AttendanceMachineResource extends Resource
                     ->label('Lokasi Kantor'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn ($record): string => match (true) {
+                    ->color(fn($record): string => match (true) {
                         $record->is_online => 'success',
                         default => 'danger',
                     })
-                    ->formatStateUsing(fn ($record): string => $record->is_online ? 'Online' : 'Offline')
+                    ->formatStateUsing(fn($record): string => $record->is_online ? 'Online' : 'Offline')
                     ->label('Status'),
                 Tables\Columns\TextColumn::make('time_sync_status')
-                    ->getStateUsing(fn ($record): string => $record->time_drift_label)
+                    ->getStateUsing(fn($record): string => $record->time_drift_label)
                     ->badge()
-                    ->color(fn ($record): string => $record->time_sync_color)
+                    ->color(fn($record): string => $record->time_sync_color)
                     ->label('Sinkronisasi Waktu')
-                    ->tooltip(fn ($record): string => $record->time_checked_at
-                        ? 'Dicek: ' . $record->time_checked_at->format('d/m/Y H:i:s') . ' | Jam Mesin: ' . ($record->machine_datetime?->format('d/m/Y H:i:s') ?? '-')
-                        : 'Belum pernah dicek. Jam mesin akan dicek otomatis saat pegawai scan.'
+                    ->tooltip(
+                        fn($record): string => $record->time_checked_at
+                            ? 'Dicek: ' . $record->time_checked_at->format('d/m/Y H:i:s') . ' | Jam Mesin: ' . ($record->machine_datetime?->format('d/m/Y H:i:s') ?? '-')
+                            : 'Belum pernah dicek. Jam mesin akan dicek otomatis saat pegawai scan.'
                     ),
                 Tables\Columns\TextColumn::make('last_command_status')
                     ->getStateUsing(function ($record): string {
@@ -188,7 +189,7 @@ class AttendanceMachineResource extends Resource
                     ->numeric()
                     ->sortable()
                     ->label('✗ Error')
-                    ->color(fn ($state): string => $state > 0 ? 'danger' : 'gray')
+                    ->color(fn($state): string => $state > 0 ? 'danger' : 'gray')
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('last_error_at')
                     ->dateTime()
@@ -202,10 +203,10 @@ class AttendanceMachineResource extends Resource
                     ->relationship('officeLocation', 'name')
                     ->label('Lokasi Kantor'),
                 Tables\Filters\Filter::make('status')
-                    ->query(fn (Builder $query): Builder => $query->where('last_heard_at', '>=', now()->subMinutes(5)))
+                    ->query(fn(Builder $query): Builder => $query->where('last_heard_at', '>=', now()->subMinutes(5)))
                     ->label('Online Saja'),
                 Tables\Filters\Filter::make('time_drift')
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('time_drift_seconds')->whereRaw('ABS(time_drift_seconds) > 20'))
+                    ->query(fn(Builder $query): Builder => $query->whereNotNull('time_drift_seconds')->whereRaw('ABS(time_drift_seconds) > 20'))
                     ->label('Jam Tidak Sinkron'),
             ])
             ->headerActions([
@@ -219,7 +220,7 @@ class AttendanceMachineResource extends Resource
                     ->action(function () {
                         $machines = AttendanceMachine::where('last_heard_at', '>=', now()->subMinutes(5))->get();
                         $count = 0;
-                        
+
                         foreach ($machines as $machine) {
                             \App\Models\AttendanceMachineCommand::create([
                                 'attendance_machine_id' => $machine->id,
@@ -228,7 +229,7 @@ class AttendanceMachineResource extends Resource
                             ]);
                             $count++;
                         }
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Sinkronisasi Dijadwalkan')
                             ->body("Perintah tarik data telah dikirim ke {$count} mesin online.")
@@ -236,7 +237,7 @@ class AttendanceMachineResource extends Resource
                             ->duration(5000)
                             ->send();
                     }),
-                
+
                 Tables\Actions\Action::make('fix_all_time_drift')
                     ->label('Perbaiki Semua Jam yang Tidak Sinkron')
                     ->icon('heroicon-o-clock')
@@ -249,7 +250,7 @@ class AttendanceMachineResource extends Resource
                             ->whereRaw('ABS(time_drift_seconds) > 20')
                             ->get();
                         $count = 0;
-                        
+
                         foreach ($machines as $machine) {
                             \App\Models\AttendanceMachineCommand::create([
                                 'attendance_machine_id' => $machine->id,
@@ -258,7 +259,7 @@ class AttendanceMachineResource extends Resource
                             ]);
                             $count++;
                         }
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Perintah Restart Dijadwalkan')
                             ->body("Perintah restart telah dikirim ke {$count} mesin dengan jam tidak sinkron.")
@@ -393,7 +394,7 @@ class AttendanceMachineResource extends Resource
                     ->label('Log Komunikasi')
                     ->icon('heroicon-o-signal')
                     ->color('gray')
-                    ->modalHeading(fn (AttendanceMachine $record) => 'Log Komunikasi: ' . $record->name)
+                    ->modalHeading(fn(AttendanceMachine $record) => 'Log Komunikasi: ' . $record->name)
                     ->modalContent(function (AttendanceMachine $record) {
                         $logs = $record->communications()->latest()->limit(50)->get();
                         return view('filament.modals.machine-communications', compact('logs', 'record'));
@@ -424,14 +425,14 @@ class AttendanceMachineResource extends Resource
                                 ]);
                                 $count++;
                             }
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Perintah Terkirim')
                                 ->body("Perintah tarik data telah dijadwalkan untuk {$count} mesin.")
                                 ->success()
                                 ->send();
                         }),
-                    
+
                     Tables\Actions\BulkAction::make('bulk_sync_users')
                         ->label('Tarik Data User (Massal)')
                         ->icon('heroicon-o-users')
@@ -450,14 +451,14 @@ class AttendanceMachineResource extends Resource
                                 ]);
                                 $count++;
                             }
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Perintah Terkirim')
                                 ->body("Perintah tarik user telah dijadwalkan untuk {$count} mesin.")
                                 ->success()
                                 ->send();
                         }),
-                    
+
                     Tables\Actions\BulkAction::make('bulk_restart')
                         ->label('Restart Mesin (Massal)')
                         ->icon('heroicon-o-arrow-path')
@@ -476,14 +477,14 @@ class AttendanceMachineResource extends Resource
                                 ]);
                                 $count++;
                             }
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Perintah Terkirim')
                                 ->body("Perintah restart telah dijadwalkan untuk {$count} mesin.")
                                 ->warning()
                                 ->send();
                         }),
-                    
+
                     Tables\Actions\BulkAction::make('bulk_check_time')
                         ->label('Cek Jam Mesin (Massal)')
                         ->icon('heroicon-o-clock')
@@ -499,13 +500,13 @@ class AttendanceMachineResource extends Resource
                                 ]);
                                 $count++;
                             }
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Perintah Terkirim')
                                 ->body("Permintaan info jam telah dikirim ke {$count} mesin. Tunggu 30 detik lalu refresh.")
                                 ->send();
                         }),
-                    
+
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);

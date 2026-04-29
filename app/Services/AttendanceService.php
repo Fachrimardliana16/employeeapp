@@ -58,7 +58,7 @@ class AttendanceService
             $schedule = AttendanceSchedule::where('is_active', true)
                 ->where(function ($q) use ($dayInd, $dayEng) {
                     $q->whereRaw('LOWER(day) = ?', [strtolower($dayInd)])
-                      ->orWhereRaw('LOWER(day) = ?', [strtolower($dayEng)]);
+                        ->orWhereRaw('LOWER(day) = ?', [strtolower($dayEng)]);
                 })
                 ->first();
         }
@@ -115,7 +115,8 @@ class AttendanceService
             ->whereDate('start_date', '<=', $dateStr)
             ->whereDate('end_date', '>=', $dateStr)
             ->whereNotIn('status', $excluded)
-            ->exists()) {
+            ->exists()
+        ) {
             return true;
         }
 
@@ -125,7 +126,7 @@ class AttendanceService
             ->whereNotIn('status', $excluded)
             ->where(function ($q) use ($employee) {
                 $q->whereJsonContains('additional_employee_ids', (string) $employee->id)
-                  ->orWhereJsonContains('additional_employee_ids', $employee->id);
+                    ->orWhereJsonContains('additional_employee_ids', $employee->id);
             })
             ->exists();
     }
@@ -182,7 +183,10 @@ class AttendanceService
 
         if ($location && $location->latitude && $location->longitude) {
             $distance  = (int) round(MasterOfficeLocation::calculateDistance(
-                (float) $location->latitude, (float) $location->longitude, $lat, $lng
+                (float) $location->latitude,
+                (float) $location->longitude,
+                $lat,
+                $lng
             ));
             $maxRadius = $location->radius ?: 100;
 
@@ -227,7 +231,10 @@ class AttendanceService
         if (!$last) return ['ok' => true, 'reject' => false, 'message' => null];
 
         $distanceM       = MasterOfficeLocation::calculateDistance(
-            (float) $last->check_latitude, (float) $last->check_longitude, $lat, $lng
+            (float) $last->check_latitude,
+            (float) $last->check_longitude,
+            $lat,
+            $lng
         );
         $timeDiffSeconds = max(1, now()->diffInSeconds($last->attendance_time));
         $speedKmh        = ($distanceM / 1000) / ($timeDiffSeconds / 3600);
@@ -238,7 +245,9 @@ class AttendanceService
                 'reject'  => true,
                 'message' => sprintf(
                     'Perpindahan tidak mungkin: %.0fkm dalam %s menit (%.0f km/jam).',
-                    $distanceM / 1000, round($timeDiffSeconds / 60), $speedKmh
+                    $distanceM / 1000,
+                    round($timeDiffSeconds / 60),
+                    $speedKmh
                 ),
             ];
         }
@@ -270,7 +279,7 @@ class AttendanceService
         $schedule = AttendanceSchedule::where('is_active', true)
             ->where(function ($q) use ($dayInd, $dayEng) {
                 $q->whereRaw('LOWER(day) = ?', [strtolower($dayInd)])
-                  ->orWhereRaw('LOWER(day) = ?', [strtolower($dayEng)]);
+                    ->orWhereRaw('LOWER(day) = ?', [strtolower($dayEng)]);
             })
             ->first();
 

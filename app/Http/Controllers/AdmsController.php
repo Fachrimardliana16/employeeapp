@@ -16,11 +16,11 @@ class AdmsController extends Controller
      * CRITICAL: This helps track communication issues and machine behavior.
      */
     private function logCommunication(
-        string $sn, 
-        string $endpoint, 
-        Request $request, 
-        string $response, 
-        int $responseCode = 200, 
+        string $sn,
+        string $endpoint,
+        Request $request,
+        string $response,
+        int $responseCode = 200,
         ?string $error = null,
         ?AttendanceMachine $machine = null
     ): void {
@@ -37,7 +37,7 @@ class AdmsController extends Controller
                 'response_code' => $responseCode,
                 'error_message' => $error,
             ]);
-            
+
             // Update machine communication stats
             if ($machine) {
                 if ($error) {
@@ -55,10 +55,10 @@ class AdmsController extends Controller
             Log::error("Failed to log communication", ['error' => $e->getMessage()]);
         }
     }
-    
+
     /**
      * Get the standard handshake options to send to machines.
-     * 
+     *
      * IMPORTANT NOTES:
      * 1. NEVER send commands that delete data (CLEAR DATA, CLEAR ATTLOG, etc.)
      * 2. TimeZone setting is OPTIONAL and controlled per-machine via auto_sync_time flag
@@ -76,7 +76,7 @@ class AdmsController extends Controller
             "TransInterval=1",
             "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
         ];
-        
+
         // CRITICAL: Only send timezone if machine has auto_sync_time enabled
         // Some machines (like newer models) auto-adjust timezone causing +1 hour drift
         // Default behavior: DON'T send timezone, let machine use its own clock
@@ -84,7 +84,7 @@ class AdmsController extends Controller
             $timezone = $machine->timezone_offset ?? '7'; // Default WIB = +7
             $options[] = "TimeZone={$timezone}";
             $options[] = "GMTPlus={$timezone}";
-            
+
             Log::info("ADMS TimeZone SENT (auto_sync enabled)", [
                 'SN' => $sn,
                 'timezone' => $timezone,
@@ -95,15 +95,15 @@ class AdmsController extends Controller
                 'reason' => $machine ? 'auto_sync_time disabled' : 'machine not in DB',
             ]);
         }
-        
+
         $options[] = "Realtime=1";
         $options[] = "PushVersion=3.0";
         $options[] = "Encrypt=0";
-        
+
         // SAFETY: Never include CLEAR commands
         // $options[] = "CLEAR DATA";  // NEVER!
         // $options[] = "CLEAR ATTLOG"; // NEVER!
-        
+
         return implode("\n", $options);
     }
 
@@ -116,14 +116,14 @@ class AdmsController extends Controller
         $sn = $request->query('SN');
         $response = '';
         $error = null;
-        
+
         Log::debug("ADMS cdata Request", [
-            'SN' => $sn, 
-            'IP' => $request->ip(), 
+            'SN' => $sn,
+            'IP' => $request->ip(),
             'Method' => $request->method(),
             'Query' => $request->query(),
         ]);
-        
+
         if (!$sn) {
             $error = "SN NOT FOUND in request";
             $this->logCommunication($sn ?? 'UNKNOWN', 'cdata', $request, $error, 400, $error);
@@ -134,10 +134,10 @@ class AdmsController extends Controller
         // we still send the handshake so machine stays connected
         try {
             $machine = AttendanceMachine::where('serial_number', $sn)->first();
-            
+
             if (!$machine) {
                 $locationId = \App\Models\MasterOfficeLocation::first()?->id;
-                
+
                 if ($locationId) {
                     $machine = AttendanceMachine::create([
                         'serial_number' => $sn,
@@ -210,13 +210,13 @@ class AdmsController extends Controller
         $sn = $request->query('SN');
         $response = '';
         $error = null;
-        
+
         Log::debug("ADMS getrequest Heartbeat", [
-            'SN' => $sn, 
+            'SN' => $sn,
             'IP' => $request->ip(),
             'Query' => $request->query(),
         ]);
-        
+
         if (!$sn) {
             $this->logCommunication($sn ?? 'UNKNOWN', 'getrequest', $request, "OK", 200, "No SN provided");
             return response("OK");
@@ -270,20 +270,20 @@ class AdmsController extends Controller
 
                     // Return command in ZKTeco format: C:ID:COMMAND
                     $response = "C:{$pendingCommand->id}:{$pendingCommand->command}";
-                    
+
                     Log::info("ADMS Command Sent", [
                         'SN' => $sn,
                         'command_id' => $pendingCommand->id,
                         'command' => $pendingCommand->command,
                     ]);
-                    
+
                     $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
                     return response($response);
                 }
 
                 // --- Realtime Time Sync Check (Auto-polling every 1 minute) ---
-                $shouldAskTime = !$machine->time_checked_at || 
-                                 $machine->time_checked_at->diffInMinutes(now()) >= 1;
+                $shouldAskTime = !$machine->time_checked_at ||
+                    $machine->time_checked_at->diffInMinutes(now()) >= 1;
 
                 if ($shouldAskTime) {
                     // 1. Actively ask the machine for its current time
@@ -303,7 +303,7 @@ class AdmsController extends Controller
                     // 2. Passive Fallback: Check recent logs in case machine doesn't reply to INFO
                     $latestLog = AttendanceMachineLog::where('attendance_machine_id', $machine->id)
                         ->whereNotNull('timestamp')
-                        ->where('created_at', '>=', now()->subDay()) 
+                        ->where('created_at', '>=', now()->subDay())
                         ->orderByDesc('created_at')
                         ->first();
 
@@ -354,17 +354,17 @@ class AdmsController extends Controller
         $content = $request->getContent();
         $response = "OK";
         $error = null;
-        
+
         Log::debug("ADMS devicecmd Feedback", [
-            'SN' => $sn, 
-            'ID' => $id, 
+            'SN' => $sn,
+            'ID' => $id,
             'Return' => substr($content, 0, 500), // Log first 500 chars
             'IP' => $request->ip(),
         ]);
 
         try {
             $machine = AttendanceMachine::where('serial_number', $sn)->first();
-            
+
             if ($id) {
                 $command = AttendanceMachineCommand::find($id);
                 if ($command) {
@@ -373,7 +373,7 @@ class AdmsController extends Controller
                         'completed_at' => now(),
                         'response_payload' => $content,
                     ]);
-                    
+
                     Log::info("ADMS Command Completed", [
                         'SN' => $sn,
                         'command_id' => $id,
@@ -392,7 +392,7 @@ class AdmsController extends Controller
             if ($sn && str_contains($content, 'DateTime')) {
                 $this->parseInfoResponse($sn, $content);
             }
-            
+
             $this->logCommunication($sn, 'devicecmd', $request, $response, 200, null, $machine);
         } catch (\Exception $e) {
             $error = "DB Error: " . $e->getMessage();
@@ -411,7 +411,7 @@ class AdmsController extends Controller
     /**
      * Parse INFO response from machine.
      * Extracts: DateTime, DeviceName/Model, FirmwareVersion, SerialNumber, UserCount, etc.
-     * 
+     *
      * Firmware variations (different brands respond differently):
      *   ZKTeco  : "~ServerVer=2.4.1\nDeviceName=BIO800\nDateTime=2026-04-28 10:00:00"
      *   Virdi   : "Return=0\nDateTime=2026-04-28 10:00:00\nDeviceName=AC2100"
@@ -517,7 +517,7 @@ class AdmsController extends Controller
 
     /**
      * Parse the raw attendance logs from the machine.
-     * 
+     *
      * IMPORTANT RULES:
      * 1. NEVER send CLEAR/DELETE commands to machine — data stays on machine
      * 2. Use updateOrCreate to avoid duplicates but preserve existing data
@@ -528,7 +528,7 @@ class AdmsController extends Controller
         $lines = explode("\n", $content);
         $processedCount = 0;
         $errorCount = 0;
-        
+
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
@@ -562,10 +562,13 @@ class AdmsController extends Controller
 
                 // Sync to main attendance table
                 $attendanceTime = \Carbon\Carbon::parse($time);
-                $state = match($type) {
-                    '0' => 'check_in',  '1' => 'check_out',
-                    '2' => 'break_out', '3' => 'break_in',
-                    '4' => 'ot_in',     '5' => 'ot_out',
+                $state = match ($type) {
+                    '0' => 'check_in',
+                    '1' => 'check_out',
+                    '2' => 'break_out',
+                    '3' => 'break_in',
+                    '4' => 'ot_in',
+                    '5' => 'ot_out',
                     default => 'check_in'
                 };
 
@@ -581,7 +584,7 @@ class AdmsController extends Controller
                         'attendance_status' => 'on_time',
                         'verification'      => $verify,
                         'device'            => $machine ? $machine->name : $sn,
-                        'office_location_id'=> $machine?->master_office_location_id,
+                        'office_location_id' => $machine?->master_office_location_id,
                     ]
                 );
 
@@ -611,7 +614,7 @@ class AdmsController extends Controller
     /**
      * Parse user info from machine.
      * Format: PIN\tName\tPassword\tGroup\tPrivilege\tCardNo
-     * 
+     *
      * SAFETY: Only updates employee PIN if they don't have one yet.
      * Never deletes or overwrites existing employee data.
      */
@@ -654,7 +657,7 @@ class AdmsController extends Controller
 
     /**
      * Detect time drift by analyzing the most recent ATTLOG timestamp.
-     * 
+     *
      * Strategy: If the latest log timestamp is very close to "now" (within ~2 hours
      * to account for possible drift), it's a live scan and we can measure drift.
      * The machine sends ATTLOG in real-time when Realtime=1, so the latest entry's
@@ -682,11 +685,11 @@ class AdmsController extends Controller
             if (!$latestTimestamp) return;
 
             $serverNow = now()->timezone('Asia/Jakarta');
-            
+
             // Only consider as "live" if the log is within 2 hours of server time
             // (to account for drift up to ~2 hours but reject old historical data)
             $absDiffMinutes = abs($serverNow->diffInMinutes($latestTimestamp));
-            
+
             if ($absDiffMinutes <= 120) {
                 // This is a live scan — calculate drift
                 $driftSeconds = $latestTimestamp->diffInSeconds($serverNow, false);

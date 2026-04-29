@@ -40,13 +40,13 @@ Schedule::command('attendance:auto-fix-time --threshold=60')
 // Check machine time sync status every 2 hours during work hours
 Schedule::call(function () {
     $machines = \App\Models\AttendanceMachine::where('last_heard_at', '>=', now()->subMinutes(5))->get();
-    
+
     foreach ($machines as $machine) {
         $hasPending = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
             ->where('status', 'pending')
             ->where('command', 'DATA QUERY INFO')
             ->exists();
-        
+
         if (!$hasPending) {
             \App\Models\AttendanceMachineCommand::create([
                 'attendance_machine_id' => $machine->id,
@@ -67,7 +67,7 @@ Schedule::call(function () {
     $cutoffDate = now()->subYear();
     $count = \App\Models\AttendanceMachineLog::where('timestamp', '<', $cutoffDate)->count();
     \App\Models\AttendanceMachineLog::where('timestamp', '<', $cutoffDate)->forceDelete();
-    
+
     \Illuminate\Support\Facades\Log::info("Scheduled cleanup: Deleted {$count} old attendance logs.");
 })->monthlyOn(1, '02:00')
     ->timezone('Asia/Jakarta')

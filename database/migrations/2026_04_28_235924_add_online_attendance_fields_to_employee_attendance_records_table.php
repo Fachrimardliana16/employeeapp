@@ -43,8 +43,11 @@ return new class extends Migration
     {
         Schema::table('employee_attendance_records', function (Blueprint $table) {
             $table->dropColumn([
-                'source', 'gps_accuracy', 'gps_jitter',
-                'is_fake_gps_suspected', 'gps_flag_reason',
+                'source',
+                'gps_accuracy',
+                'gps_jitter',
+                'is_fake_gps_suspected',
+                'gps_flag_reason',
             ]);
         });
     }

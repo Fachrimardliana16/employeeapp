@@ -106,12 +106,12 @@ class AttendanceMachine extends Model
         return $this->hasMany(AttendanceMachineLog::class, 'attendance_machine_id');
     }
 
-    
+
     public function communications(): HasMany
     {
         return $this->hasMany(AttendanceMachineCommunication::class, 'attendance_machine_id');
     }
-    
+
     /**
      * Get communication error rate percentage
      */
@@ -119,7 +119,7 @@ class AttendanceMachine extends Model
     {
         $total = $this->communication_success_count + $this->communication_error_count;
         if ($total === 0) return 0;
-        
+
         return round(($this->communication_error_count / $total) * 100, 2);
     }
     public function commands(): HasMany

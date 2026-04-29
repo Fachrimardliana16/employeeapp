@@ -25,11 +25,11 @@ return new class extends Migration
             $table->integer('response_code')->default(200);
             $table->text('error_message')->nullable();
             $table->timestamps();
-            
+
             $table->index(['serial_number', 'created_at']);
             $table->index(['endpoint', 'created_at']);
         });
-        
+
         // Add timezone and communication fields to machines table
         Schema::table('attendance_machines', function (Blueprint $table) {
             $table->string('timezone_offset')->nullable()->after('device_model'); // e.g., '+7', '+8'
@@ -47,7 +47,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('attendance_machine_communications');
-        
+
         Schema::table('attendance_machines', function (Blueprint $table) {
             $table->dropColumn([
                 'timezone_offset',

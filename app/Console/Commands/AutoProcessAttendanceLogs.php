@@ -29,7 +29,7 @@ class AutoProcessAttendanceLogs extends Command
     public function handle()
     {
         $date = $this->option('date') ? \Carbon\Carbon::parse($this->option('date')) : today();
-        
+
         $this->info("Processing attendance logs for: {$date->format('Y-m-d')}");
 
         $logs = AttendanceMachineLog::whereDate('timestamp', $date)->get();
@@ -45,11 +45,16 @@ class AutoProcessAttendanceLogs extends Command
 
         foreach ($logs as $record) {
             $employee = Employee::where('pin', $record->pin)->first();
-            $state = match($record->type) {
-                '0' => 'check_in', '1' => 'check_out', '2' => 'break_out',
-                '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+            $state = match ($record->type) {
+                '0' => 'check_in',
+                '1' => 'check_out',
+                '2' => 'break_out',
+                '3' => 'break_in',
+                '4' => 'ot_in',
+                '5' => 'ot_out',
+                default => 'check_in'
             };
-            
+
             EmployeeAttendanceRecord::updateOrCreate(
                 ['pin' => $record->pin, 'attendance_time' => $record->timestamp->toDateTimeString(), 'state' => $state],
                 [

@@ -220,8 +220,21 @@ class RecordAttendance extends Page implements HasActions
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use (
-            $employee, $attendanceData, $reportData, $minDistance, $picturePath, $user,
-            $closestLocation, $attendanceStatus, $accuracy, $jitter, $isFake, $flagReason, $lat, $lng, $now
+            $employee,
+            $attendanceData,
+            $reportData,
+            $minDistance,
+            $picturePath,
+            $user,
+            $closestLocation,
+            $attendanceStatus,
+            $accuracy,
+            $jitter,
+            $isFake,
+            $flagReason,
+            $lat,
+            $lng,
+            $now
         ) {
             if ($reportData) {
                 EmployeeDailyReport::create([
@@ -280,7 +293,7 @@ class RecordAttendance extends Page implements HasActions
     {
         $data = explode(',', $base64Data);
         $decodedImage = base64_decode($data[1]);
-        
+
         $img = imagecreatefromstring($decodedImage);
         if (!$img) {
             throw new \Exception('Gagal memproses gambar.');
@@ -307,13 +320,13 @@ class RecordAttendance extends Page implements HasActions
         // Generate unique filename with .webp extension
         $filename = 'attendance_' . time() . '_' . uniqid() . '.webp';
         $directory = storage_path('app/public/attendance-photos');
-        
+
         if (!file_exists($directory)) {
             mkdir($directory, 0755, true);
         }
 
         $path = $directory . '/' . $filename;
-        
+
         // Save as WebP with 75% quality (better optimization)
         if (function_exists('imagewebp')) {
             imagewebp($img, $path, 75);
@@ -323,7 +336,7 @@ class RecordAttendance extends Page implements HasActions
             $path = str_replace('.webp', '.jpg', $path);
             imagejpeg($img, $path, 75);
         }
-        
+
         imagedestroy($img);
 
         return 'attendance-photos/' . $filename;

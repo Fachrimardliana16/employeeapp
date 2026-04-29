@@ -127,7 +127,7 @@
     }" x-init="getLocation(); updateTime(); setInterval(() => updateTime(), 1000)" class="space-y-8">
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
+
             <!-- Left Column: Form and Camera -->
             <div class="lg:col-span-7 space-y-6">
                 <!-- Status Card -->
@@ -148,18 +148,18 @@
                                 <div class="flex items-center gap-3">
                                     <p class="text-sm font-bold text-gray-900 dark:text-white" x-text="latitude && longitude ? `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` : (status === 'searching' ? `Membaca titik ${gpsStep}/3...` : 'Belum terdeteksi')"></p>
                                     <template x-if="distanceToOffice !== null">
-                                        <span 
-                                            class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase" 
-                                            x-text="`${distanceToOffice}m`" 
+                                        <span
+                                            class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                                            x-text="`${distanceToOffice}m`"
                                             :class="distanceToOffice > 100 ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' : (distanceToOffice > 50 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400')"
                                             :title="`Jarak dari kantor: ${distanceToOffice}m`"
                                         ></span>
                                     </template>
-                                    
+
                                     <!-- Refresh Location Button with better feedback -->
-                                    <button 
-                                        type="button" 
-                                        @click="getLocation()" 
+                                    <button
+                                        type="button"
+                                        @click="getLocation()"
                                         class="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-500/10 rounded-full transition-all active:scale-90 focus:outline-none ring-1 ring-transparent hover:ring-primary-200 dark:hover:ring-primary-500/30"
                                         title="Perbarui Lokasi GPS"
                                     >
@@ -329,12 +329,12 @@
             max-width: 1400px !important;
             margin: 0 auto !important;
         }
-        
+
         /* Premium Shadows */
         .shadow-premium {
             box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05);
         }
     </style>
-    
+
     <x-filament-actions::modals />
 </x-filament-panels::page>

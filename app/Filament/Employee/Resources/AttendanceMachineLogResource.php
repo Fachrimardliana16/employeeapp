@@ -74,12 +74,12 @@ class AttendanceMachineLogResource extends Resource
                     ->label('PIN'),
                 Tables\Columns\TextColumn::make('type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         '0' => 'success',
                         '1' => 'warning',
                         default => 'gray',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         '0' => 'Masuk',
                         '1' => 'Keluar',
                         '2' => 'Break Out',
@@ -109,11 +109,11 @@ class AttendanceMachineLogResource extends Resource
                         return $query
                             ->when(
                                 $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('timestamp', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('timestamp', '>=', $date),
                             )
                             ->when(
                                 $data['to'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('timestamp', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('timestamp', '<=', $date),
                             );
                     })
                     ->indicateUsing(function (array $data): array {
@@ -139,14 +139,19 @@ class AttendanceMachineLogResource extends Resource
                     ->action(function () {
                         $logs = AttendanceMachineLog::whereDate('timestamp', today())->get();
                         $count = 0;
-                        
+
                         foreach ($logs as $record) {
                             $employee = \App\Models\Employee::where('pin', $record->pin)->first();
-                            $state = match($record->type) {
-                                '0' => 'check_in', '1' => 'check_out', '2' => 'break_out',
-                                '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+                            $state = match ($record->type) {
+                                '0' => 'check_in',
+                                '1' => 'check_out',
+                                '2' => 'break_out',
+                                '3' => 'break_in',
+                                '4' => 'ot_in',
+                                '5' => 'ot_out',
+                                default => 'check_in'
                             };
-                            
+
                             \App\Models\EmployeeAttendanceRecord::updateOrCreate(
                                 ['pin' => $record->pin, 'attendance_time' => $record->timestamp->toDateTimeString(), 'state' => $state],
                                 [
@@ -158,7 +163,7 @@ class AttendanceMachineLogResource extends Resource
                             );
                             $count++;
                         }
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Proses Otomatis Selesai')
                             ->body("{$count} log hari ini telah diproses ke tabel kehadiran.")
@@ -166,7 +171,7 @@ class AttendanceMachineLogResource extends Resource
                             ->duration(5000)
                             ->send();
                     }),
-                
+
                 Tables\Actions\Action::make('auto_cleanup_old')
                     ->label('Bersihkan Log Lama')
                     ->icon('heroicon-o-trash')
@@ -189,10 +194,10 @@ class AttendanceMachineLogResource extends Resource
                     ->action(function (array $data) {
                         $months = $data['months'];
                         $cutoffDate = now()->subMonths($months);
-                        
+
                         $count = AttendanceMachineLog::where('timestamp', '<', $cutoffDate)->count();
                         AttendanceMachineLog::where('timestamp', '<', $cutoffDate)->forceDelete();
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Cleanup Selesai')
                             ->body("{$count} log lama telah dihapus dari database.")
@@ -200,7 +205,7 @@ class AttendanceMachineLogResource extends Resource
                             ->duration(5000)
                             ->send();
                     }),
-                
+
                 Tables\Actions\Action::make('detect_duplicates')
                     ->label('Deteksi Duplikat Otomatis')
                     ->icon('heroicon-o-magnifying-glass')
@@ -208,14 +213,14 @@ class AttendanceMachineLogResource extends Resource
                     ->action(function () {
                         $logs = AttendanceMachineLog::whereDate('timestamp', '>=', today()->subDays(7))->get();
                         $marked = \App\Services\AttendanceService::markDuplicates($logs);
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Deteksi Selesai')
                             ->body("Log duplikat 7 hari terakhir telah dianalisis.")
                             ->info()
                             ->send();
                     }),
-                
+
                 Tables\Actions\Action::make('print_report')
                     ->label('Cetak Laporan')
                     ->icon('heroicon-o-printer')
@@ -281,7 +286,7 @@ class AttendanceMachineLogResource extends Resource
                                 ->with(['machine.officeLocation', 'employee'])
                                 ->when($data['from_date'], fn($q, $date) => $q->whereDate('timestamp', '>=', $date))
                                 ->when($data['to_date'], fn($q, $date) => $q->whereDate('timestamp', '<=', $date))
-                                ->when($data['employee_id'], function($q, $ids) {
+                                ->when($data['employee_id'], function ($q, $ids) {
                                     $ids = is_array($ids) ? $ids : [$ids];
                                     $pins = \App\Models\Employee::whereIn('id', $ids)->pluck('pin')->filter()->toArray();
                                     if (!empty($pins)) $q->whereIn('pin', $pins);
@@ -290,7 +295,7 @@ class AttendanceMachineLogResource extends Resource
                                 ->orderBy('timestamp', 'desc');
 
                             $records = $query->get();
-                            
+
                             if ($records->isEmpty()) {
                                 \Filament\Notifications\Notification::make()
                                     ->title('Data Kosong')
@@ -302,11 +307,16 @@ class AttendanceMachineLogResource extends Resource
 
                             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
                             $sheet = $spreadsheet->getActiveSheet();
-                            
+
                             // Header
                             $dayMap = [
-                                'monday' => 'SENIN', 'tuesday' => 'SELASA', 'wednesday' => 'RABU',
-                                'thursday' => 'KAMIS', 'friday' => 'JUMAT', 'saturday' => 'SABTU', 'sunday' => 'MINGGU',
+                                'monday' => 'SENIN',
+                                'tuesday' => 'SELASA',
+                                'wednesday' => 'RABU',
+                                'thursday' => 'KAMIS',
+                                'friday' => 'JUMAT',
+                                'saturday' => 'SABTU',
+                                'sunday' => 'MINGGU',
                             ];
 
                             // 1. Process Records for Duplicates using Service
@@ -320,21 +330,24 @@ class AttendanceMachineLogResource extends Resource
                                 $col = chr(65 + $key);
                                 $sheet->setCellValue($col . '1', $title);
                             }
-                            
+
                             $sheet->getStyle('A1:H1')->getFont()->setBold(true);
-                            
+
                             $row = 2;
                             foreach ($sortedRecords as $record) {
                                 $dayEng = strtolower($record->timestamp->format('l'));
                                 $dayInd = $dayMap[$dayEng] ?? $dayEng;
 
                                 $typeLabel = match ($record->type) {
-                                    '0' => 'MASUK', '1' => 'KELUAR',
-                                    '2' => 'ISTIRAHAT KELUAR', '3' => 'ISTIRAHAT MASUK',
-                                    '4' => 'LEMBUR MASUK', '5' => 'LEMBUR KELUAR',
+                                    '0' => 'MASUK',
+                                    '1' => 'KELUAR',
+                                    '2' => 'ISTIRAHAT KELUAR',
+                                    '3' => 'ISTIRAHAT MASUK',
+                                    '4' => 'LEMBUR MASUK',
+                                    '5' => 'LEMBUR KELUAR',
                                     default => "TYPE " . $record->type,
                                 };
-                                
+
                                 $sheet->setCellValue('A' . $row, $dayInd);
                                 $sheet->setCellValue('B' . $row, $record->timestamp->format('d/m/Y H:i:s'));
                                 $sheet->setCellValue('C' . $row, $record->machine?->name);
@@ -345,16 +358,16 @@ class AttendanceMachineLogResource extends Resource
                                 $sheet->setCellValue('H' . $row, $record->is_record_duplicate ? 'DUPLIKAT' : '-');
                                 $row++;
                             }
-                            
+
                             foreach (range('A', 'H') as $col) {
                                 $sheet->getColumnDimension($col)->setAutoSize(true);
                             }
-                            
+
                             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
                             $filename = 'Log_Absensi_' . now()->format('Ymd_His') . '.xlsx';
                             $tempPath = tempnam(sys_get_temp_dir(), 'export_');
                             $writer->save($tempPath);
-                            
+
                             return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
                         }
                     }),
@@ -369,11 +382,16 @@ class AttendanceMachineLogResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (AttendanceMachineLog $record) {
                         $employee = \App\Models\Employee::where('pin', $record->pin)->first();
-                        $state = match($record->type) {
-                            '0' => 'check_in', '1' => 'check_out', '2' => 'break_out',
-                            '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+                        $state = match ($record->type) {
+                            '0' => 'check_in',
+                            '1' => 'check_out',
+                            '2' => 'break_out',
+                            '3' => 'break_in',
+                            '4' => 'ot_in',
+                            '5' => 'ot_out',
+                            default => 'check_in'
                         };
-                        
+
                         \App\Models\EmployeeAttendanceRecord::updateOrCreate(
                             ['pin' => $record->pin, 'attendance_time' => $record->timestamp->toDateTimeString(), 'state' => $state],
                             [
@@ -383,7 +401,7 @@ class AttendanceMachineLogResource extends Resource
                                 'office_location_id' => $record->machine?->master_office_location_id,
                             ]
                         );
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Berhasil Diproses')
                             ->body('Log telah diproses ke tabel kehadiran.')
@@ -408,11 +426,16 @@ class AttendanceMachineLogResource extends Resource
                             $count = 0;
                             foreach ($records as $record) {
                                 $employee = \App\Models\Employee::where('pin', $record->pin)->first();
-                                $state = match($record->type) {
-                                    '0' => 'check_in', '1' => 'check_out', '2' => 'break_out',
-                                    '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+                                $state = match ($record->type) {
+                                    '0' => 'check_in',
+                                    '1' => 'check_out',
+                                    '2' => 'break_out',
+                                    '3' => 'break_in',
+                                    '4' => 'ot_in',
+                                    '5' => 'ot_out',
+                                    default => 'check_in'
                                 };
-                                
+
                                 \App\Models\EmployeeAttendanceRecord::updateOrCreate(
                                     ['pin' => $record->pin, 'attendance_time' => $record->timestamp->toDateTimeString(), 'state' => $state],
                                     [
@@ -424,14 +447,14 @@ class AttendanceMachineLogResource extends Resource
                                 );
                                 $count++;
                             }
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Proses Selesai')
                                 ->body("{$count} log berhasil diproses ke tabel kehadiran.")
                                 ->success()
                                 ->send();
                         }),
-                    
+
                     Tables\Actions\BulkAction::make('mark_as_duplicate')
                         ->label('Tandai Duplikat (Massal)')
                         ->icon('heroicon-o-x-circle')
@@ -441,14 +464,14 @@ class AttendanceMachineLogResource extends Resource
                         ->action(function (\Illuminate\Support\Collection $records) {
                             // Use AttendanceService to mark duplicates
                             $marked = \App\Services\AttendanceService::markDuplicates($records);
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Duplikat Ditandai')
                                 ->body("Log duplikat telah diidentifikasi.")
                                 ->success()
                                 ->send();
                         }),
-                    
+
                     Tables\Actions\BulkAction::make('export_selected')
                         ->label('Export Terpilih ke Excel')
                         ->icon('heroicon-o-document-arrow-down')
@@ -456,30 +479,38 @@ class AttendanceMachineLogResource extends Resource
                         ->action(function (\Illuminate\Support\Collection $records) {
                             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
                             $sheet = $spreadsheet->getActiveSheet();
-                            
+
                             $headers = ['Hari', 'Waktu', 'Mesin', 'Lokasi', 'PIN', 'Nama Pegawai', 'Tipe'];
                             foreach ($headers as $key => $title) {
                                 $col = chr(65 + $key);
                                 $sheet->setCellValue($col . '1', $title);
                             }
                             $sheet->getStyle('A1:G1')->getFont()->setBold(true);
-                            
+
                             $dayMap = [
-                                'monday' => 'SENIN', 'tuesday' => 'SELASA', 'wednesday' => 'RABU',
-                                'thursday' => 'KAMIS', 'friday' => 'JUMAT', 'saturday' => 'SABTU', 'sunday' => 'MINGGU',
+                                'monday' => 'SENIN',
+                                'tuesday' => 'SELASA',
+                                'wednesday' => 'RABU',
+                                'thursday' => 'KAMIS',
+                                'friday' => 'JUMAT',
+                                'saturday' => 'SABTU',
+                                'sunday' => 'MINGGU',
                             ];
-                            
+
                             $row = 2;
                             foreach ($records as $record) {
                                 $dayEng = strtolower($record->timestamp->format('l'));
                                 $dayInd = $dayMap[$dayEng] ?? $dayEng;
                                 $typeLabel = match ($record->type) {
-                                    '0' => 'MASUK', '1' => 'KELUAR',
-                                    '2' => 'ISTIRAHAT KELUAR', '3' => 'ISTIRAHAT MASUK',
-                                    '4' => 'LEMBUR MASUK', '5' => 'LEMBUR KELUAR',
+                                    '0' => 'MASUK',
+                                    '1' => 'KELUAR',
+                                    '2' => 'ISTIRAHAT KELUAR',
+                                    '3' => 'ISTIRAHAT MASUK',
+                                    '4' => 'LEMBUR MASUK',
+                                    '5' => 'LEMBUR KELUAR',
                                     default => "TYPE " . $record->type,
                                 };
-                                
+
                                 $sheet->setCellValue('A' . $row, $dayInd);
                                 $sheet->setCellValue('B' . $row, $record->timestamp->format('d/m/Y H:i:s'));
                                 $sheet->setCellValue('C' . $row, $record->machine?->name);
@@ -489,19 +520,19 @@ class AttendanceMachineLogResource extends Resource
                                 $sheet->setCellValue('G' . $row, $typeLabel);
                                 $row++;
                             }
-                            
+
                             foreach (range('A', 'G') as $col) {
                                 $sheet->getColumnDimension($col)->setAutoSize(true);
                             }
-                            
+
                             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
                             $filename = 'Log_Selected_' . now()->format('Ymd_His') . '.xlsx';
                             $tempPath = tempnam(sys_get_temp_dir(), 'export_');
                             $writer->save($tempPath);
-                            
+
                             return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
                         }),
-                    
+
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                     Tables\Actions\ForceDeleteBulkAction::make(),

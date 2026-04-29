@@ -134,8 +134,13 @@ class MyAttendanceResource extends Resource
     public static function table(Table $table): Table
     {
         $dayMap = [
-            'monday' => 'SENIN', 'tuesday' => 'SELASA', 'wednesday' => 'RABU',
-            'thursday' => 'KAMIS', 'friday' => 'JUMAT', 'saturday' => 'SABTU', 'sunday' => 'MINGGU',
+            'monday' => 'SENIN',
+            'tuesday' => 'SELASA',
+            'wednesday' => 'RABU',
+            'thursday' => 'KAMIS',
+            'friday' => 'JUMAT',
+            'saturday' => 'SABTU',
+            'sunday' => 'MINGGU',
         ];
 
         return $table
@@ -152,19 +157,19 @@ class MyAttendanceResource extends Resource
 
                 Tables\Columns\TextColumn::make('jam')
                     ->label('Jam')
-                    ->state(fn ($record) => Carbon::parse($record->attendance_time)->format('H:i:s'))
+                    ->state(fn($record) => Carbon::parse($record->attendance_time)->format('H:i:s'))
                     ->fontFamily('mono')
                     ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('state')
                     ->label('Tipe Kehadiran')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'check_in', 'dl_in', 'ot_in'   => 'success',
                         'check_out', 'dl_out', 'ot_out' => 'danger',
                         default                          => 'gray',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'check_in'  => 'MASUK KERJA',
                         'check_out' => 'PULANG KERJA',
                         'dl_in'     => 'DINAS LUAR (BERANGKAT)',
@@ -177,13 +182,13 @@ class MyAttendanceResource extends Resource
                 Tables\Columns\TextColumn::make('attendance_status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn ($state): string => match ($state) {
+                    ->color(fn($state): string => match ($state) {
                         'on_time'   => 'success',
                         'late'      => 'danger',
                         'early_out' => 'warning',
                         default     => 'gray',
                     })
-                    ->formatStateUsing(fn ($state): string => match ($state) {
+                    ->formatStateUsing(fn($state): string => match ($state) {
                         'on_time'   => 'TEPAT WAKTU',
                         'late'      => 'TERLAMBAT',
                         'early_out' => 'PULANG CEPAT',
@@ -193,8 +198,8 @@ class MyAttendanceResource extends Resource
                 Tables\Columns\TextColumn::make('source')
                     ->label('Sumber')
                     ->badge()
-                    ->color(fn ($state): string => $state === 'online' ? 'info' : 'gray')
-                    ->formatStateUsing(fn ($state): string => $state === 'online' ? '📱 Online' : '🖥️ Mesin'),
+                    ->color(fn($state): string => $state === 'online' ? 'info' : 'gray')
+                    ->formatStateUsing(fn($state): string => $state === 'online' ? '📱 Online' : '🖥️ Mesin'),
 
                 Tables\Columns\IconColumn::make('is_fake_gps_suspected')
                     ->label('GPS')
@@ -203,18 +208,20 @@ class MyAttendanceResource extends Resource
                     ->falseIcon('heroicon-o-check-circle')
                     ->trueColor('warning')
                     ->falseColor('success')
-                    ->tooltip(fn ($record) => $record->is_fake_gps_suspected
-                        ? ('⚠️ GPS mencurigakan: ' . ($record->gps_flag_reason ?? '-'))
-                        : 'GPS terverifikasi'
+                    ->tooltip(
+                        fn($record) => $record->is_fake_gps_suspected
+                            ? ('⚠️ GPS mencurigakan: ' . ($record->gps_flag_reason ?? '-'))
+                            : 'GPS terverifikasi'
                     )
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('officeLocation.name')
                     ->label('Lokasi')
                     ->placeholder('-')
-                    ->description(fn ($record) => $record->distance_from_office
-                        ? $record->distance_from_office . 'm dari kantor'
-                        : null
+                    ->description(
+                        fn($record) => $record->distance_from_office
+                            ? $record->distance_from_office . 'm dari kantor'
+                            : null
                     ),
             ])
             ->filters([
@@ -223,9 +230,10 @@ class MyAttendanceResource extends Resource
                         \Filament\Forms\Components\DatePicker::make('from')->label('Dari Tanggal'),
                         \Filament\Forms\Components\DatePicker::make('to')->label('Hingga Tanggal'),
                     ])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['from'], fn ($q, $d) => $q->whereDate('attendance_time', '>=', $d))
-                        ->when($data['to'],   fn ($q, $d) => $q->whereDate('attendance_time', '<=', $d))
+                    ->query(
+                        fn(Builder $query, array $data): Builder => $query
+                            ->when($data['from'], fn($q, $d) => $q->whereDate('attendance_time', '>=', $d))
+                            ->when($data['to'],   fn($q, $d) => $q->whereDate('attendance_time', '<=', $d))
                     ),
                 Tables\Filters\SelectFilter::make('source')
                     ->label('Sumber')

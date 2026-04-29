@@ -40,7 +40,7 @@ class AutoFixMachineTime extends Command
         }
 
         $this->warn("Found {$machines->count()} machines with time drift:");
-        
+
         $headers = ['Mesin', 'SN', 'Lokasi', 'Selisih', 'Aksi'];
         $rows = [];
 

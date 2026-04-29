@@ -28,7 +28,7 @@ class AttendanceMachineCommunication extends Model
     {
         return $this->belongsTo(AttendanceMachine::class, 'attendance_machine_id');
     }
-    
+
     /**
      * Check if this communication had an error
      */
@@ -36,13 +36,13 @@ class AttendanceMachineCommunication extends Model
     {
         return !empty($this->error_message) || $this->response_code >= 400;
     }
-    
+
     /**
      * Get formatted communication type
      */
     public function getTypeLabel(): string
     {
-        return match($this->endpoint) {
+        return match ($this->endpoint) {
             'cdata' => $this->method === 'POST' ? 'Upload Data' : 'Handshake',
             'getrequest' => 'Heartbeat/Command',
             'devicecmd' => 'Command Response',
