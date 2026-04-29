@@ -16,4 +16,10 @@ class ListAttendanceMachines extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    // Auto-refresh status mesin setiap 1 menit
+    public function getTablePollingInterval(): ?string
+    {
+        return '60s';
+    }
 }

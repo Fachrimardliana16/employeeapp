@@ -7,10 +7,6 @@ use App\Models\Employee;
 use App\Filament\Forms\Components\CameraCapture;
 use App\Models\MasterOfficeLocation;
 use App\Models\AttendanceSchedule;
-use App\Models\EmployeeDailyReport;
-use Filament\Actions\Action;
-use Filament\Actions\Concerns\InteractsWithActions;
-use Filament\Actions\Contracts\HasActions;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
@@ -18,9 +14,8 @@ use Filament\Notifications\Notification;
 use App\Services\AttendanceService;
 use Illuminate\Support\Facades\Auth;
 
-class RecordAttendance extends Page implements HasActions
+class RecordAttendance extends Page
 {
-    use InteractsWithActions;
 
     protected static ?string $navigationIcon = 'heroicon-o-clock';
 
@@ -82,60 +77,12 @@ class RecordAttendance extends Page implements HasActions
             ->statePath('data');
     }
 
-    public function recordAttendanceAction(): Action
-    {
-        return Action::make('recordAttendanceAction')
-            ->label('Simpan Kehadiran')
-            ->modalHeading('Laporan Kerja Harian')
-            ->modalDescription('Silakan isi laporan pekerjaan Anda sebelum menyimpan kehadiran.')
-            ->modalSubmitActionLabel('Simpan & Absen')
-            ->modalIcon('heroicon-o-document-text')
-            ->form([
-                Forms\Components\Grid::make(2)
-                    ->schema([
-                        Forms\Components\DatePicker::make('daily_report_date')
-                            ->label('Tanggal Laporan')
-                            ->default(now())
-                            ->required()
-                            ->native(false)
-                            ->readonly(),
-                        Forms\Components\Select::make('work_status')
-                            ->label('Status Pekerjaan')
-                            ->options([
-                                'completed' => 'Selesai',
-                                'in_progress' => 'Proses',
-                                'pending' => 'Tertunda',
-                            ])
-                            ->required()
-                            ->default('completed'),
-                    ]),
-                Forms\Components\Textarea::make('work_description')
-                    ->label('Isi Laporan Kerja')
-                    ->placeholder('Apa yang Anda kerjakan atau capai hari ini?')
-                    ->required()
-                    ->rows(5),
-                Forms\Components\Textarea::make('desc')
-                    ->label('Catatan/Keterangan (Opsional)')
-                    ->placeholder('Tambahan detail jika diperlukan...')
-                    ->rows(3),
-            ])
-            ->action(function (array $data) {
-                $this->saveAttendanceWithReport($data);
-            });
-    }
-
     public function submitAttendance(): void
     {
-        $attendanceData = $this->form->getState();
-
-        if (($attendanceData['state'] ?? '') === 'check_out') {
-            $this->mountAction('recordAttendanceAction');
-        } else {
-            $this->saveAttendanceWithReport();
-        }
+        $this->saveAttendance();
     }
 
-    protected function saveAttendanceWithReport(?array $reportData = null): void
+    protected function saveAttendance(): void
     {
         $attendanceData = $this->form->getState();
         $user     = Auth::user();
@@ -222,7 +169,6 @@ class RecordAttendance extends Page implements HasActions
         \Illuminate\Support\Facades\DB::transaction(function () use (
             $employee,
             $attendanceData,
-            $reportData,
             $minDistance,
             $picturePath,
             $user,
@@ -236,17 +182,6 @@ class RecordAttendance extends Page implements HasActions
             $lng,
             $now
         ) {
-            if ($reportData) {
-                EmployeeDailyReport::create([
-                    'employee_id'       => $employee->id,
-                    'daily_report_date' => $reportData['daily_report_date'],
-                    'work_description'  => $reportData['work_description'],
-                    'work_status'       => $reportData['work_status'],
-                    'desc'              => $reportData['desc'],
-                    'users_id'          => $user->id,
-                ]);
-            }
-
             EmployeeAttendanceRecord::create([
                 'pin'                   => $employee->pin ?? $employee->id,
                 'employee_name'         => $employee->name,
