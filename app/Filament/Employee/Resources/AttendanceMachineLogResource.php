@@ -129,6 +129,93 @@ class AttendanceMachineLogResource extends Resource
                 TrashedFilter::make(),
             ])
             ->headerActions([
+                Tables\Actions\Action::make('auto_process_today')
+                    ->label('Auto-Proses Hari Ini')
+                    ->icon('heroicon-o-bolt')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Proses Otomatis Log Hari Ini')
+                    ->modalDescription('Sistem akan otomatis memproses semua log hari ini yang belum masuk ke tabel kehadiran.')
+                    ->action(function () {
+                        $logs = AttendanceMachineLog::whereDate('timestamp', today())->get();
+                        $count = 0;
+                        
+                        foreach ($logs as $record) {
+                            $employee = \App\Models\Employee::where('pin', $record->pin)->first();
+                            $state = match($record->type) {
+                                '0' => 'check_in', '1' => 'check_out', '2' => 'break_out',
+                                '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+                            };
+                            
+                            \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                                ['pin' => $record->pin, 'attendance_time' => $record->timestamp->toDateTimeString(), 'state' => $state],
+                                [
+                                    'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$record->pin})",
+                                    'attendance_status' => 'on_time',
+                                    'device' => $record->machine?->name,
+                                    'office_location_id' => $record->machine?->master_office_location_id,
+                                ]
+                            );
+                            $count++;
+                        }
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Proses Otomatis Selesai')
+                            ->body("{$count} log hari ini telah diproses ke tabel kehadiran.")
+                            ->success()
+                            ->duration(5000)
+                            ->send();
+                    }),
+                
+                Tables\Actions\Action::make('auto_cleanup_old')
+                    ->label('Bersihkan Log Lama')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Hapus Log Lama (> 6 Bulan)')
+                    ->modalDescription('PERINGATAN: Log yang sudah lebih dari 6 bulan akan dihapus permanen untuk menghemat storage.')
+                    ->form([
+                        Forms\Components\Select::make('months')
+                            ->label('Hapus Log Lebih Dari')
+                            ->options([
+                                3 => '3 Bulan',
+                                6 => '6 Bulan',
+                                12 => '1 Tahun',
+                                24 => '2 Tahun',
+                            ])
+                            ->default(6)
+                            ->required(),
+                    ])
+                    ->action(function (array $data) {
+                        $months = $data['months'];
+                        $cutoffDate = now()->subMonths($months);
+                        
+                        $count = AttendanceMachineLog::where('timestamp', '<', $cutoffDate)->count();
+                        AttendanceMachineLog::where('timestamp', '<', $cutoffDate)->forceDelete();
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Cleanup Selesai')
+                            ->body("{$count} log lama telah dihapus dari database.")
+                            ->warning()
+                            ->duration(5000)
+                            ->send();
+                    }),
+                
+                Tables\Actions\Action::make('detect_duplicates')
+                    ->label('Deteksi Duplikat Otomatis')
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->color('warning')
+                    ->action(function () {
+                        $logs = AttendanceMachineLog::whereDate('timestamp', '>=', today()->subDays(7))->get();
+                        $marked = \App\Services\AttendanceService::markDuplicates($logs);
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Deteksi Selesai')
+                            ->body("Log duplikat 7 hari terakhir telah dianalisis.")
+                            ->info()
+                            ->send();
+                    }),
+                
                 Tables\Actions\Action::make('print_report')
                     ->label('Cetak Laporan')
                     ->icon('heroicon-o-printer')
@@ -274,12 +361,147 @@ class AttendanceMachineLogResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('process_to_attendance')
+                    ->label('Proses ke Kehadiran')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->action(function (AttendanceMachineLog $record) {
+                        $employee = \App\Models\Employee::where('pin', $record->pin)->first();
+                        $state = match($record->type) {
+                            '0' => 'check_in', '1' => 'check_out', '2' => 'break_out',
+                            '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+                        };
+                        
+                        \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                            ['pin' => $record->pin, 'attendance_time' => $record->timestamp->toDateTimeString(), 'state' => $state],
+                            [
+                                'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$record->pin})",
+                                'attendance_status' => 'on_time',
+                                'device' => $record->machine?->name,
+                                'office_location_id' => $record->machine?->master_office_location_id,
+                            ]
+                        );
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Berhasil Diproses')
+                            ->body('Log telah diproses ke tabel kehadiran.')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\DeleteAction::make(),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                Tables\Actions\RestoreAction::make(),
+                Tables\Actions\ForceDeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('bulk_process_to_attendance')
+                        ->label('Proses ke Kehadiran (Massal)')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Proses Log ke Tabel Kehadiran')
+                        ->modalDescription('Semua log yang dipilih akan diproses ke tabel employee_attendance_records.')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                $employee = \App\Models\Employee::where('pin', $record->pin)->first();
+                                $state = match($record->type) {
+                                    '0' => 'check_in', '1' => 'check_out', '2' => 'break_out',
+                                    '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
+                                };
+                                
+                                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                                    ['pin' => $record->pin, 'attendance_time' => $record->timestamp->toDateTimeString(), 'state' => $state],
+                                    [
+                                        'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$record->pin})",
+                                        'attendance_status' => 'on_time',
+                                        'device' => $record->machine?->name,
+                                        'office_location_id' => $record->machine?->master_office_location_id,
+                                    ]
+                                );
+                                $count++;
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Proses Selesai')
+                                ->body("{$count} log berhasil diproses ke tabel kehadiran.")
+                                ->success()
+                                ->send();
+                        }),
+                    
+                    Tables\Actions\BulkAction::make('mark_as_duplicate')
+                        ->label('Tandai Duplikat (Massal)')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            // Use AttendanceService to mark duplicates
+                            $marked = \App\Services\AttendanceService::markDuplicates($records);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Duplikat Ditandai')
+                                ->body("Log duplikat telah diidentifikasi.")
+                                ->success()
+                                ->send();
+                        }),
+                    
+                    Tables\Actions\BulkAction::make('export_selected')
+                        ->label('Export Terpilih ke Excel')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('info')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+                            $sheet = $spreadsheet->getActiveSheet();
+                            
+                            $headers = ['Hari', 'Waktu', 'Mesin', 'Lokasi', 'PIN', 'Nama Pegawai', 'Tipe'];
+                            foreach ($headers as $key => $title) {
+                                $col = chr(65 + $key);
+                                $sheet->setCellValue($col . '1', $title);
+                            }
+                            $sheet->getStyle('A1:G1')->getFont()->setBold(true);
+                            
+                            $dayMap = [
+                                'monday' => 'SENIN', 'tuesday' => 'SELASA', 'wednesday' => 'RABU',
+                                'thursday' => 'KAMIS', 'friday' => 'JUMAT', 'saturday' => 'SABTU', 'sunday' => 'MINGGU',
+                            ];
+                            
+                            $row = 2;
+                            foreach ($records as $record) {
+                                $dayEng = strtolower($record->timestamp->format('l'));
+                                $dayInd = $dayMap[$dayEng] ?? $dayEng;
+                                $typeLabel = match ($record->type) {
+                                    '0' => 'MASUK', '1' => 'KELUAR',
+                                    '2' => 'ISTIRAHAT KELUAR', '3' => 'ISTIRAHAT MASUK',
+                                    '4' => 'LEMBUR MASUK', '5' => 'LEMBUR KELUAR',
+                                    default => "TYPE " . $record->type,
+                                };
+                                
+                                $sheet->setCellValue('A' . $row, $dayInd);
+                                $sheet->setCellValue('B' . $row, $record->timestamp->format('d/m/Y H:i:s'));
+                                $sheet->setCellValue('C' . $row, $record->machine?->name);
+                                $sheet->setCellValue('D' . $row, $record->machine?->officeLocation?->name);
+                                $sheet->setCellValue('E' . $row, $record->pin);
+                                $sheet->setCellValue('F' . $row, $record->employee?->name ?? 'Tidak Terdaftar');
+                                $sheet->setCellValue('G' . $row, $typeLabel);
+                                $row++;
+                            }
+                            
+                            foreach (range('A', 'G') as $col) {
+                                $sheet->getColumnDimension($col)->setAutoSize(true);
+                            }
+                            
+                            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+                            $filename = 'Log_Selected_' . now()->format('Ymd_His') . '.xlsx';
+                            $tempPath = tempnam(sys_get_temp_dir(), 'export_');
+                            $writer->save($tempPath);
+                            
+                            return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+                        }),
+                    
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                     Tables\Actions\ForceDeleteBulkAction::make(),

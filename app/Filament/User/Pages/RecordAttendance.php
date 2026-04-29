@@ -15,6 +15,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
+use App\Services\AttendanceService;
 use Illuminate\Support\Facades\Auth;
 
 class RecordAttendance extends Page implements HasActions
@@ -46,22 +47,25 @@ class RecordAttendance extends Page implements HasActions
             ->schema([
                 Forms\Components\Section::make('Informasi Kehadiran')
                     ->schema([
-                        Forms\Components\Hidden::make('latitude')
-                            ->required(),
-
-                        Forms\Components\Hidden::make('longitude')
-                            ->required(),
+                        Forms\Components\Hidden::make('latitude'),
+                        Forms\Components\Hidden::make('longitude'),
+                        Forms\Components\Hidden::make('gps_accuracy'),
+                        Forms\Components\Hidden::make('gps_jitter'),
 
                         Forms\Components\Select::make('state')
                             ->label('Status Kehadiran')
-                            ->options([
-                                'in'            => 'Check In ',
-                                'out'           => 'Check Out',
-                                'dl_in'         => 'Dinas Luar (Masuk)',
-                                'dl_out'        => 'Dinas Luar (Pulang)',
-                                'ot_in'         => 'Overtime In',
-                                'ot_out'        => 'Overtime Out',
-                            ])
+                            ->options(function () {
+                                $employee = Auth::user()?->employee;
+                                if (!$employee) {
+                                    return [
+                                        'check_in'  => 'Masuk Kerja (Check In)',
+                                        'check_out' => 'Pulang Kerja (Check Out)',
+                                    ];
+                                }
+                                $svc     = new AttendanceService();
+                                $allowed = $svc->getAllowedStates($employee, now()->timezone('Asia/Jakarta'));
+                                return collect($allowed)->pluck('label', 'value')->toArray();
+                            })
                             ->required()
                             ->native(false),
 
@@ -124,7 +128,7 @@ class RecordAttendance extends Page implements HasActions
     {
         $attendanceData = $this->form->getState();
 
-        if (($attendanceData['state'] ?? '') === 'out') {
+        if (($attendanceData['state'] ?? '') === 'check_out') {
             $this->mountAction('recordAttendanceAction');
         } else {
             $this->saveAttendanceWithReport();
@@ -133,200 +137,136 @@ class RecordAttendance extends Page implements HasActions
 
     protected function saveAttendanceWithReport(?array $reportData = null): void
     {
-        // 1. Validate Attendance Form State
         $attendanceData = $this->form->getState();
-
-        $user = Auth::user();
-        
-        // Cek berdasarkan users_id terlebih dahulu (canonical link)
+        $user     = Auth::user();
         $employee = Employee::where('users_id', $user->id)->first();
-        
-        // Fallback ke email atau username jika link users_id belum diatur
+
         if (!$employee) {
-            $employee = Employee::where(function($query) use ($user) {
+            $employee = Employee::where(function ($query) use ($user) {
                 $query->where('email', $user->email)
                     ->orWhere('office_email', $user->email)
                     ->orWhere('username', $user->username);
             })->first();
-            
-            // Link secara otomatis jika ditemukan (self-healing)
             if ($employee && empty($employee->users_id)) {
                 $employee->update(['users_id' => $user->id]);
             }
         }
 
         if (!$employee) {
-            Notification::make()
-                ->title('Gagal')
-                ->body('Data pegawai tidak ditemukan.')
-                ->danger()
-                ->send();
+            Notification::make()->title('Gagal')->body('Data pegawai tidak ditemukan.')->danger()->send();
             return;
         }
 
-        // 2. Schedule Validation & Status Calculation
-        $daysMap = [
-            'Monday'    => 'Senin',
-            'Tuesday'   => 'Selasa',
-            'Wednesday' => 'Rabu',
-            'Thursday'  => 'Kamis',
-            'Friday'    => 'Jumat',
-            'Saturday'  => 'Sabtu',
-            'Sunday'    => 'Minggu',
-        ];
-        
-        $dayName = $daysMap[now()->format('l')];
-        $schedule = AttendanceSchedule::where('day', $dayName)->where('is_active', true)->first();
-        
-        // 2.1 Duplicate Check
+        // Cek duplikat hari ini
         $exists = EmployeeAttendanceRecord::where('pin', $employee->pin ?? $employee->id)
             ->where('state', $attendanceData['state'])
             ->whereDate('attendance_time', now())
             ->exists();
 
         if ($exists) {
-            $stateLabel = match($attendanceData['state']) {
-                'in' => 'Check In',
-                'out' => 'Check Out',
-                'ot_in' => 'Overtime In',
-                'ot_out' => 'Overtime Out',
-                default => $attendanceData['state'],
+            $stateLabel = match ($attendanceData['state']) {
+                'check_in'  => 'Masuk Kerja',
+                'check_out' => 'Pulang Kerja',
+                'dl_in'     => 'Dinas Luar (Berangkat)',
+                'dl_out'    => 'Dinas Luar (Kembali)',
+                'ot_in'     => 'Lembur (Masuk)',
+                'ot_out'    => 'Lembur (Pulang)',
+                default     => $attendanceData['state'],
             };
-            
-            Notification::make()
-                ->title('Gagal')
-                ->body("Anda sudah melakukan {$stateLabel} hari ini.")
-                ->warning()
-                ->send();
+            Notification::make()->title('Gagal')->body("Anda sudah melakukan {$stateLabel} hari ini.")->warning()->send();
             return;
         }
 
-        $attendanceStatus = 'on_time';
-        $currentTime = now()->format('H:i:s');
+        // Ambil data GPS dari form
+        $lat      = (float) ($attendanceData['latitude']     ?? 0);
+        $lng      = (float) ($attendanceData['longitude']    ?? 0);
+        $accuracy = (float) ($attendanceData['gps_accuracy'] ?? 999);
+        $jitter   = (float) ($attendanceData['gps_jitter']   ?? 0);
 
-        if (!$schedule) {
-            // Default to on_time if no schedule found
-        } else {
-            if ($attendanceData['state'] === 'in') {
-                if ($currentTime < $schedule->check_in_start || $currentTime > $schedule->check_in_end) {
-                    Notification::make()->title('Di Luar Jam Check-In')->warning()->send();
-                    return;
-                }
-                if ($currentTime > $schedule->late_threshold) {
-                    $attendanceStatus = 'late';
-                }
-            }
-            if ($attendanceData['state'] === 'out') {
-                if ($currentTime > $schedule->check_out_end) {
-                     Notification::make()->title('Di Luar Jam Check-Out')->warning()->send();
-                    return;
-                }
-                if ($currentTime < $schedule->check_out_start) {
-                    $attendanceStatus = 'early';
-                }
-            }
-        }
-
-        // 3. Office & Location Validation
-        $officeLocations = MasterOfficeLocation::where(function($query) use ($employee) {
-                $query->where('departments_id', $employee->departments_id)->orWhereNull('departments_id');
-            })->where('is_active', true)->get();
-
-        if ($officeLocations->isEmpty() || empty($attendanceData['latitude'])) {
-            Notification::make()->title('Lokasi Error')->danger()->send();
+        if (empty($attendanceData['latitude'])) {
+            Notification::make()->title('Lokasi Belum Diambil')->body('Tunggu hingga GPS berhasil terdeteksi sebelum menyimpan.')->warning()->send();
             return;
         }
 
-        $isInRange = false;
-        $minDistance = null;
-        $closestLocation = null;
+        $svc = new AttendanceService();
 
-        foreach ($officeLocations as $location) {
-            $distance = EmployeeAttendanceRecord::calculateDistance(
-                $attendanceData['latitude'],
-                $attendanceData['longitude'],
-                $location->latitude,
-                $location->longitude
-            );
-            if ($minDistance === null || $distance < $minDistance) {
-                $minDistance = $distance;
-                $closestLocation = $location;
-            }
-            if ($distance <= $location->radius) {
-                $isInRange = true;
-                break;
-            }
-        }
-
-        // 3.1 Bypass Radius for Dinas Luar (LUAR KANTOR)
-        if (str_starts_with($attendanceData['state'], 'dl_')) {
-            $isInRange = true;
-        }
-
-        if (!$isInRange) {
-            Notification::make()
-                ->title('Lokasi Terlalu Jauh')
-                ->body(sprintf('Jarak %.2fm. Maks %dm.', $minDistance, $closestLocation->radius))
-                ->warning()
-                ->send();
+        // Cek teleport / speed anomaly
+        $speed = $svc->checkSpeedAnomaly($employee, $lat, $lng);
+        if ($speed['reject']) {
+            Notification::make()->title('Absensi Ditolak')->body($speed['message'])->danger()->persistent()->send();
             return;
         }
 
-        // 4. Process Image
+        // Validasi GPS: accuracy + jitter + radius
+        $gpsResult = $svc->validateGps($employee, $lat, $lng, $accuracy, $jitter);
+        if (!$gpsResult['valid']) {
+            Notification::make()->title('Lokasi Tidak Valid')->body($gpsResult['reason'])->danger()->persistent()->send();
+            return;
+        }
+
+        $isFake     = $gpsResult['suspected_fake'] || (!empty($speed['message']));
+        $flagReason = trim(collect([$gpsResult['reason'] ?: null, $speed['message'] ?: null])->filter()->implode('; '));
+        $closestLocation = $gpsResult['location'];
+        $minDistance     = $gpsResult['distance'];
+
+        // Hitung status kehadiran
+        $now = now()->timezone('Asia/Jakarta');
+        $attendanceStatus = $svc->calculateAttendanceStatus($attendanceData['state'], $now);
+
+        // Proses foto selfie
         $picturePath = null;
         if (!empty($attendanceData['picture']) && str_starts_with($attendanceData['picture'], 'data:image')) {
             $picturePath = $this->processAndStoreImage($attendanceData['picture']);
         }
 
-        // 5. START SAVING - Use Database Transaction to ensure both or none
-        \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $attendanceData, $reportData, $minDistance, $picturePath, $user, $closestLocation, $isInRange, $attendanceStatus) {
-            // Save Daily Report ONLY if data is provided (for 'out' state)
+        \Illuminate\Support\Facades\DB::transaction(function () use (
+            $employee, $attendanceData, $reportData, $minDistance, $picturePath, $user,
+            $closestLocation, $attendanceStatus, $accuracy, $jitter, $isFake, $flagReason, $lat, $lng, $now
+        ) {
             if ($reportData) {
                 EmployeeDailyReport::create([
-                    'employee_id' => $employee->id,
+                    'employee_id'       => $employee->id,
                     'daily_report_date' => $reportData['daily_report_date'],
-                    'work_description' => $reportData['work_description'],
-                    'work_status' => $reportData['work_status'],
-                    'desc' => $reportData['desc'],
-                    'users_id' => $user->id,
+                    'work_description'  => $reportData['work_description'],
+                    'work_status'       => $reportData['work_status'],
+                    'desc'              => $reportData['desc'],
+                    'users_id'          => $user->id,
                 ]);
             }
 
-            // Save Attendance Record
             EmployeeAttendanceRecord::create([
-                'pin' => $employee->pin ?? $employee->id,
-                'employee_name' => $employee->name,
-                'attendance_time' => now(),
-                'state' => $attendanceData['state'],
-                
-                // Fields untuk kompatibilitas (Lama)
-                'latitude' => $attendanceData['latitude'],
-                'longitude' => $attendanceData['longitude'],
-                'distance_meters' => $minDistance,
-                'picture' => $picturePath,
-
-                // Fields Baru (Sesuai Migrasi & Resource)
-                'office_location_id' => $closestLocation?->id,
-                'check_latitude' => $attendanceData['latitude'],
-                'check_longitude' => $attendanceData['longitude'],
-                'distance_from_office' => (int) round($minDistance),
-                'is_within_radius' => $isInRange,
-                'photo_checkin' => in_array($attendanceData['state'], ['in', 'ot_in', 'dl_in']) ? $picturePath : null,
-                'photo_checkout' => in_array($attendanceData['state'], ['out', 'ot_out', 'dl_out']) ? $picturePath : null,
-                'attendance_status' => $attendanceStatus,
-                'users_id' => $user->id,
-                'device' => 'web',
+                'pin'                   => $employee->pin ?? $employee->id,
+                'employee_name'         => $employee->name,
+                'attendance_time'       => $now,
+                'state'                 => $attendanceData['state'],
+                'source'                => 'online',
+                'device'                => 'Online (Web)',
+                'check_latitude'        => $lat,
+                'check_longitude'       => $lng,
+                'gps_accuracy'          => $accuracy,
+                'gps_jitter'            => $jitter,
+                'is_fake_gps_suspected' => $isFake,
+                'gps_flag_reason'       => $flagReason ?: null,
+                'office_location_id'    => $closestLocation?->id,
+                'distance_from_office'  => $minDistance ? (int) round($minDistance) : null,
+                'is_within_radius'      => true,
+                'photo_checkin'  => in_array($attendanceData['state'], ['check_in', 'ot_in', 'dl_in'])  ? $picturePath : null,
+                'photo_checkout' => in_array($attendanceData['state'], ['check_out', 'ot_out', 'dl_out']) ? $picturePath : null,
+                'attendance_status'     => $attendanceStatus,
+                'users_id'              => $user->id,
             ]);
         });
 
-        $statusLabel = match($attendanceStatus) {
-            'late' => ' (Terlambat)',
-            'early' => ' (Terlalu Cepat)',
-            default => ' (Tepat Waktu)',
+        $statusLabel = match ($attendanceStatus) {
+            'late'      => ' (Terlambat)',
+            'early_out' => ' (Pulang Cepat)',
+            default     => ' (Tepat Waktu)',
         };
+        $extra = $isFake ? ' ⚠️ GPS terdeteksi mencurigakan.' : '';
 
         Notification::make()
             ->title('Berhasil Simpan Kehadiran' . $statusLabel)
+            ->body($extra ?: null)
             ->success()
             ->send();
 

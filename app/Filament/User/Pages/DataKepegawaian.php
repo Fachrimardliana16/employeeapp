@@ -25,17 +25,18 @@ class DataKepegawaian extends Page implements HasInfolists
     protected static ?string $slug = 'data-kepegawaian';
     protected static ?string $navigationGroup = 'Utama';
     protected static ?int $navigationSort = 1;
-    
+
     public ?Employee $employee = null;
-    
+
     // Stats properties
     public int $monthlyPresence = 0;
     public int $monthlyAbsence = 0;
     public int $monthlyLate = 0;
     public int $monthlyPermit = 0;
+    public int $monthlyHoliday = 0;
     public int $monthlyOvertimeCount = 0;
     public string $monthlyOvertimeHours = '0j 0m';
-    
+
     public function mount(): void
     {
         $user = Auth::user();
@@ -59,8 +60,8 @@ class DataKepegawaian extends Page implements HasInfolists
             'grade',
             'department',
         ])
-        ->where('users_id', $user->id)
-        ->first();
+            ->where('users_id', $user->id)
+            ->first();
 
         if (!$this->employee) {
             return;
@@ -81,6 +82,7 @@ class DataKepegawaian extends Page implements HasInfolists
         $this->monthlyPresence = $stats['presence'];
         $this->monthlyLate = $stats['late'];
         $this->monthlyPermit = $stats['permit'];
+        $this->monthlyHoliday = $stats['holiday'] ?? 0;
         $this->monthlyAbsence = $stats['absence'];
         $this->monthlyOvertimeCount = $stats['overtime_count'];
         $this->monthlyOvertimeHours = $stats['overtime_hours'];
@@ -139,13 +141,23 @@ class DataKepegawaian extends Page implements HasInfolists
 
                 Infolists\Components\Section::make('Statistik Kehadiran Bulan Ini')
                     ->schema([
-                        Infolists\Components\Grid::make(4)
+                        Infolists\Components\Grid::make(5)
                             ->schema([
                                 Infolists\Components\TextEntry::make('monthly_presence')
                                     ->label('Total Kehadiran')
                                     ->state($this->monthlyPresence . ' Hari')
                                     ->color('success')
                                     ->icon('heroicon-m-check-circle'),
+                                Infolists\Components\TextEntry::make('monthly_permit')
+                                    ->label('Izin & Cuti')
+                                    ->state($this->monthlyPermit . ' Hari')
+                                    ->color('info')
+                                    ->icon('heroicon-m-calendar'),
+                                Infolists\Components\TextEntry::make('monthly_holiday')
+                                    ->label('Libur Nasional/Cuti Bersama')
+                                    ->state($this->monthlyHoliday . ' Hari')
+                                    ->color('gray')
+                                    ->icon('heroicon-m-calendar-days'),
                                 Infolists\Components\TextEntry::make('monthly_absence')
                                     ->label('Ketidak Hadiran')
                                     ->state($this->monthlyAbsence . ' Hari')
@@ -156,13 +168,8 @@ class DataKepegawaian extends Page implements HasInfolists
                                     ->state($this->monthlyLate . ' Kali')
                                     ->color('warning')
                                     ->icon('heroicon-m-clock'),
-                                Infolists\Components\TextEntry::make('monthly_permit')
-                                    ->label('Izin & Cuti')
-                                    ->state($this->monthlyPermit . ' Hari')
-                                    ->color('info')
-                                    ->icon('heroicon-m-calendar'),
                             ]),
-                        
+
                         Infolists\Components\Grid::make(2)
                             ->schema([
                                 Infolists\Components\TextEntry::make('overtime_count')
@@ -264,7 +271,7 @@ class DataKepegawaian extends Page implements HasInfolists
                             ->columnSpanFull()
                             ->hiddenLabel(),
                     ])->collapsible()->collapsed()
-                    ->hidden(fn (Employee $record) => $record->families->isEmpty()),
+                    ->hidden(fn(Employee $record) => $record->families->isEmpty()),
 
                 Infolists\Components\Section::make('Riwayat Kontrak')
                     ->schema([
@@ -273,7 +280,7 @@ class DataKepegawaian extends Page implements HasInfolists
                             ->columnSpanFull()
                             ->hiddenLabel(),
                     ])->collapsible()->collapsed()
-                    ->hidden(fn (Employee $record) => $record->employeeAgreements->isEmpty()),
+                    ->hidden(fn(Employee $record) => $record->employeeAgreements->isEmpty()),
 
                 Infolists\Components\Section::make('Riwayat Mutasi')
                     ->schema([
@@ -282,7 +289,7 @@ class DataKepegawaian extends Page implements HasInfolists
                             ->columnSpanFull()
                             ->hiddenLabel(),
                     ])->collapsible()->collapsed()
-                    ->hidden(fn (Employee $record) => $record->mutations->isEmpty()),
+                    ->hidden(fn(Employee $record) => $record->mutations->isEmpty()),
 
                 Infolists\Components\Section::make('Riwayat Karir')
                     ->schema([
@@ -291,7 +298,7 @@ class DataKepegawaian extends Page implements HasInfolists
                             ->columnSpanFull()
                             ->hiddenLabel(),
                     ])->collapsible()->collapsed()
-                    ->hidden(fn (Employee $record) => $record->careerMovements->isEmpty()),
+                    ->hidden(fn(Employee $record) => $record->careerMovements->isEmpty()),
 
                 Infolists\Components\Section::make('Riwayat Kenaikan Tahunan')
                     ->schema([
@@ -300,7 +307,7 @@ class DataKepegawaian extends Page implements HasInfolists
                             ->columnSpanFull()
                             ->hiddenLabel(),
                     ])->collapsible()->collapsed()
-                    ->hidden(fn (Employee $record) => $record->promotions->isEmpty()),
+                    ->hidden(fn(Employee $record) => $record->promotions->isEmpty()),
 
                 Infolists\Components\Section::make('Riwayat SK')
                     ->schema([
@@ -309,7 +316,7 @@ class DataKepegawaian extends Page implements HasInfolists
                             ->columnSpanFull()
                             ->hiddenLabel(),
                     ])->collapsible()->collapsed()
-                    ->hidden(fn (Employee $record) => $record->appointments->isEmpty()),
+                    ->hidden(fn(Employee $record) => $record->appointments->isEmpty()),
             ]);
     }
 }

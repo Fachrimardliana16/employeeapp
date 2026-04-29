@@ -1,41 +1,128 @@
+@php
+    $user = auth()->user();
+    $employee = \App\Models\Employee::where('users_id', $user->id)
+        ->orWhere('email', $user->email)
+        ->orWhere('office_email', $user->email)
+        ->first();
+    $officeLocations = $employee
+        ? \App\Models\MasterOfficeLocation::where('is_active', true)
+            ->where(function($q) use ($employee) {
+                $q->where('departments_id', $employee->departments_id)
+                  ->orWhereNull('departments_id');
+            })
+            ->get(['id', 'name', 'latitude', 'longitude', 'radius'])
+        : collect();
+@endphp
+
 <x-filament-panels::page>
     <div x-data="{
         latitude: null,
         longitude: null,
         currentTime: '',
         accuracy: null,
+        jitter: null,
+        distanceToOffice: null,
+        closestOfficeName: null,
         status: 'idle',
+        gpsStep: 0,
+        readings: [],
+        officeLocations: {{ $officeLocations->toJson() }},
 
         updateTime() {
             const now = new Date();
             this.currentTime = now.toLocaleTimeString('id-ID', { hour12: false });
         },
 
-        getLocation() {
-            if (navigator.geolocation) {
-                this.status = 'searching';
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        this.latitude = position.coords.latitude;
-                        this.longitude = position.coords.longitude;
-                        this.accuracy = position.coords.accuracy;
-                        $wire.$set('data.latitude', this.latitude);
-                        $wire.$set('data.longitude', this.longitude);
-                        this.status = 'success';
-                    },
-                    (error) => {
-                        this.status = 'error';
-                        console.error('Location error:', error);
-                    },
-                    { 
-                        enableHighAccuracy: true,
-                        timeout: 5000,
-                        maximumAge: 0
-                    }
-                );
-            } else {
-                alert('Browser Anda tidak mendukung geolocation');
+        calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // meter
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        },
+
+        updateDistanceToOffice() {
+            if (!this.latitude || !this.longitude || this.officeLocations.length === 0) {
+                this.distanceToOffice = null;
+                this.closestOfficeName = null;
+                return;
             }
+            let minDist = Infinity;
+            let closestOffice = null;
+            this.officeLocations.forEach(office => {
+                const dist = this.calculateDistance(
+                    this.latitude, this.longitude,
+                    parseFloat(office.latitude), parseFloat(office.longitude)
+                );
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestOffice = office;
+                }
+            });
+            this.distanceToOffice = Math.round(minDist);
+            this.closestOfficeName = closestOffice ? closestOffice.name : null;
+        },
+
+        getLocation() {
+            if (!navigator.geolocation) {
+                alert('Browser Anda tidak mendukung geolocation');
+                return;
+            }
+            this.status = 'searching';
+            this.readings = [];
+            this.gpsStep = 0;
+            this.captureReading();
+        },
+
+        captureReading() {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    this.readings.push({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        acc: position.coords.accuracy,
+                    });
+                    this.gpsStep = this.readings.length;
+                    if (this.readings.length < 3) {
+                        setTimeout(() => this.captureReading(), 2000);
+                    } else {
+                        this.finalizeLocation();
+                    }
+                },
+                (error) => {
+                    this.status = 'error';
+                    console.error('Location error:', error);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        },
+
+        finalizeLocation() {
+            // Pilih reading dengan akurasi terbaik (nilai terkecil)
+            const best = this.readings.reduce((prev, curr) => curr.acc < prev.acc ? curr : prev);
+            this.latitude  = best.lat;
+            this.longitude = best.lng;
+            this.accuracy  = best.acc;
+
+            // Hitung jitter: haversine antara reading pertama dan terakhir
+            const r0 = this.readings[0], r2 = this.readings[2];
+            const R  = 6371000;
+            const dLat = (r2.lat - r0.lat) * Math.PI / 180;
+            const dLng = (r2.lng - r0.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2
+                    + Math.cos(r0.lat * Math.PI/180) * Math.cos(r2.lat * Math.PI/180)
+                    * Math.sin(dLng/2)**2;
+            this.jitter = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            this.updateDistanceToOffice();
+
+            $wire.$set('data.latitude',     this.latitude);
+            $wire.$set('data.longitude',    this.longitude);
+            $wire.$set('data.gps_accuracy', this.accuracy);
+            $wire.$set('data.gps_jitter',   this.jitter);
+            this.status = 'success';
         }
     }" x-init="getLocation(); updateTime(); setInterval(() => updateTime(), 1000)" class="space-y-8">
 
@@ -54,14 +141,19 @@
                                 </svg>
                             </div>
                             <div>
-                                <h2 class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">Lokasi & Presisi</h2>
+                                <h2 class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">
+                                    <span x-show="!closestOfficeName">Lokasi GPS</span>
+                                    <span x-show="closestOfficeName" x-text="closestOfficeName"></span>
+                                </h2>
                                 <div class="flex items-center gap-3">
-                                    <p class="text-sm font-bold text-gray-900 dark:text-white" x-text="latitude && longitude ? `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` : 'Mencari...'"></p>
-                                    <template x-if="accuracy">
-                                        <span @class([
-                                            'px-1.5 py-0.5 rounded text-[9px] font-bold uppercase',
-                                            'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400' => true,
-                                        ]) x-text="`±${Math.round(accuracy)}m`" :class="accuracy > 100 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400' : ''"></span>
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white" x-text="latitude && longitude ? `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` : (status === 'searching' ? `Membaca titik ${gpsStep}/3...` : 'Belum terdeteksi')"></p>
+                                    <template x-if="distanceToOffice !== null">
+                                        <span 
+                                            class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase" 
+                                            x-text="`${distanceToOffice}m`" 
+                                            :class="distanceToOffice > 100 ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' : (distanceToOffice > 50 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400')"
+                                            :title="`Jarak dari kantor: ${distanceToOffice}m`"
+                                        ></span>
                                     </template>
                                     
                                     <!-- Refresh Location Button with better feedback -->
@@ -180,12 +272,12 @@
                             <div class="flex items-center gap-3">
                                 <div @class([
                                     'w-10 h-10 rounded-lg flex items-center justify-center',
-                                    'bg-green-50 text-green-600 dark:bg-green-500/10' => $record->state === 'in',
-                                    'bg-orange-50 text-orange-600 dark:bg-orange-500/10' => $record->state === 'out',
+                                    'bg-green-50 text-green-600 dark:bg-green-500/10' => in_array($record->state, ['check_in']),
+                                    'bg-orange-50 text-orange-600 dark:bg-orange-500/10' => in_array($record->state, ['check_out']),
                                     'bg-blue-50 text-blue-600 dark:bg-blue-500/10' => str_starts_with($record->state, 'dl'),
                                     'bg-purple-50 text-purple-600 dark:bg-purple-500/10' => str_starts_with($record->state, 'ot'),
                                 ])>
-                                    @if($record->state === 'in')
+                                    @if(in_array($record->state, ['check_in', 'ot_in', 'dl_in']))
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
                                     @else
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
@@ -193,7 +285,15 @@
                                 </div>
                                 <div>
                                     <p class="text-xs font-bold text-gray-950 dark:text-white capitalize">
-                                        {{ str_replace('_', ' ', $record->state) }}
+                                        {{ match($record->state) {
+                                            'check_in'  => 'Masuk Kerja',
+                                            'check_out' => 'Pulang Kerja',
+                                            'dl_in'     => 'Dinas Luar (Berangkat)',
+                                            'dl_out'    => 'Dinas Luar (Kembali)',
+                                            'ot_in'     => 'Lembur (Masuk)',
+                                            'ot_out'    => 'Lembur (Pulang)',
+                                            default     => str_replace('_', ' ', $record->state),
+                                        } }}
                                     </p>
                                     <p class="text-[10px] text-gray-500 font-medium">{{ $record->attendance_time->format('H:i:s') }}</p>
                                 </div>

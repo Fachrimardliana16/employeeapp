@@ -5,18 +5,68 @@ namespace App\Http\Controllers;
 use App\Models\AttendanceMachine;
 use App\Models\AttendanceMachineLog;
 use App\Models\AttendanceMachineCommand;
+use App\Models\AttendanceMachineCommunication;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class AdmsController extends Controller
 {
     /**
-     * Get the standard handshake options to send to machines.
-     * Always includes TimeZone=7 (WIB).
+     * Log communication for troubleshooting and monitoring.
+     * CRITICAL: This helps track communication issues and machine behavior.
      */
-    private function getHandshakeOptions(string $sn): string
+    private function logCommunication(
+        string $sn, 
+        string $endpoint, 
+        Request $request, 
+        string $response, 
+        int $responseCode = 200, 
+        ?string $error = null,
+        ?AttendanceMachine $machine = null
+    ): void {
+        try {
+            AttendanceMachineCommunication::create([
+                'attendance_machine_id' => $machine?->id,
+                'serial_number' => $sn,
+                'endpoint' => $endpoint,
+                'method' => $request->method(),
+                'ip_address' => $request->ip(),
+                'request_params' => json_encode($request->query()),
+                'request_body' => $request->method() === 'POST' ? substr($request->getContent(), 0, 10000) : null, // Limit to 10KB
+                'response_body' => substr($response, 0, 5000), // Limit to 5KB
+                'response_code' => $responseCode,
+                'error_message' => $error,
+            ]);
+            
+            // Update machine communication stats
+            if ($machine) {
+                if ($error) {
+                    $machine->increment('communication_error_count');
+                    $machine->update([
+                        'last_error_at' => now(),
+                        'last_error_message' => substr($error, 0, 500),
+                    ]);
+                } else {
+                    $machine->increment('communication_success_count');
+                }
+            }
+        } catch (\Exception $e) {
+            // Don't fail the request if logging fails
+            Log::error("Failed to log communication", ['error' => $e->getMessage()]);
+        }
+    }
+    
+    /**
+     * Get the standard handshake options to send to machines.
+     * 
+     * IMPORTANT NOTES:
+     * 1. NEVER send commands that delete data (CLEAR DATA, CLEAR ATTLOG, etc.)
+     * 2. TimeZone setting is OPTIONAL and controlled per-machine via auto_sync_time flag
+     * 3. Different machine types handle TimeZone differently - some auto-adjust, causing +1 hour drift
+     */
+    private function getHandshakeOptions(string $sn, ?AttendanceMachine $machine = null): string
     {
-        return implode("\n", [
+        $options = [
             "GET OPTION FROM: {$sn}",
             "Stamp=9999",
             "OpStamp=9999",
@@ -25,12 +75,36 @@ class AdmsController extends Controller
             "TransTimes=00:00;14:05",
             "TransInterval=1",
             "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
-            "TimeZone=7",
-            "GMTPlus=7",
-            "Realtime=1",
-            "PushVersion=3.0",
-            "Encrypt=0",
-        ]);
+        ];
+        
+        // CRITICAL: Only send timezone if machine has auto_sync_time enabled
+        // Some machines (like newer models) auto-adjust timezone causing +1 hour drift
+        // Default behavior: DON'T send timezone, let machine use its own clock
+        if ($machine && $machine->auto_sync_time) {
+            $timezone = $machine->timezone_offset ?? '7'; // Default WIB = +7
+            $options[] = "TimeZone={$timezone}";
+            $options[] = "GMTPlus={$timezone}";
+            
+            Log::info("ADMS TimeZone SENT (auto_sync enabled)", [
+                'SN' => $sn,
+                'timezone' => $timezone,
+            ]);
+        } else {
+            Log::info("ADMS TimeZone NOT SENT (machine uses own clock)", [
+                'SN' => $sn,
+                'reason' => $machine ? 'auto_sync_time disabled' : 'machine not in DB',
+            ]);
+        }
+        
+        $options[] = "Realtime=1";
+        $options[] = "PushVersion=3.0";
+        $options[] = "Encrypt=0";
+        
+        // SAFETY: Never include CLEAR commands
+        // $options[] = "CLEAR DATA";  // NEVER!
+        // $options[] = "CLEAR ATTLOG"; // NEVER!
+        
+        return implode("\n", $options);
     }
 
     /**
@@ -40,14 +114,24 @@ class AdmsController extends Controller
     public function cdata(Request $request)
     {
         $sn = $request->query('SN');
-        Log::debug("ADMS cdata Request", ['SN' => $sn, 'IP' => $request->ip(), 'Method' => $request->method()]);
+        $response = '';
+        $error = null;
+        
+        Log::debug("ADMS cdata Request", [
+            'SN' => $sn, 
+            'IP' => $request->ip(), 
+            'Method' => $request->method(),
+            'Query' => $request->query(),
+        ]);
         
         if (!$sn) {
-            return response("SN NOT FOUND", 400);
+            $error = "SN NOT FOUND in request";
+            $this->logCommunication($sn ?? 'UNKNOWN', 'cdata', $request, $error, 400, $error);
+            return response($error, 400);
         }
 
         // DB operations wrapped in try-catch — if DB is temporarily unreachable,
-        // we still send the handshake with TimeZone=7 so the machine clock stays correct.
+        // we still send the handshake so machine stays connected
         try {
             $machine = AttendanceMachine::where('serial_number', $sn)->first();
             
@@ -62,6 +146,7 @@ class AdmsController extends Controller
                         'status' => 'online',
                         'ip_address' => $request->ip(),
                         'last_heard_at' => now(),
+                        'auto_sync_time' => false, // Default: DON'T sync time automatically
                     ]);
                     Log::info("Auto-registered new attendance machine: " . $sn);
                 }
@@ -73,7 +158,7 @@ class AdmsController extends Controller
                 ]);
             }
 
-            // If it's a POST, it's data
+            // If it's a POST, it's data upload
             if ($request->isMethod('post')) {
                 $table = $request->query('table');
                 $content = $request->getContent();
@@ -82,6 +167,7 @@ class AdmsController extends Controller
                     Log::info("ADMS ATTLOG Data Received", [
                         'SN' => $sn,
                         'content_length' => strlen($content),
+                        'lines' => substr_count($content, "\n"),
                     ]);
                     $this->parseAttendanceLogs($machine, $sn, $content);
                 }
@@ -90,22 +176,29 @@ class AdmsController extends Controller
                     Log::info("ADMS USER Data Received", [
                         'SN' => $sn,
                         'content_length' => strlen($content),
-                        'content_payload' => $content,
+                        'sample' => substr($content, 0, 200),
                     ]);
                     $this->parseUserLogs($machine, $sn, $content);
                 }
 
-                return response("OK");
+                $response = "OK";
+                $this->logCommunication($sn, 'cdata', $request, $response, 200, null, $machine);
+                return response($response);
             }
         } catch (\Exception $e) {
+            $error = "DB Error: " . $e->getMessage();
             Log::error("ADMS cdata DB Error (handshake still sent)", [
                 'SN' => $sn,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
-            // Fall through to return handshake — TimeZone=7 is more important than DB
+            // Fall through to return handshake — Connection is more important than DB
         }
 
-        return response($this->getHandshakeOptions($sn));
+        // Return handshake options
+        $response = $this->getHandshakeOptions($sn, $machine ?? null);
+        $this->logCommunication($sn, 'cdata', $request, $response, 200, $error, $machine ?? null);
+        return response($response);
     }
 
     /**
@@ -115,9 +208,17 @@ class AdmsController extends Controller
     public function getrequest(Request $request)
     {
         $sn = $request->query('SN');
-        Log::debug("ADMS getrequest Heartbeat", ['SN' => $sn, 'IP' => $request->ip()]);
+        $response = '';
+        $error = null;
+        
+        Log::debug("ADMS getrequest Heartbeat", [
+            'SN' => $sn, 
+            'IP' => $request->ip(),
+            'Query' => $request->query(),
+        ]);
         
         if (!$sn) {
+            $this->logCommunication($sn ?? 'UNKNOWN', 'getrequest', $request, "OK", 200, "No SN provided");
             return response("OK");
         }
 
@@ -133,6 +234,7 @@ class AdmsController extends Controller
                         'status' => 'online',
                         'ip_address' => $request->ip(),
                         'last_heard_at' => now(),
+                        'auto_sync_time' => false,
                     ]);
                 }
             } else {
@@ -167,7 +269,16 @@ class AdmsController extends Controller
                     ]);
 
                     // Return command in ZKTeco format: C:ID:COMMAND
-                    return response("C:{$pendingCommand->id}:{$pendingCommand->command}");
+                    $response = "C:{$pendingCommand->id}:{$pendingCommand->command}";
+                    
+                    Log::info("ADMS Command Sent", [
+                        'SN' => $sn,
+                        'command_id' => $pendingCommand->id,
+                        'command' => $pendingCommand->command,
+                    ]);
+                    
+                    $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
+                    return response($response);
                 }
 
                 // --- Realtime Time Sync Check (Auto-polling every 1 minute) ---
@@ -215,14 +326,20 @@ class AdmsController extends Controller
                 }
             }
 
-            return response("OK");
+            $response = "OK";
+            $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
+            return response($response);
         } catch (\Exception $e) {
+            $error = "DB Error: " . $e->getMessage();
             Log::error("ADMS getrequest DB Error (handshake fallback sent)", [
                 'SN' => $sn,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
-            // If DB is down, fallback to handshake to ensure time sync is maintained
-            return response($this->getHandshakeOptions($sn));
+            // If DB is down, fallback to handshake to ensure connection maintained
+            $response = $this->getHandshakeOptions($sn, $machine ?? null);
+            $this->logCommunication($sn, 'getrequest', $request, $response, 200, $error, $machine ?? null);
+            return response($response);
         }
     }
 
@@ -235,10 +352,19 @@ class AdmsController extends Controller
         $sn = $request->query('SN');
         $id = $request->query('ID');
         $content = $request->getContent();
+        $response = "OK";
+        $error = null;
         
-        Log::debug("ADMS devicecmd Feedback", ['SN' => $sn, 'ID' => $id, 'Return' => $content]);
+        Log::debug("ADMS devicecmd Feedback", [
+            'SN' => $sn, 
+            'ID' => $id, 
+            'Return' => substr($content, 0, 500), // Log first 500 chars
+            'IP' => $request->ip(),
+        ]);
 
         try {
+            $machine = AttendanceMachine::where('serial_number', $sn)->first();
+            
             if ($id) {
                 $command = AttendanceMachineCommand::find($id);
                 if ($command) {
@@ -246,6 +372,13 @@ class AdmsController extends Controller
                         'status' => 'completed',
                         'completed_at' => now(),
                         'response_payload' => $content,
+                    ]);
+                    
+                    Log::info("ADMS Command Completed", [
+                        'SN' => $sn,
+                        'command_id' => $id,
+                        'command' => $command->command,
+                        'response_length' => strlen($content),
                     ]);
 
                     // If this was an INFO command, parse the machine's datetime for sync verification
@@ -259,81 +392,120 @@ class AdmsController extends Controller
             if ($sn && str_contains($content, 'DateTime')) {
                 $this->parseInfoResponse($sn, $content);
             }
+            
+            $this->logCommunication($sn, 'devicecmd', $request, $response, 200, null, $machine);
         } catch (\Exception $e) {
+            $error = "DB Error: " . $e->getMessage();
             Log::error("ADMS devicecmd DB Error", [
                 'SN' => $sn,
                 'ID' => $id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+            $this->logCommunication($sn, 'devicecmd', $request, $response, 200, $error, $machine ?? null);
         }
 
-        return response("OK");
+        return response($response);
     }
 
     /**
-     * Parse INFO response from machine to extract DateTime and calculate drift.
-     * Typical INFO response format varies by firmware:
-     *   - "~ServerVer=...,DateTime=2026-04-27 19:51:09,..."
-     *   - Key=Value pairs separated by comma or newline
-     *   - "Return=0\nDateTime=2026-04-27 19:51:09"
+     * Parse INFO response from machine.
+     * Extracts: DateTime, DeviceName/Model, FirmwareVersion, SerialNumber, UserCount, etc.
+     * 
+     * Firmware variations (different brands respond differently):
+     *   ZKTeco  : "~ServerVer=2.4.1\nDeviceName=BIO800\nDateTime=2026-04-28 10:00:00"
+     *   Virdi   : "Return=0\nDateTime=2026-04-28 10:00:00\nDeviceName=AC2100"
+     *   Solution: "SN=ABC123\nDateTime=2026-04-28 10:00:00\n"
      */
     private function parseInfoResponse(string $sn, string $content): void
     {
         $machine = AttendanceMachine::where('serial_number', $sn)->first();
         if (!$machine) return;
 
-        $machineDateTime = null;
-        $deviceModel = null;
         $updateData = [];
 
-        // Extract DeviceName / Model
-        if (preg_match('/DeviceName[=:]\s*([^\r\n]+)/i', $content, $matches)) {
-            $deviceModel = trim($matches[1]);
-            if ($deviceModel && $machine->device_model !== $deviceModel) {
-                $updateData['device_model'] = $deviceModel;
+        Log::debug("ADMS parseInfoResponse raw content", [
+            'SN' => $sn,
+            'content' => substr($content, 0, 2000),
+        ]);
+
+        // --- Extract Device Info fields ---
+        $infoFields = [
+            // DeviceName / Model
+            'DeviceName'   => '/DeviceName[=:]\s*([^\r\n,]+)/i',
+            'FWVersion'    => '/FWVersion[=:]\s*([^\r\n,]+)/i',
+            'Platform'     => '/Platform[=:]\s*([^\r\n,]+)/i',
+            'OEMVendor'    => '/OEMVendor[=:]\s*([^\r\n,]+)/i',
+            'MAC'          => '/MAC[=:]\s*([0-9a-fA-F:]+)/i',
+            'UserCount'    => '/UserCount[=:]\s*(\d+)/i',
+            'AttLogCount'  => '/AttLogCount[=:]\s*(\d+)/i',
+            'FPCount'      => '/FPCount[=:]\s*(\d+)/i',
+        ];
+
+        $parsedInfo = [];
+        foreach ($infoFields as $field => $pattern) {
+            if (preg_match($pattern, $content, $matches)) {
+                $parsedInfo[$field] = trim($matches[1]);
             }
         }
 
-        // Try multiple patterns to extract DateTime from INFO response
-        // Pattern 1: DateTime=YYYY-MM-DD HH:MM:SS (standard)
-        if (preg_match('/DateTime[=:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i', $content, $matches)) {
-            $machineDateTime = $matches[1];
+        // Build device_model from available fields
+        if (!empty($parsedInfo['DeviceName'])) {
+            $modelParts = [$parsedInfo['DeviceName']];
+            if (!empty($parsedInfo['FWVersion'])) $modelParts[] = 'FW:' . $parsedInfo['FWVersion'];
+            $deviceModel = implode(' | ', $modelParts);
+            if ($machine->device_model !== $deviceModel) {
+                $updateData['device_model'] = $deviceModel;
+            }
+        } elseif (!empty($parsedInfo['Platform'])) {
+            $updateData['device_model'] = $parsedInfo['Platform'];
         }
-        // Pattern 2: Date=YYYY-MM-DD and Time=HH:MM:SS (split)
-        elseif (preg_match('/Date[=:]\s*(\d{4}-\d{2}-\d{2})/i', $content, $dateMatch) &&
-                preg_match('/Time[=:]\s*(\d{2}:\d{2}:\d{2})/i', $content, $timeMatch)) {
-            $machineDateTime = $dateMatch[1] . ' ' . $timeMatch[1];
+
+        Log::info("ADMS Info Parsed", array_merge(['SN' => $sn], $parsedInfo));
+
+        // --- Extract DateTime (multiple patterns for different firmware) ---
+        $machineDateTime = null;
+
+        // Pattern 1: DateTime=YYYY-MM-DD HH:MM:SS
+        if (preg_match('/DateTime[=:]\s*(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2})/i', $content, $m)) {
+            $machineDateTime = $m[1];
         }
-        // Pattern 3: Loose datetime anywhere in content
-        elseif (preg_match('/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/', $content, $matches)) {
-            $machineDateTime = $matches[1];
+        // Pattern 2: Date=YYYY-MM-DD and Time=HH:MM:SS separately
+        elseif (
+            preg_match('/\bDate[=:]\s*(\d{4}-\d{2}-\d{2})/i', $content, $dm) &&
+            preg_match('/\bTime[=:]\s*(\d{2}:\d{2}:\d{2})/i', $content, $tm)
+        ) {
+            $machineDateTime = $dm[1] . ' ' . $tm[1];
+        }
+        // Pattern 3: Any ISO datetime in content (fallback)
+        elseif (preg_match('/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/', $content, $m)) {
+            $machineDateTime = $m[1];
         }
 
         if ($machineDateTime) {
             try {
                 $serverNow = now()->timezone('Asia/Jakarta');
-                $machineTime = \Carbon\Carbon::parse($machineDateTime);
-                
-                // Calculate drift: machine - server
-                // positive = machine ahead, negative = machine behind
-                $driftSeconds = $serverNow->diffInSeconds($machineTime, false);
+                $machineTime = \Carbon\Carbon::parse($machineDateTime)->timezone('Asia/Jakarta');
 
-                $updateData['machine_datetime'] = $machineTime;
-                $updateData['time_checked_at'] = $serverNow;
-                $updateData['time_drift_seconds'] = $driftSeconds;
+                // positive = machine ahead of server, negative = machine behind server
+                $driftSeconds = $machineTime->diffInSeconds($serverNow, false) * -1;
+
+                $updateData['machine_datetime']    = $machineTime;
+                $updateData['time_checked_at']     = $serverNow;
+                $updateData['time_drift_seconds']  = $driftSeconds;
 
                 Log::info("ADMS Time Sync Check", [
-                    'SN' => $sn,
-                    'machine_time' => $machineDateTime,
-                    'server_time' => $serverNow->toDateTimeString(),
+                    'SN'            => $sn,
+                    'machine_time'  => $machineTime->toDateTimeString(),
+                    'server_time'   => $serverNow->toDateTimeString(),
                     'drift_seconds' => $driftSeconds,
-                    'device_model' => $deviceModel,
+                    'drift_label'   => $machine->fresh()->time_drift_label ?? '',
                 ]);
             } catch (\Exception $e) {
                 Log::warning("ADMS Failed to parse machine datetime", [
-                    'SN' => $sn,
+                    'SN'           => $sn,
                     'raw_datetime' => $machineDateTime,
-                    'error' => $e->getMessage(),
+                    'error'        => $e->getMessage(),
                 ]);
             }
         }
@@ -345,58 +517,91 @@ class AdmsController extends Controller
 
     /**
      * Parse the raw attendance logs from the machine.
+     * 
+     * IMPORTANT RULES:
+     * 1. NEVER send CLEAR/DELETE commands to machine — data stays on machine
+     * 2. Use updateOrCreate to avoid duplicates but preserve existing data
+     * 3. Type field: 0=Check In, 1=Check Out, 2=Break Out, 3=Break In, 4=OT In, 5=OT Out
      */
     private function parseAttendanceLogs($machine, $sn, $content)
     {
         $lines = explode("\n", $content);
         $processedCount = 0;
+        $errorCount = 0;
         
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
 
             try {
+                // Format: PIN\tTimestamp\tType\tVerifyMethod\tWorkCode\tReserved
                 $data = explode("\t", $line);
                 if (count($data) < 2) continue;
 
-                $pin = $data[0];
-                $time = $data[1];
-                $type = $data[2] ?? '0'; 
-                $verify = $data[3] ?? '0';
+                $pin    = trim($data[0]);
+                $time   = trim($data[1]);
+                $type   = trim($data[2] ?? '0');
+                $verify = trim($data[3] ?? '0');
 
-                // 1. Raw Log
+                if (empty($pin) || empty($time)) continue;
+
+                // Store raw log — updateOrCreate prevents duplicates
+                // NEVER sends CLEAR command back to machine
                 AttendanceMachineLog::updateOrCreate(
-                    ['serial_number' => $sn, 'pin' => $pin, 'timestamp' => $time],
-                    ['attendance_machine_id' => $machine ? $machine->id : null, 'type' => $type, 'raw_payload' => $line]
-                );
-
-                // 2. Process Time & State
-                $attendanceTime = \Carbon\Carbon::parse($time);
-                $state = match($type) {
-                    '0' => 'check_in', '1' => 'check_out', '2' => 'break_out', 
-                    '3' => 'break_in', '4' => 'ot_in', '5' => 'ot_out', default => 'check_in'
-                };
-
-                // 3. Sync to Main Table
-                $employee = \App\Models\Employee::where('pin', $pin)->first();
-                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
-                    ['pin' => $pin, 'attendance_time' => $attendanceTime->toDateTimeString(), 'state' => $state],
                     [
-                        'employee_name' => $employee ? $employee->name : "Unknown (PIN: {$pin})",
-                        'attendance_status' => 'on_time', 
-                        'verification' => $verify,
-                        'device' => $machine ? $machine->name : $sn,
-                        'office_location_id' => $machine ? $machine->master_office_location_id : null,
+                        'serial_number' => $sn,
+                        'pin'           => $pin,
+                        'timestamp'     => $time,
+                    ],
+                    [
+                        'attendance_machine_id' => $machine?->id,
+                        'type'                  => $type,
+                        'raw_payload'           => $line,
                     ]
                 );
-                
+
+                // Sync to main attendance table
+                $attendanceTime = \Carbon\Carbon::parse($time);
+                $state = match($type) {
+                    '0' => 'check_in',  '1' => 'check_out',
+                    '2' => 'break_out', '3' => 'break_in',
+                    '4' => 'ot_in',     '5' => 'ot_out',
+                    default => 'check_in'
+                };
+
+                $employee = \App\Models\Employee::where('pin', $pin)->first();
+                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                    [
+                        'pin'             => $pin,
+                        'attendance_time' => $attendanceTime->toDateTimeString(),
+                        'state'           => $state,
+                    ],
+                    [
+                        'employee_name'     => $employee ? $employee->name : "Unknown (PIN: {$pin})",
+                        'attendance_status' => 'on_time',
+                        'verification'      => $verify,
+                        'device'            => $machine ? $machine->name : $sn,
+                        'office_location_id'=> $machine?->master_office_location_id,
+                    ]
+                );
+
                 $processedCount++;
             } catch (\Exception $e) {
-                Log::error("ADMS Line Error: " . $e->getMessage());
+                $errorCount++;
+                Log::error("ADMS Line Parse Error", [
+                    'SN'    => $sn,
+                    'line'  => $line,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
-        Log::info("ADMS processed {$sn}: {$processedCount} lines.");
+        Log::info("ADMS ATTLOG processed", [
+            'SN'         => $sn,
+            'total'      => count($lines),
+            'processed'  => $processedCount,
+            'errors'     => $errorCount,
+        ]);
 
         if ($machine) {
             $this->detectTimeDriftFromLogs($machine, $content);
@@ -404,34 +609,47 @@ class AdmsController extends Controller
     }
 
     /**
-     * Parse the raw user info from the machine.
+     * Parse user info from machine.
      * Format: PIN\tName\tPassword\tGroup\tPrivilege\tCardNo
+     * 
+     * SAFETY: Only updates employee PIN if they don't have one yet.
+     * Never deletes or overwrites existing employee data.
      */
     private function parseUserLogs($machine, $sn, $content)
     {
         $lines = explode("\n", $content);
-        
+        $syncedCount = 0;
+
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
 
             $data = explode("\t", $line);
-            
-            if (count($data) >= 2) {
-                $pin = $data[0];
-                $name = $data[1];
+            if (count($data) < 2) continue;
 
-                // Logic: If we find an employee with the SAME NAME but WITHOUT PIN, 
-                // or with a different PIN, we might want to update it.
-                // For safety, let's only update if the employee has NO PIN yet.
-                $employee = \App\Models\Employee::where('name', 'LIKE', $name)->first();
-                
-                if ($employee && empty($employee->pin)) {
-                    $employee->update(['pin' => $pin]);
-                    Log::info("Synced PIN {$pin} from machine to employee: {$name}");
-                }
+            $pin  = trim($data[0]);
+            $name = trim($data[1]);
+
+            if (empty($pin) || empty($name)) continue;
+
+            // Only update employee PIN if they don't have one yet (safe operation)
+            $employee = \App\Models\Employee::where('name', 'LIKE', $name)->first();
+            if ($employee && empty($employee->pin)) {
+                $employee->update(['pin' => $pin]);
+                $syncedCount++;
+                Log::info("ADMS Synced PIN from machine", [
+                    'SN'   => $sn,
+                    'pin'  => $pin,
+                    'name' => $name,
+                ]);
             }
         }
+
+        Log::info("ADMS USER sync complete", [
+            'SN'     => $sn,
+            'synced' => $syncedCount,
+            'total'  => count($lines),
+        ]);
     }
 
     /**

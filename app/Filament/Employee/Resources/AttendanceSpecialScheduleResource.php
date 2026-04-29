@@ -49,6 +49,15 @@ class AttendanceSpecialScheduleResource extends Resource
                             ->label('Wajib Masuk')
                             ->helperText('Aktifkan jika pegawai wajib masuk di tanggal ini (misalnya lembur). Matikan jika pegawai libur (misalnya gilir libur).')
                             ->default(false),
+                        Forms\Components\Select::make('type')
+                            ->label('Tipe')
+                            ->options([
+                                'libur_nasional' => 'Libur Nasional',
+                                'cuti_bersama' => 'Cuti Bersama',
+                                'lainnya' => 'Lainnya',
+                            ])
+                            ->default('lainnya')
+                            ->required(),
                         Forms\Components\Textarea::make('description')
                             ->label('Keterangan')
                             ->placeholder('Contoh: Gilir Libur Sabtu Minggu ke-2')
@@ -71,6 +80,21 @@ class AttendanceSpecialScheduleResource extends Resource
                     ->label('Tanggal')
                     ->date('d M Y')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('type')
+                    ->label('Tipe')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'libur_nasional' => 'danger',
+                        'cuti_bersama' => 'warning',
+                        'lainnya' => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'libur_nasional' => 'Libur Nasional',
+                        'cuti_bersama' => 'Cuti Bersama',
+                        'lainnya' => 'Lainnya',
+                        default => $state,
+                    })
+                    ->sortable(),
                 Tables\Columns\IconColumn::make('is_working')
                     ->label('Status')
                     ->boolean()
@@ -78,7 +102,7 @@ class AttendanceSpecialScheduleResource extends Resource
                     ->falseIcon('heroicon-o-home')
                     ->trueColor('success')
                     ->falseColor('danger')
-                    ->tooltip(fn ($state) => $state ? 'Wajib Masuk' : 'Libur (Pengecualian)'),
+                    ->tooltip(fn($state) => $state ? 'Wajib Masuk' : 'Libur (Pengecualian)'),
                 Tables\Columns\TextColumn::make('description')
                     ->label('Keterangan')
                     ->limit(30)
@@ -94,6 +118,13 @@ class AttendanceSpecialScheduleResource extends Resource
                     ->relationship('employee', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\SelectFilter::make('type')
+                    ->label('Tipe')
+                    ->options([
+                        'libur_nasional' => 'Libur Nasional',
+                        'cuti_bersama' => 'Cuti Bersama',
+                        'lainnya' => 'Lainnya',
+                    ]),
                 Tables\Filters\TernaryFilter::make('is_working')
                     ->label('Wajib Masuk'),
             ])

@@ -44,13 +44,46 @@ class AttendanceMachineResource extends Resource
                             ->searchable()
                             ->preload()
                             ->label('Lokasi Kantor'),
-                        Forms\Components\Placeholder::make('last_heard_at')
+                                Forms\Components\Placeholder::make('last_heard_at')
                             ->content(fn ($record) => $record?->last_heard_at?->diffForHumans() ?? '-')
                             ->label('Terakhir Aktif'),
                         Forms\Components\Placeholder::make('ip_address')
                             ->content(fn ($record) => $record?->ip_address ?? '-')
                             ->label('Alamat IP'),
                     ])->columns(2),
+                Forms\Components\Section::make('Pengaturan Waktu Mesin')
+                    ->description('Pengaturan sinkronisasi jam antara mesin dan server.')
+                    ->schema([
+                        Forms\Components\Toggle::make('auto_sync_time')
+                            ->label('Auto Sinkron Jam')
+                            ->helperText('Aktifkan hanya jika mesin mendukung sinkronisasi jam otomatis. Beberapa mesin dapat mengalami drift +1 jam jika diaktifkan.')
+                            ->reactive()
+                            ->default(false),
+                        Forms\Components\TextInput::make('timezone_offset')
+                            ->label('Offset Timezone (jam)')
+                            ->helperText('Contoh: 7 untuk WIB (UTC+7). Digunakan saat auto sinkron jam aktif.')
+                            ->numeric()
+                            ->default(7)
+                            ->minValue(-12)
+                            ->maxValue(14)
+                            ->visible(fn (Forms\Get $get) => (bool) $get('auto_sync_time')),
+                    ])->columns(2),
+                Forms\Components\Section::make('Statistik Komunikasi')
+                    ->description('Informasi komunikasi antara mesin dan server.')
+                    ->schema([
+                        Forms\Components\Placeholder::make('communication_success_count')
+                            ->content(fn ($record) => number_format($record?->communication_success_count ?? 0))
+                            ->label('Komunikasi Berhasil'),
+                        Forms\Components\Placeholder::make('communication_error_count')
+                            ->content(fn ($record) => number_format($record?->communication_error_count ?? 0))
+                            ->label('Komunikasi Gagal'),
+                        Forms\Components\Placeholder::make('last_error_at')
+                            ->content(fn ($record) => $record?->last_error_at?->format('d/m/Y H:i:s') ?? '-')
+                            ->label('Error Terakhir'),
+                        Forms\Components\Placeholder::make('last_error_message')
+                            ->content(fn ($record) => $record?->last_error_message ?? '-')
+                            ->label('Pesan Error Terakhir'),
+                    ])->columns(2)->hiddenOn('create'),
             ]);
     }
 
@@ -139,9 +172,100 @@ class AttendanceMachineResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->label('Terakhir Aktif'),
+                Tables\Columns\IconColumn::make('auto_sync_time')
+                    ->boolean()
+                    ->label('Auto Sync Jam')
+                    ->trueColor('success')
+                    ->falseColor('gray')
+                    ->tooltip('Apakah mesin dikonfigurasi untuk sinkronisasi jam otomatis'),
+                Tables\Columns\TextColumn::make('communication_success_count')
+                    ->numeric()
+                    ->sortable()
+                    ->label('✓ Komunikasi')
+                    ->color('success')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('communication_error_count')
+                    ->numeric()
+                    ->sortable()
+                    ->label('✗ Error')
+                    ->color(fn ($state): string => $state > 0 ? 'danger' : 'gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('last_error_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->label('Error Terakhir')
+                    ->color('danger')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('master_office_location_id')
+                    ->relationship('officeLocation', 'name')
+                    ->label('Lokasi Kantor'),
+                Tables\Filters\Filter::make('status')
+                    ->query(fn (Builder $query): Builder => $query->where('last_heard_at', '>=', now()->subMinutes(5)))
+                    ->label('Online Saja'),
+                Tables\Filters\Filter::make('time_drift')
+                    ->query(fn (Builder $query): Builder => $query->whereNotNull('time_drift_seconds')->whereRaw('ABS(time_drift_seconds) > 20'))
+                    ->label('Jam Tidak Sinkron'),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('sync_all_machines')
+                    ->label('Auto-Sync Semua Mesin')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sinkronisasi Otomatis Semua Mesin')
+                    ->modalDescription('Sistem akan mengirim perintah tarik data ke SEMUA mesin yang online.')
+                    ->action(function () {
+                        $machines = AttendanceMachine::where('last_heard_at', '>=', now()->subMinutes(5))->get();
+                        $count = 0;
+                        
+                        foreach ($machines as $machine) {
+                            \App\Models\AttendanceMachineCommand::create([
+                                'attendance_machine_id' => $machine->id,
+                                'command' => 'DATA QUERY ATTLOG',
+                                'status' => 'pending',
+                            ]);
+                            $count++;
+                        }
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Sinkronisasi Dijadwalkan')
+                            ->body("Perintah tarik data telah dikirim ke {$count} mesin online.")
+                            ->success()
+                            ->duration(5000)
+                            ->send();
+                    }),
+                
+                Tables\Actions\Action::make('fix_all_time_drift')
+                    ->label('Perbaiki Semua Jam yang Tidak Sinkron')
+                    ->icon('heroicon-o-clock')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Perbaiki Jam Mesin Otomatis')
+                    ->modalDescription('Sistem akan mengirim perintah RESTART ke semua mesin yang jamnya tidak sinkron (selisih > 20 detik).')
+                    ->action(function () {
+                        $machines = AttendanceMachine::whereNotNull('time_drift_seconds')
+                            ->whereRaw('ABS(time_drift_seconds) > 20')
+                            ->get();
+                        $count = 0;
+                        
+                        foreach ($machines as $machine) {
+                            \App\Models\AttendanceMachineCommand::create([
+                                'attendance_machine_id' => $machine->id,
+                                'command' => 'REBOOT',
+                                'status' => 'pending',
+                            ]);
+                            $count++;
+                        }
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perintah Restart Dijadwalkan')
+                            ->body("Perintah restart telah dikirim ke {$count} mesin dengan jam tidak sinkron.")
+                            ->warning()
+                            ->duration(5000)
+                            ->send();
+                    }),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -265,11 +389,123 @@ class AttendanceMachineResource extends Resource
                                 ->send();
                         }),
                 ])->label('Aksi')->icon('heroicon-m-ellipsis-vertical'),
+                Tables\Actions\Action::make('view_communications')
+                    ->label('Log Komunikasi')
+                    ->icon('heroicon-o-signal')
+                    ->color('gray')
+                    ->modalHeading(fn (AttendanceMachine $record) => 'Log Komunikasi: ' . $record->name)
+                    ->modalContent(function (AttendanceMachine $record) {
+                        $logs = $record->communications()->latest()->limit(50)->get();
+                        return view('filament.modals.machine-communications', compact('logs', 'record'));
+                    })
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup'),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    // Bulk Sync Actions
+                    Tables\Actions\BulkAction::make('bulk_sync_logs')
+                        ->label('Tarik Data Absensi (Massal)')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('Tarik Data dari Semua Mesin Terpilih')
+                        ->modalDescription('Perintah akan dikirim ke semua mesin yang dipilih untuk mengirim log absensi.')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $count = 0;
+                            foreach ($records as $machine) {
+                                \App\Models\AttendanceMachineCommand::create([
+                                    'attendance_machine_id' => $machine->id,
+                                    'command' => 'DATA QUERY ATTLOG',
+                                    'status' => 'pending',
+                                ]);
+                                $count++;
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body("Perintah tarik data telah dijadwalkan untuk {$count} mesin.")
+                                ->success()
+                                ->send();
+                        }),
+                    
+                    Tables\Actions\BulkAction::make('bulk_sync_users')
+                        ->label('Tarik Data User (Massal)')
+                        ->icon('heroicon-o-users')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('Tarik Daftar User dari Semua Mesin')
+                        ->modalDescription('Perintah akan dikirim ke semua mesin untuk mengirim daftar ID/PIN dan nama.')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $count = 0;
+                            foreach ($records as $machine) {
+                                \App\Models\AttendanceMachineCommand::create([
+                                    'attendance_machine_id' => $machine->id,
+                                    'command' => 'DATA QUERY USERINFO',
+                                    'status' => 'pending',
+                                ]);
+                                $count++;
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body("Perintah tarik user telah dijadwalkan untuk {$count} mesin.")
+                                ->success()
+                                ->send();
+                        }),
+                    
+                    Tables\Actions\BulkAction::make('bulk_restart')
+                        ->label('Restart Mesin (Massal)')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Restart Semua Mesin Terpilih')
+                        ->modalDescription('PERINGATAN: Semua mesin akan di-restart dari jarak jauh. Mesin akan offline selama ±1-2 menit.')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $count = 0;
+                            foreach ($records as $machine) {
+                                \App\Models\AttendanceMachineCommand::create([
+                                    'attendance_machine_id' => $machine->id,
+                                    'command' => 'REBOOT',
+                                    'status' => 'pending',
+                                ]);
+                                $count++;
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body("Perintah restart telah dijadwalkan untuk {$count} mesin.")
+                                ->warning()
+                                ->send();
+                        }),
+                    
+                    Tables\Actions\BulkAction::make('bulk_check_time')
+                        ->label('Cek Jam Mesin (Massal)')
+                        ->icon('heroicon-o-clock')
+                        ->color('gray')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $count = 0;
+                            foreach ($records as $machine) {
+                                \App\Models\AttendanceMachineCommand::create([
+                                    'attendance_machine_id' => $machine->id,
+                                    'command' => 'DATA QUERY INFO',
+                                    'status' => 'pending',
+                                ]);
+                                $count++;
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Perintah Terkirim')
+                                ->body("Permintaan info jam telah dikirim ke {$count} mesin. Tunggu 30 detik lalu refresh.")
+                                ->send();
+                        }),
+                    
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);

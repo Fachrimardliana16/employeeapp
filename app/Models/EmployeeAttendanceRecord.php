@@ -36,17 +36,26 @@ class EmployeeAttendanceRecord extends Model
         'photo_checkout',
         'attendance_status',
         'users_id',
+        // Online attendance fields
+        'source',
+        'gps_accuracy',
+        'gps_jitter',
+        'is_fake_gps_suspected',
+        'gps_flag_reason',
     ];
 
     protected $casts = [
-        'attendance_time' => 'datetime',
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8',
-        'distance_meters' => 'decimal:2',
-        'check_latitude' => 'decimal:8',
-        'check_longitude' => 'decimal:8',
-        'distance_from_office' => 'integer',
-        'is_within_radius' => 'boolean',
+        'attendance_time'       => 'datetime',
+        'latitude'              => 'decimal:8',
+        'longitude'             => 'decimal:8',
+        'distance_meters'       => 'decimal:2',
+        'check_latitude'        => 'decimal:8',
+        'check_longitude'       => 'decimal:8',
+        'distance_from_office'  => 'integer',
+        'is_within_radius'      => 'boolean',
+        'gps_accuracy'          => 'float',
+        'gps_jitter'            => 'float',
+        'is_fake_gps_suspected' => 'boolean',
     ];
 
     /**

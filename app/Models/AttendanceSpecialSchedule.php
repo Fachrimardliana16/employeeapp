@@ -14,6 +14,7 @@ class AttendanceSpecialSchedule extends Model
         'employee_id',
         'date',
         'is_working',
+        'type',
         'description',
         'users_id',
     ];

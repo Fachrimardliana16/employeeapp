@@ -22,6 +22,12 @@ class AttendanceMachine extends Model
         'time_checked_at',
         'time_drift_seconds',
         'device_model',
+        'timezone_offset',
+        'auto_sync_time',
+        'communication_success_count',
+        'communication_error_count',
+        'last_error_at',
+        'last_error_message',
     ];
 
     protected $casts = [
@@ -29,6 +35,10 @@ class AttendanceMachine extends Model
         'machine_datetime' => 'datetime',
         'time_checked_at' => 'datetime',
         'time_drift_seconds' => 'integer',
+        'last_error_at' => 'datetime',
+        'auto_sync_time' => 'boolean',
+        'communication_success_count' => 'integer',
+        'communication_error_count' => 'integer',
     ];
 
     public function getIsOnlineAttribute(): bool
@@ -96,6 +106,22 @@ class AttendanceMachine extends Model
         return $this->hasMany(AttendanceMachineLog::class, 'attendance_machine_id');
     }
 
+    
+    public function communications(): HasMany
+    {
+        return $this->hasMany(AttendanceMachineCommunication::class, 'attendance_machine_id');
+    }
+    
+    /**
+     * Get communication error rate percentage
+     */
+    public function getErrorRateAttribute(): float
+    {
+        $total = $this->communication_success_count + $this->communication_error_count;
+        if ($total === 0) return 0;
+        
+        return round(($this->communication_error_count / $total) * 100, 2);
+    }
     public function commands(): HasMany
     {
         return $this->hasMany(AttendanceMachineCommand::class, 'attendance_machine_id');
