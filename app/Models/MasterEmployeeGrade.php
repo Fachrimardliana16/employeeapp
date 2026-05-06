@@ -15,6 +15,8 @@ class MasterEmployeeGrade extends Model
     use HasUserTracking;
     protected $fillable = [
         'name',
+        'grade_code',
+        'pangkat_name',
         'desc',
         'is_active',
         'users_id',

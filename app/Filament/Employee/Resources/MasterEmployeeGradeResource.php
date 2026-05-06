@@ -36,13 +36,20 @@ class MasterEmployeeGradeResource extends Resource
                 Forms\Components\Section::make('Golongan Information')
                     ->schema([
                         Forms\Components\TextInput::make('name')
+                            ->label('Kode Golongan')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->placeholder('Contoh: A1, B2, C3'),
+                        Forms\Components\TextInput::make('pangkat_name')
+                            ->label('Nama Pangkat')
+                            ->maxLength(255)
+                            ->placeholder('Sesuai PP Pasal 8: Pegawai Dasar Muda, Pelaksana, Staf, dll')
+                            ->helperText('Nama pangkat sesuai PP Perusahaan Pasal 8'),
                         Forms\Components\Textarea::make('desc')
-                            ->label('Description')
+                            ->label('Keterangan')
                             ->rows(3),
                         Forms\Components\Toggle::make('is_active')
-                            ->label('Active')
+                            ->label('Aktif')
                             ->default(true),
                     ]),
             ]);
@@ -53,13 +60,17 @@ class MasterEmployeeGradeResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama')
+                    ->label('Golongan')
                     ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('desc')
-                    ->label('Keterangan')
-                    ->limit(50)
-                    ->searchable(),
+                    ->sortable()
+                    ->badge()
+                    ->color('info'),
+                Tables\Columns\TextColumn::make('pangkat_name')
+                    ->label('Nama Pangkat')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('(Belum diisi)')
+                    ->description(fn ($record) => $record->desc),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Aktif')
                     ->boolean()
