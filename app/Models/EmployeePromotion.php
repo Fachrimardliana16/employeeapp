@@ -19,13 +19,23 @@ class EmployeePromotion extends Model
         'promotion_date',
         'next_promotion_date',
         'employee_id',
+        'promotion_type_id',
         'old_basic_salary_id',
         'new_basic_salary_id',
         'doc_promotion',
+        'dpk_file',
+        'work_report_file',
+        'attendance_proof',
+        'previous_sk_file',
+        'diploma_file',
         'proposal_docs',
         'is_applied',
         'applied_at',
         'applied_by',
+        'status',
+        'approved_by',
+        'approved_at',
+        'rejection_note',
         'desc',
         'users_id',
     ];
@@ -35,6 +45,7 @@ class EmployeePromotion extends Model
         'next_promotion_date' => 'date',
         'is_applied' => 'boolean',
         'applied_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -84,6 +95,76 @@ class EmployeePromotion extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'users_id');
+    }
+
+    /**
+     * Get the promotion type.
+     */
+    public function promotionType(): BelongsTo
+    {
+        return $this->belongsTo(MasterPromotionType::class, 'promotion_type_id');
+    }
+
+    /**
+     * Get the user who approved this promotion.
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    // Scopes
+    public function scopeDraft($query)
+    {
+        return $query->where('status', 'draft');
+    }
+
+    public function scopeSubmitted($query)
+    {
+        return $query->where('status', 'submitted');
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    public function scopeRejected($query)
+    {
+        return $query->where('status', 'rejected');
+    }
+
+    public function scopeForYear($query, $year)
+    {
+        return $query->whereYear('promotion_date', $year);
+    }
+
+    // Accessors
+    public function getStatusBadgeColorAttribute(): string
+    {
+        return match($this->status) {
+            'draft' => 'gray',
+            'submitted' => 'warning',
+            'approved' => 'success',
+            'rejected' => 'danger',
+            default => 'gray',
+        };
+    }
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match($this->status) {
+            'draft' => 'Draft',
+            'submitted' => 'Diajukan',
+            'approved' => 'Disetujui',
+            'rejected' => 'Ditolak',
+            default => ucfirst($this->status),
+        };
+    }
+
+    public function getFormattedPromotionDateAttribute(): string
+    {
+        return $this->promotion_date ? $this->promotion_date->format('d F Y') : '-';
     }
 
     /**

@@ -53,10 +53,20 @@ class EmployeePromotionResource extends Resource
                             ->maxLength(255)
                             ->placeholder('SK/HRD/001/2025'),
 
+                        Forms\Components\Select::make('promotion_type_id')
+                            ->label('Jenis Kenaikan Pangkat')
+                            ->relationship('promotionType', 'name', fn ($query) => $query->where('is_active', true))
+                            ->searchable()
+                            ->preload()
+                            ->nullable()
+                            ->helperText('Sesuai PP Pasal 10-16 (opsional)'),
+
                         Forms\Components\DatePicker::make('promotion_date')
                             ->label('Tanggal Berlaku')
                             ->required()
-                            ->default(now()),
+                            ->default(now())
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
 
                         Forms\Components\Toggle::make('is_applied')
                             ->label('Terapkan langsung (Realisasi)')
@@ -186,6 +196,68 @@ class EmployeePromotionResource extends Resource
                             ->label('Deskripsi/Keterangan')
                             ->rows(3)
                             ->columnSpanFull(),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Dokumen Persyaratan (PP Pasal 10)')
+                    ->description('Upload dokumen persyaratan kenaikan pangkat')
+                    ->schema([
+                        Forms\Components\FileUpload::make('dpk_file')
+                            ->label('Daftar Penilaian Kerja (DPK)')
+                            ->disk('public')
+                            ->directory('employee-promotions/dpk')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->maxSize(5120),
+                        
+                        Forms\Components\FileUpload::make('work_report_file')
+                            ->label('Laporan Kegiatan Kerja')
+                            ->disk('public')
+                            ->directory('employee-promotions/work-reports')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->maxSize(5120),
+                        
+                        Forms\Components\FileUpload::make('attendance_proof')
+                            ->label('Bukti Absensi')
+                            ->disk('public')
+                            ->directory('employee-promotions/attendance')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->maxSize(5120),
+                        
+                        Forms\Components\FileUpload::make('previous_sk_file')
+                            ->label('SK Pangkat Terakhir')
+                            ->disk('public')
+                            ->directory('employee-promotions/previous-sk')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->maxSize(5120),
+                        
+                        Forms\Components\FileUpload::make('diploma_file')
+                            ->label('Ijasah (dilegalisir)')
+                            ->disk('public')
+                            ->directory('employee-promotions/diploma')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->maxSize(5120),
+                    ])->columns(2)
+                    ->collapsible()
+                    ->collapsed(),
+
+                Forms\Components\Section::make('Status & Persetujuan')
+                    ->schema([
+                        Forms\Components\Select::make('status')
+                            ->label('Status')
+                            ->options([
+                                'draft' => 'Draft',
+                                'submitted' => 'Diajukan',
+                                'approved' => 'Disetujui',
+                                'rejected' => 'Ditolak',
+                            ])
+                            ->default('draft')
+                            ->required()
+                            ->native(false),
+                        
+                        Forms\Components\Textarea::make('rejection_note')
+                            ->label('Catatan Penolakan')
+                            ->rows(3)
+                            ->columnSpanFull()
+                            ->visible(fn (Forms\Get $get) => $get('status') === 'rejected'),
                     ]),
 
                 Forms\Components\Hidden::make('users_id')
@@ -214,6 +286,14 @@ class EmployeePromotionResource extends Resource
                     ->description(fn ($record) => $record->employee?->nippam ?? '-')
                     ->searchable(['name', 'nippam'])
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('promotionType.name')
+                    ->label('Jenis Kenaikan')
+                    ->badge()
+                    ->color('info')
+                    ->searchable()
+                    ->placeholder('-')
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Tgl Usulan / Realisasi')
@@ -266,8 +346,15 @@ class EmployeePromotionResource extends Resource
                     ->url(fn ($record) => $record->doc_promotion ? url('image-view/' . $record->doc_promotion) : null)
                     ->openUrlInNewTab(),
 
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status Approval')
+                    ->badge()
+                    ->color(fn ($record) => $record->status_badge_color)
+                    ->formatStateUsing(fn ($record) => $record->status_label)
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('is_applied')
-                    ->label('Status')
+                    ->label('Status Realisasi')
                     ->badge()
                     ->color(fn (bool $state): string => $state ? 'success' : 'warning')
                     ->formatStateUsing(fn (bool $state): string => $state ? 'Realisasi' : 'Usulan'),
@@ -278,6 +365,23 @@ class EmployeePromotionResource extends Resource
                     ->relationship('employee', 'name')
                     ->searchable()
                     ->preload(),
+
+                Tables\Filters\SelectFilter::make('promotion_type_id')
+                    ->label('Jenis Kenaikan')
+                    ->relationship('promotionType', 'name')
+                    ->multiple()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Status Approval')
+                    ->options([
+                        'draft' => 'Draft',
+                        'submitted' => 'Diajukan',
+                        'approved' => 'Disetujui',
+                        'rejected' => 'Ditolak',
+                    ])
+                    ->multiple()
+                    ->native(false),
 
                 Tables\Filters\Filter::make('promotion_date')
                     ->form([
@@ -296,6 +400,52 @@ class EmployeePromotionResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()->label('Lihat'),
                     Tables\Actions\EditAction::make()->label('Edit'),
+                    Tables\Actions\Action::make('approve')
+                        ->label('Setujui')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn ($record) => $record->status === 'submitted')
+                        ->requiresConfirmation()
+                        ->modalHeading('Setujui Kenaikan Golongan')
+                        ->modalDescription('Apakah Anda yakin ingin menyetujui kenaikan golongan ini?')
+                        ->action(function ($record) {
+                            $record->update([
+                                'status' => 'approved',
+                                'approved_by' => auth()->id(),
+                                'approved_at' => now(),
+                            ]);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Kenaikan Golongan Disetujui')
+                                ->body('Data kenaikan golongan telah disetujui.')
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('reject')
+                        ->label('Tolak')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn ($record) => $record->status === 'submitted')
+                        ->form([
+                            Forms\Components\Textarea::make('rejection_note')
+                                ->label('Alasan Penolakan')
+                                ->required()
+                                ->rows(3),
+                        ])
+                        ->action(function ($record, array $data) {
+                            $record->update([
+                                'status' => 'rejected',
+                                'rejection_note' => $data['rejection_note'],
+                                'approved_by' => null,
+                                'approved_at' => null,
+                            ]);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->warning()
+                                ->title('Kenaikan Golongan Ditolak')
+                                ->body('Data kenaikan golongan telah ditolak.')
+                                ->send();
+                        }),
                     Tables\Actions\Action::make('terapkan_kenaikan')
                         ->label('Terapkan Kenaikan')
                         ->icon('heroicon-o-check-circle')
