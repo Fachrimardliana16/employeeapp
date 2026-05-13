@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class EmployeeDocumentResource extends Resource
 {
@@ -237,10 +238,12 @@ class EmployeeDocumentResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $employeeId = Auth::user()->employee->id ?? 0;
-        $expiringSoon = static::getModel()::where('employee_id', $employeeId)
-            ->whereNotNull('expiry_date')
-            ->whereBetween('expiry_date', [now(), now()->addDays(30)])
-            ->count();
+        $expiringSoon = Cache::remember('nav_badge_user_document_' . $employeeId, now()->addMinutes(5), fn () =>
+            static::getModel()::where('employee_id', $employeeId)
+                ->whereNotNull('expiry_date')
+                ->whereBetween('expiry_date', [now(), now()->addDays(30)])
+                ->count()
+        );
 
         return $expiringSoon > 0 ? (string) $expiringSoon : null;
     }

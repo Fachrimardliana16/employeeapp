@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class InterviewProcessResource extends Resource
 {
@@ -25,14 +26,16 @@ class InterviewProcessResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('result', 'pending')->count();
+        $count = Cache::remember('nav_badge_interview_process', now()->addMinutes(5), fn () =>
+            static::getModel()::where('result', 'pending')->count()
+        );
 
         return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return static::getNavigationBadge() !== null ? 'warning' : 'gray';
+        return 'warning';
     }
 
     public static function form(Form $form): Form

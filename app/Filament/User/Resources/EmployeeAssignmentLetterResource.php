@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class EmployeeAssignmentLetterResource extends Resource
 {
@@ -26,13 +27,17 @@ class EmployeeAssignmentLetterResource extends Resource
     {
         $employee = Auth::user()->employee;
         if (!$employee) return null;
-        return static::getModel()::where('status', 'on progress')
-            ->where(function ($query) use ($employee) {
-                $query->where('assigning_employee_id', $employee->id)
-                      ->orWhereJsonContains('additional_employee_ids', $employee->id);
-            })
-            ->whereNotNull('signed_file_path')
-            ->count();
+        $userId = Auth::id();
+        $count = Cache::remember('nav_badge_user_assignment_' . $userId, now()->addMinutes(5), fn () =>
+            static::getModel()::where('status', 'on progress')
+                ->where(function ($query) use ($employee) {
+                    $query->where('assigning_employee_id', $employee->id)
+                          ->orWhereJsonContains('additional_employee_ids', $employee->id);
+                })
+                ->whereNotNull('signed_file_path')
+                ->count()
+        );
+        return $count > 0 ? (string) $count : null;
     }
 
     public static function getEloquentQuery(): Builder

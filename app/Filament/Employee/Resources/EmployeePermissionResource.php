@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Filters\TrashedFilter;
@@ -37,8 +38,10 @@ class EmployeePermissionResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('approval_status', 'pending')->count();
-            
+        $count = Cache::remember('nav_badge_permission', now()->addMinutes(5), fn () =>
+            static::getModel()::where('approval_status', 'pending')->count()
+        );
+
         return $count > 0 ? (string) $count : null;
     }
 
