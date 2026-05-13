@@ -342,8 +342,7 @@ class AttendanceService
 
         // 1. Fetch raw logs
         $logs = \App\Models\AttendanceMachineLog::where('pin', $employee->pin)
-            ->whereMonth('timestamp', $month)
-            ->whereYear('timestamp', $year)
+            ->whereBetween('timestamp', [$startOfMonth, $endOfMonth])
             ->orderBy('timestamp', 'asc')
             ->get();
 

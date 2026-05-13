@@ -4,6 +4,7 @@ namespace App\Filament\User\Pages;
 
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Employee;
 use Filament\Infolists\Infolist;
 use Filament\Infolists;
@@ -59,6 +60,9 @@ class DataKepegawaian extends Page implements HasInfolists
             'employmentStatus',
             'grade',
             'department',
+            'education',
+            'careerMovements',
+            'appointments',
         ])
             ->where('users_id', $user->id)
             ->first();
@@ -73,11 +77,14 @@ class DataKepegawaian extends Page implements HasInfolists
     protected function calculateMonthlyStats(): void
     {
         $now = now();
-        $stats = \App\Services\AttendanceService::getMonthlyStatsForEmployee(
-            $this->employee,
-            $now->month,
-            $now->year
-        );
+        $cacheKey = "emp_monthly_stats_{$this->employee->id}_{$now->format('Y_m')}";
+        $stats = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($now) {
+            return \App\Services\AttendanceService::getMonthlyStatsForEmployee(
+                $this->employee,
+                $now->month,
+                $now->year
+            );
+        });
 
         $this->monthlyPresence = $stats['presence'];
         $this->monthlyLate = $stats['late'];
