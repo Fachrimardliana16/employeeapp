@@ -722,15 +722,18 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('basic_salary_amount')
                     ->label('Gaji Pokok')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('age')
                     ->label('Umur')
                     ->suffix(' Thn')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('retirement')
                     ->label('Pensiun')
                     ->date('d-m-Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('position_status')
                     ->label('Posisi / Status')
                     ->getStateUsing(function (Employee $record) {
@@ -807,9 +810,9 @@ class EmployeeResource extends Resource
                     ->label('Kelengkapan Data')
                     ->badge()
                     ->getStateUsing(fn(Employee $record) => $record->getDataCompletenessPercentage() . '%')
-                    ->color(fn(Employee $record): string => match (true) {
-                        $record->getDataCompletenessPercentage() >= 90 => 'success',
-                        $record->getDataCompletenessPercentage() >= 70 => 'warning',
+                    ->color(fn(string $state): string => match (true) {
+                        (int) $state >= 90 => 'success',
+                        (int) $state >= 70 => 'warning',
                         default => 'danger',
                     })
                     ->tooltip(
@@ -834,22 +837,22 @@ class EmployeeResource extends Resource
                                     ->schema([
                                         Forms\Components\Select::make('department_filter')
                                             ->label('Pilih Bagian')
-                                            ->options(\App\Models\MasterDepartment::pluck('name', 'id')->toArray())
+                                            ->options(fn() => \App\Models\MasterDepartment::pluck('name', 'id')->toArray())
                                             ->searchable()
                                             ->placeholder('Semua Departemen'),
                                         Forms\Components\Select::make('position_filter')
                                             ->label('Posisi/Jabatan')
-                                            ->options(\App\Models\MasterEmployeePosition::pluck('name', 'id')->toArray())
+                                            ->options(fn() => \App\Models\MasterEmployeePosition::pluck('name', 'id')->toArray())
                                             ->searchable()
                                             ->placeholder('Semua Posisi'),
                                         Forms\Components\Select::make('status_filter')
                                             ->label('Status Kepegawaian')
-                                            ->options(\App\Models\MasterEmployeeStatusEmployment::pluck('name', 'id')->toArray())
+                                            ->options(fn() => \App\Models\MasterEmployeeStatusEmployment::pluck('name', 'id')->toArray())
                                             ->searchable()
                                             ->placeholder('Semua Status'),
                                         Forms\Components\Select::make('education_filter')
                                             ->label('Tingkat Pendidikan')
-                                            ->options(\App\Models\MasterEmployeeEducation::pluck('name', 'id')->toArray())
+                                            ->options(fn() => \App\Models\MasterEmployeeEducation::pluck('name', 'id')->toArray())
                                             ->searchable()
                                             ->placeholder('Semua Tingkat Pendidikan'),
                                     ]),
@@ -1428,13 +1431,11 @@ class EmployeeResource extends Resource
                     ->label('Bagian')
                     ->relationship('department', 'name')
                     ->label('Bagian')
-                    ->searchable()
-                    ->preload(),
+                    ->searchable(),
                 Tables\Filters\SelectFilter::make('employee_position_id')
                     ->relationship('position', 'name')
                     ->label('Posisi/Jabatan')
-                    ->searchable()
-                    ->preload(),
+                    ->searchable(),
                 Tables\Filters\SelectFilter::make('employment_status_id')
                     ->relationship('employmentStatus', 'name')
                     ->label('Status Kepegawaian'),
@@ -1787,7 +1788,9 @@ class EmployeeResource extends Resource
                         ->label('Hapus yang Dipilih'),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100]);
     }
 
     public static function infolist(Infolist $infolist): Infolist
