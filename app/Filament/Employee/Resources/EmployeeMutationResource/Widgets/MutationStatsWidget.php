@@ -8,6 +8,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class MutationStatsWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         return [

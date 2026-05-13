@@ -9,6 +9,8 @@ use Carbon\Carbon;
 
 class EmployeePermissionStatsOverview extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         $thisMonth = Carbon::now()->month;

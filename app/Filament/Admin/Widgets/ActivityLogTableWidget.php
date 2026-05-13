@@ -10,6 +10,8 @@ use Spatie\Activitylog\Models\Activity;
 
 class ActivityLogTableWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected static ?string $heading = 'Recent Activities';
 
     protected static ?int $sort = 3;

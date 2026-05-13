@@ -10,6 +10,8 @@ use Carbon\Carbon;
 
 class PermissionStatsOverview extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         $user = Auth::user();

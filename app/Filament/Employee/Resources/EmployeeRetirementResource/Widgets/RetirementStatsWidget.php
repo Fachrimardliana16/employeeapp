@@ -8,6 +8,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class RetirementStatsWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         // Note: Retirement typically doesn't use is_applied in current schema, 

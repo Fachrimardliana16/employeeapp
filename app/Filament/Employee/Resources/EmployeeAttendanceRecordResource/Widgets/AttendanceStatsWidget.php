@@ -11,6 +11,8 @@ use Carbon\Carbon;
 
 class AttendanceStatsWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         $today = Carbon::today();

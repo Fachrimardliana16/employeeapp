@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 
 class UserBusinessTravelLetterStats extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         $year = Carbon::now()->year;

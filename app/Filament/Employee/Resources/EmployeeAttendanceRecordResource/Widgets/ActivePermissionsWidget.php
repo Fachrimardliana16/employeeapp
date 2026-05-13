@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ActivePermissionsWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected static ?string $heading = 'Daftar Pegawai Izin & Cuti';
     protected int | string | array $columnSpan = 'full';
     protected static bool $isCollapsed = true;

@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 class ActivityLogLineChartWidget extends ChartWidget
 {
+    protected static bool $isLazy = true;
+
     protected static ?string $heading = 'User Activity Log';
     
     protected static ?int $sort = 2;

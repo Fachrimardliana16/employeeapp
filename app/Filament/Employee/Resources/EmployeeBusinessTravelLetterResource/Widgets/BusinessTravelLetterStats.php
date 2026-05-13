@@ -9,6 +9,8 @@ use Illuminate\Support\Carbon;
 
 class BusinessTravelLetterStats extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         $year = Carbon::now()->year;

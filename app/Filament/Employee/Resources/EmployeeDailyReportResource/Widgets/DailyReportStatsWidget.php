@@ -9,6 +9,8 @@ use Carbon\Carbon;
 
 class DailyReportStatsWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
+
     protected function getStats(): array
     {
         $today = Carbon::today();
