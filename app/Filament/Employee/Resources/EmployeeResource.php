@@ -810,9 +810,9 @@ class EmployeeResource extends Resource
                     ->label('Kelengkapan Data')
                     ->badge()
                     ->getStateUsing(fn(Employee $record) => $record->getDataCompletenessPercentage() . '%')
-                    ->color(fn(string $state): string => match (true) {
-                        (int) $state >= 90 => 'success',
-                        (int) $state >= 70 => 'warning',
+                    ->color(fn($state): string => match (true) {
+                        ((int) $state) >= 90 => 'success',
+                        ((int) $state) >= 70 => 'warning',
                         default => 'danger',
                     })
                     ->tooltip(
