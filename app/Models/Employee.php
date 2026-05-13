@@ -6,6 +6,7 @@ use App\Traits\HasUserTracking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 use App\Traits\LogsActivityTrait;
@@ -580,9 +581,11 @@ class Employee extends Model
     public function getBasicSalaryAmountAttribute()
     {
         if ($this->basic_salary_id && $this->employee_service_grade_id) {
-            return \App\Models\MasterEmployeeBasicSalary::where('employee_grade_id', $this->basic_salary_id)
-                ->where('employee_service_grade_id', $this->employee_service_grade_id)
-                ->value('amount') ?? 0;
+            $lookup = Cache::remember('master_basic_salary_lookup', now()->addHour(), function () {
+                return \App\Models\MasterEmployeeBasicSalary::all()
+                    ->mapWithKeys(fn($s) => [$s->employee_grade_id . '_' . $s->employee_service_grade_id => $s->amount]);
+            });
+            return $lookup[$this->basic_salary_id . '_' . $this->employee_service_grade_id] ?? 0;
         }
 
         return $this->nonPermanentSalary?->amount ?? 0;

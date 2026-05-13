@@ -435,9 +435,9 @@ class EmployeeResource extends Resource
                                                     ->searchable()
                                                     ->preload()
                                                     ->required()
-                                                    ->visible(fn (Forms\Get $get) => $get('work_unit_type') === 'bagian')
+                                                    ->visible(fn(Forms\Get $get) => $get('work_unit_type') === 'bagian')
                                                     ->live()
-                                                    ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('departments_id', $state)),
+                                                    ->afterStateUpdated(fn($state, Forms\Set $set) => $set('departments_id', $state)),
 
                                                 Forms\Components\Select::make('cabang_id')
                                                     ->label('Pilih Cabang')
@@ -445,9 +445,9 @@ class EmployeeResource extends Resource
                                                     ->searchable()
                                                     ->preload()
                                                     ->required()
-                                                    ->visible(fn (Forms\Get $get) => $get('work_unit_type') === 'cabang')
+                                                    ->visible(fn(Forms\Get $get) => $get('work_unit_type') === 'cabang')
                                                     ->live()
-                                                    ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('departments_id', $state)),
+                                                    ->afterStateUpdated(fn($state, Forms\Set $set) => $set('departments_id', $state)),
 
                                                 Forms\Components\Select::make('unit_id')
                                                     ->label('Pilih Unit')
@@ -455,9 +455,9 @@ class EmployeeResource extends Resource
                                                     ->searchable()
                                                     ->preload()
                                                     ->required()
-                                                    ->visible(fn (Forms\Get $get) => $get('work_unit_type') === 'unit')
+                                                    ->visible(fn(Forms\Get $get) => $get('work_unit_type') === 'unit')
                                                     ->live()
-                                                    ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('departments_id', $state)),
+                                                    ->afterStateUpdated(fn($state, Forms\Set $set) => $set('departments_id', $state)),
 
                                                 Forms\Components\Select::make('sub_department_id')
                                                     ->label('Sub Bagian')
@@ -468,7 +468,7 @@ class EmployeeResource extends Resource
                                                     })
                                                     ->searchable()
                                                     ->preload()
-                                                    ->visible(fn (Forms\Get $get) => $get('departments_id') !== null),
+                                                    ->visible(fn(Forms\Get $get) => $get('departments_id') !== null),
 
                                                 Forms\Components\Hidden::make('departments_id'),
                                                 Forms\Components\Select::make('employee_position_id')
@@ -514,7 +514,7 @@ class EmployeeResource extends Resource
                                                 Forms\Components\Section::make('Estimasi Pendapatan & Potongan (Simulasi)')
                                                     ->description('Berdasarkan Jabatan, Golongan, dan Aturan Global')
                                                     ->icon('heroicon-o-banknotes')
-                                                    ->visible(fn (Forms\Get $get) => $get('employee_position_id') || $get('basic_salary_id'))
+                                                    ->visible(fn(Forms\Get $get) => $get('employee_position_id') || $get('basic_salary_id'))
                                                     ->schema([
                                                         Forms\Components\Grid::make(2)
                                                             ->schema([
@@ -522,7 +522,7 @@ class EmployeeResource extends Resource
                                                                     Forms\Components\Placeholder::make('global_benefits_info')
                                                                         ->label('Tunjangan Global (Otomatis)')
                                                                         ->content('Keluarga (10%), BPJS Kes (4%), JHT (3.7%), Beras, Air. (Dihitung otomatis oleh sistem)'),
-                                                                    
+
                                                                     Forms\Components\Placeholder::make('position_benefits_summary')
                                                                         ->label('Tunjangan Jabatan (Fixed)')
                                                                         ->content(function (Forms\Get $get) {
@@ -530,11 +530,11 @@ class EmployeeResource extends Resource
                                                                             if (!$posId) return '-';
                                                                             $benefits = \App\Models\MasterEmployeePositionBenefit::where('employee_position_id', $posId)->get();
                                                                             if ($benefits->isEmpty()) return 'Tidak ada tunjangan jabatan khusus';
-                                                                            
+
                                                                             $list = $benefits->map(fn($b) => ($b->benefit->name ?? 'Tunjangan') . ': Rp ' . number_format($b->amount, 0, ',', '.'))->join('<br>');
                                                                             return new \Illuminate\Support\HtmlString($list);
                                                                         }),
-                                                                    
+
                                                                     Forms\Components\Placeholder::make('grade_benefits_summary')
                                                                         ->label('Tunjangan Golongan')
                                                                         ->content(function (Forms\Get $get) {
@@ -542,12 +542,12 @@ class EmployeeResource extends Resource
                                                                             if (!$gradeId) return '-';
                                                                             $benefits = \App\Models\MasterEmployeeGradeBenefit::where('employee_grade_id', $gradeId)->get();
                                                                             if ($benefits->isEmpty()) return 'Tidak ada tunjangan golongan khusus';
-                                                                            
+
                                                                             $list = $benefits->map(fn($b) => ($b->benefit->name ?? 'Tunjangan') . ': Rp ' . number_format($b->amount, 0, ',', '.'))->join('<br>');
                                                                             return new \Illuminate\Support\HtmlString($list);
                                                                         }),
                                                                 ]),
-                                                                
+
                                                                 Forms\Components\Group::make([
                                                                     Forms\Components\Placeholder::make('position_cuts_summary')
                                                                         ->label('Potongan Jabatan (Mandatori)')
@@ -556,7 +556,7 @@ class EmployeeResource extends Resource
                                                                             if (!$posId) return '-';
                                                                             $cuts = \App\Models\MasterEmployeePositionSalaryCut::where('employee_position_id', $posId)->get();
                                                                             if ($cuts->isEmpty()) return 'Tidak ada potongan jabatan khusus';
-                                                                            
+
                                                                             $list = $cuts->map(fn($c) => ($c->salaryCut->name ?? 'Potongan') . ': Rp ' . number_format($c->amount, 0, ',', '.'))->join('<br>');
                                                                             return new \Illuminate\Support\HtmlString($list);
                                                                         }),
@@ -567,22 +567,22 @@ class EmployeeResource extends Resource
                                                                             $posId = $get('employee_position_id');
                                                                             $gradeId = $get('basic_salary_id');
                                                                             $mkgId = $get('employee_service_grade_id');
-                                                                            
+
                                                                             $base = 0;
                                                                             if ($gradeId && $mkgId) {
                                                                                 $base = \App\Models\MasterEmployeeBasicSalary::where('employee_grade_id', $gradeId)
                                                                                     ->where('employee_service_grade_id', $mkgId)
                                                                                     ->value('amount') ?? 0;
                                                                             }
-                                                                            
+
                                                                             $posSum = $posId ? \App\Models\MasterEmployeePositionBenefit::where('employee_position_id', $posId)->sum('amount') : 0;
                                                                             $gradeSum = $gradeId ? \App\Models\MasterEmployeeGradeBenefit::where('employee_grade_id', $gradeId)->sum('amount') : 0;
-                                                                            
+
                                                                             // Also add family (approx 10%)
                                                                             $family = $base * 0.1;
                                                                             $beras = 150000;
                                                                             $air = 101100;
-                                                                            
+
                                                                             return 'Rp ' . number_format($base + $posSum + $gradeSum + $family + $beras + $air, 0, ',', '.') . ' (Termasuk estimasi global)';
                                                                         })->extraAttributes(['class' => 'font-bold text-primary-600']),
                                                                 ]),
@@ -659,21 +659,21 @@ class EmployeeResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('image')
                     ->label('Foto Pas')
-                    ->formatStateUsing(fn ($state) => $state ? '<div class="flex justify-center"><img src="'.url('image-view/'.$state).'" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
+                    ->formatStateUsing(fn($state) => $state ? '<div class="flex justify-center"><img src="' . url('image-view/' . $state) . '" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
                     ->html()
                     ->alignCenter(),
                 Tables\Columns\TextColumn::make('nippam')
                     ->label('NIPPAM / PIN')
-                    ->description(fn (Employee $record): string => $record->pin ? "PIN: " . str_repeat('*', max(0, strlen($record->pin) - 2)) . substr($record->pin, -2) : "PIN: -")
+                    ->description(fn(Employee $record): string => $record->pin ? "PIN: " . str_repeat('*', max(0, strlen($record->pin) - 2)) . substr($record->pin, -2) : "PIN: -")
                     ->searchable(['nippam', 'pin']),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
                     ->searchable()
                     ->sortable()
                     ->color(function (Employee $record) {
-                        return ($record->next_kgb_date && $record->next_kgb_date <= now()) || 
-                               ($record->next_promotion_date && $record->next_promotion_date <= now()) 
-                               ? 'warning' : null;
+                        return ($record->next_kgb_date && $record->next_kgb_date <= now()) ||
+                            ($record->next_promotion_date && $record->next_promotion_date <= now())
+                            ? 'warning' : null;
                     }),
                 Tables\Columns\TextColumn::make('id_number')
                     ->label('NIK (KTP)')
@@ -695,10 +695,10 @@ class EmployeeResource extends Resource
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query
-                            ->orWhereHas('department', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('bagian', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('cabang', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('unit', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                            ->orWhereHas('department', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('bagian', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('cabang', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('unit', fn($q) => $q->where('name', 'like', "%{$search}%"));
                     })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('grade.name')
@@ -748,8 +748,8 @@ class EmployeeResource extends Resource
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query
-                            ->orWhereHas('position', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('employmentStatus', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                            ->orWhereHas('position', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('employmentStatus', fn($q) => $q->where('name', 'like', "%{$search}%"));
                     }),
                 Tables\Columns\TextColumn::make('contact_info')
                     ->label('Email / No. Telp')
@@ -864,7 +864,7 @@ class EmployeeResource extends Resource
                         );
                     })
                     ->tooltip('Generate laporan Pegawai dalam format PDF dengan filter'),
-                
+
                 Tables\Actions\Action::make('generate_schedule')
                     ->label('Cetak Jadwal Kenaikan')
                     ->icon('heroicon-o-calendar-days')
@@ -900,31 +900,106 @@ class EmployeeResource extends Resource
                         ->color('info')
                         ->action(function () {
                             $headers = [
-                                'id', 'nippam', 'pin', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
-                                'email', 'office_email', 'phone_number', 'id_number', 'familycard_number', 'npwp_number',
-                                'bank_account_number', 'bpjs_tk_number', 'bpjs_tk_status', 'bpjs_kes_number', 'bpjs_kes_status',
-                                'bpjs_kes_class', 'rek_dplk_pribadi', 'rek_dplk_bersama', 'dapenma_number', 'dapenma_phdp',
-                                'dapenma_status', 'address', 'work_unit_type', 'work_unit_name', 'sub_department_name',
-                                'position_name', 'employment_status_name', 'education_name', 'grade_name', 'mkg_years',
-                                'agreement_type_name', 'entry_date', 'probation_appointment_date', 'leave_balance',
-                                'agreement_date_start', 'agreement_date_end', 'grade_date_start', 'grade_date_end',
-                                'periodic_salary_date_start', 'periodic_salary_date_end'
+                                'id',
+                                'nippam',
+                                'pin',
+                                'name',
+                                'gender',
+                                'place_birth',
+                                'date_birth',
+                                'religion',
+                                'marital_status',
+                                'blood_type',
+                                'email',
+                                'office_email',
+                                'phone_number',
+                                'id_number',
+                                'familycard_number',
+                                'npwp_number',
+                                'bank_account_number',
+                                'bpjs_tk_number',
+                                'bpjs_tk_status',
+                                'bpjs_kes_number',
+                                'bpjs_kes_status',
+                                'bpjs_kes_class',
+                                'rek_dplk_pribadi',
+                                'rek_dplk_bersama',
+                                'dapenma_number',
+                                'dapenma_phdp',
+                                'dapenma_status',
+                                'address',
+                                'work_unit_type',
+                                'work_unit_name',
+                                'sub_department_name',
+                                'position_name',
+                                'employment_status_name',
+                                'education_name',
+                                'grade_name',
+                                'mkg_years',
+                                'agreement_type_name',
+                                'entry_date',
+                                'probation_appointment_date',
+                                'leave_balance',
+                                'agreement_date_start',
+                                'agreement_date_end',
+                                'grade_date_start',
+                                'grade_date_end',
+                                'periodic_salary_date_start',
+                                'periodic_salary_date_end'
                             ];
 
                             $callback = function () use ($headers) {
                                 $file = fopen('php://output', 'w');
                                 fputcsv($file, $headers);
-                                
+
                                 // Instruction Row
                                 fputcsv($file, [
-                                    'KOSONGKAN untuk Pegawai Baru/ISI untuk Update', 'NIPPAM (Otomatis jika kosong)', 'PIN Absensi (Wajib untuk mesin)', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Agama', 'single/married/divorced/widowed', 'A/B/O/AB',
-                                    'Email Pribadi', 'Email Kantor', 'No HP', 'NIK (16 Digit)', 'No KK (16 Digit)', 'NPWP',
-                                    'No Rekening', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
-                                    'Kelas 1/2/3', 'Rek DPLK Pribadi', 'Rek DPLK Bersama', 'No Dapenma', 'PHDP (Angka)',
-                                    'Aktif/Tidak', 'Alamat Lengkap', 'bagian/cabang/unit', 'Nama Unit (Bagian/Cabang/Unit)', 'Sub Departemen',
-                                    'Jabatan', 'Status Pegawai', 'Pendidikan', 'Golongan', 'Masa Kerja Golongan (Tahun)',
-                                    'Jenis SK', 'Tgl Masuk', 'Tgl Pengangkatan', 'Sisa Cuti',
-                                    'Tgl Kontrak Mulai', 'Tgl Kontrak Selesai', 'Tgl Golongan Mulai', 'Tgl Golongan Selesai', 'Tgl Gaji Berkala Mulai', 'Tgl Gaji Berkala Selesai'
+                                    'KOSONGKAN untuk Pegawai Baru/ISI untuk Update',
+                                    'NIPPAM (Otomatis jika kosong)',
+                                    'PIN Absensi (Wajib untuk mesin)',
+                                    'Wajib',
+                                    'male/female',
+                                    'Wajib',
+                                    'dd-mm-yyyy',
+                                    'Agama',
+                                    'single/married/divorced/widowed',
+                                    'A/B/O/AB',
+                                    'Email Pribadi',
+                                    'Email Kantor',
+                                    'No HP',
+                                    'NIK (16 Digit)',
+                                    'No KK (16 Digit)',
+                                    'NPWP',
+                                    'No Rekening',
+                                    'No BPJS TK',
+                                    'Aktif/Tidak',
+                                    'No BPJS Kes',
+                                    'Aktif/Tidak',
+                                    'Kelas 1/2/3',
+                                    'Rek DPLK Pribadi',
+                                    'Rek DPLK Bersama',
+                                    'No Dapenma',
+                                    'PHDP (Angka)',
+                                    'Aktif/Tidak',
+                                    'Alamat Lengkap',
+                                    'bagian/cabang/unit',
+                                    'Nama Unit (Bagian/Cabang/Unit)',
+                                    'Sub Departemen',
+                                    'Jabatan',
+                                    'Status Pegawai',
+                                    'Pendidikan',
+                                    'Golongan',
+                                    'Masa Kerja Golongan (Tahun)',
+                                    'Jenis SK',
+                                    'Tgl Masuk',
+                                    'Tgl Pengangkatan',
+                                    'Sisa Cuti',
+                                    'Tgl Kontrak Mulai',
+                                    'Tgl Kontrak Selesai',
+                                    'Tgl Golongan Mulai',
+                                    'Tgl Golongan Selesai',
+                                    'Tgl Gaji Berkala Mulai',
+                                    'Tgl Gaji Berkala Selesai'
                                 ]);
 
                                 // Get some real data for example
@@ -935,13 +1010,52 @@ class EmployeeResource extends Resource
                                 $dept = \App\Models\MasterDepartment::first();
 
                                 fputcsv($file, [
-                                    '', '123456789', '1001', 'Budi Santoso', 'male', 'Jakarta', '30-01-1990', 'Islam', 'single', 'O',
-                                    'budi@example.com', 'budi.pdam@example.com', '08123456789', '1234567890123456', '1234567890123456',
-                                    '12.345.678.9-012.000', '1234567890', '00012345678', 'Aktif', '0001234567890', 'Aktif',
-                                    'Kelas 1', '1234567890', '1234567890', '12345', '5000000', 'Aktif', 'Jl. Contoh No. 123',
-                                    $dept?->type ?? 'bagian', $dept?->name ?? 'Bagian Umum', 'Sub Bagian Umum', $pos, $status, $edu, $grade, '0',
-                                    'PKWTT', '01-01-2024', '01-07-2024', '12',
-                                    '01-01-2024', '31-12-2024', '01-01-2024', '01-01-2026', '01-01-2024', '01-01-2026'
+                                    '',
+                                    '123456789',
+                                    '1001',
+                                    'Budi Santoso',
+                                    'male',
+                                    'Jakarta',
+                                    '30-01-1990',
+                                    'Islam',
+                                    'single',
+                                    'O',
+                                    'budi@example.com',
+                                    'budi.pdam@example.com',
+                                    '08123456789',
+                                    '1234567890123456',
+                                    '1234567890123456',
+                                    '12.345.678.9-012.000',
+                                    '1234567890',
+                                    '00012345678',
+                                    'Aktif',
+                                    '0001234567890',
+                                    'Aktif',
+                                    'Kelas 1',
+                                    '1234567890',
+                                    '1234567890',
+                                    '12345',
+                                    '5000000',
+                                    'Aktif',
+                                    'Jl. Contoh No. 123',
+                                    $dept?->type ?? 'bagian',
+                                    $dept?->name ?? 'Bagian Umum',
+                                    'Sub Bagian Umum',
+                                    $pos,
+                                    $status,
+                                    $edu,
+                                    $grade,
+                                    '0',
+                                    'PKWTT',
+                                    '01-01-2024',
+                                    '01-07-2024',
+                                    '12',
+                                    '01-01-2024',
+                                    '31-12-2024',
+                                    '01-01-2024',
+                                    '01-01-2026',
+                                    '01-01-2024',
+                                    '01-01-2026'
                                 ]);
                                 fclose($file);
                             };
@@ -954,11 +1068,11 @@ class EmployeeResource extends Resource
                         ->label('Import / Sync CSV')
                         ->icon('heroicon-o-arrow-up-tray')
                         ->color('success')
-                        ->form(function() {
+                        ->form(function () {
                             // Dynamically fetch options for help text
                             $grades = \App\Models\MasterEmployeeGrade::all()->map(fn($g) => "{$g->id}:{$g->name}")->implode(', ');
                             $edus = \App\Models\MasterEmployeeEducation::all()->map(fn($e) => "{$e->id}:{$e->name}")->implode(', ');
-                            
+
                             return [
                                 Forms\Components\FileUpload::make('csv_file')
                                     ->label('File CSV Pegawai')
@@ -979,7 +1093,7 @@ class EmployeeResource extends Resource
                             ini_set('memory_limit', '512M');
 
                             $path = \Illuminate\Support\Facades\Storage::disk('public')->path($data['csv_file']);
-                            
+
                             // Detect Delimiter (Comma or Semicolon)
                             $fileHandle = fopen($path, 'r');
                             $firstLine = fgets($fileHandle);
@@ -989,7 +1103,7 @@ class EmployeeResource extends Resource
                             $file = fopen($path, 'r');
                             $rows = [];
                             $tempRows = [];
-                            
+
                             while (($row = fgetcsv($file, 0, $delimiter)) !== false) {
                                 $tempRows[] = $row;
                             }
@@ -999,7 +1113,7 @@ class EmployeeResource extends Resource
                             $headerIndex = -1;
                             foreach ($tempRows as $idx => $row) {
                                 // Strip BOM and non-breaking spaces
-                                $rowNormalized = array_map(function($v) {
+                                $rowNormalized = array_map(function ($v) {
                                     $v = str_replace("\xEF\xBB\xBF", '', $v);
                                     return strtolower(trim($v));
                                 }, $row);
@@ -1017,7 +1131,7 @@ class EmployeeResource extends Resource
                             }
 
                             $dataRows = array_slice($tempRows, $headerIndex + 1);
-                            
+
                             // Pre-load necessary masters for performance
                             $masterLookups = [
                                 'units' => \App\Models\MasterDepartment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
@@ -1045,15 +1159,15 @@ class EmployeeResource extends Resource
                                 if (count($row) < 3) continue; // Skip empty rows
 
                                 $rowData = array_combine(array_slice($headers, 0, count($row)), $row);
-                                
+
                                 // Clean row data
                                 foreach ($rowData as $k => $v) $rowData[$k] = trim($v);
 
                                 $rowErrors = [];
                                 if (empty($rowData['name'])) $rowErrors[] = "Nama wajib diisi";
-                                
+
                                 // Smart Lookup Helper
-                                $smartLookup = function($key, $name, $label) use ($masterLookups) {
+                                $smartLookup = function ($key, $name, $label) use ($masterLookups) {
                                     if (empty($name)) return null;
                                     $search = strtolower(trim($name));
                                     if (isset($masterLookups[$key][$search])) return $masterLookups[$key][$search];
@@ -1091,7 +1205,7 @@ class EmployeeResource extends Resource
                                 $agreementId = $smartLookup('agreements', $rowData['agreement_type_name'] ?? '', 'Perjanjian');
 
                                 // Uniqueness Validation
-                                $checkUnique = function($column, $value, $label) use ($rowData, &$rowErrors, $uniques) {
+                                $checkUnique = function ($column, $value, $label) use ($rowData, &$rowErrors, $uniques) {
                                     if (empty($value)) return;
                                     if (isset($uniques[$column])) {
                                         if (isset($uniques[$column][$value]) && $uniques[$column][$value] != ($rowData['id'] ?? null)) {
@@ -1120,22 +1234,30 @@ class EmployeeResource extends Resource
                                     $errors[] = "<strong>Baris {$actualRowInFile} ({$displayName}):</strong> " . implode(', ', $rowErrors);
                                 }
 
-                                 $processedData[] = [
-                                     'row' => $rowData,
-                                     'line_number' => $actualRowInFile,
-                                     'ids' => [
-                                         'dept_id' => $deptId, 'bagian_id' => $bagianId, 'cabang_id' => $cabangId, 'unit_id' => $unitId,
-                                         'sub_dept_id' => $subDeptId, 'pos_id' => $posId, 'status_id' => $statusId,
-                                         'edu_id' => $eduId, 'grade_id' => $gradeId, 'mkg_id' => $mkgId, 'agreement_id' => $agreementId,
-                                     ]
-                                 ];
-                             }
+                                $processedData[] = [
+                                    'row' => $rowData,
+                                    'line_number' => $actualRowInFile,
+                                    'ids' => [
+                                        'dept_id' => $deptId,
+                                        'bagian_id' => $bagianId,
+                                        'cabang_id' => $cabangId,
+                                        'unit_id' => $unitId,
+                                        'sub_dept_id' => $subDeptId,
+                                        'pos_id' => $posId,
+                                        'status_id' => $statusId,
+                                        'edu_id' => $eduId,
+                                        'grade_id' => $gradeId,
+                                        'mkg_id' => $mkgId,
+                                        'agreement_id' => $agreementId,
+                                    ]
+                                ];
+                            }
 
                             if (!empty($errors)) {
                                 $totalErrors = count($errors);
                                 $errorDisplay = array_slice($errors, 0, 15);
                                 $footer = $totalErrors > 15 ? "<br><br><strong>...dan " . ($totalErrors - 15) . " baris lainnya juga bermasalah.</strong>" : "";
-                                
+
                                 Notification::make()
                                     ->title('Import Dibatalkan: Ditemukan ' . $totalErrors . ' Kesalahan Data')
                                     ->body(new \Illuminate\Support\HtmlString("Sistem menolak seluruh file agar data tetap aman. Mohon perbaiki sampel berikut:<br><br>" . implode('<br>', $errorDisplay) . $footer))
@@ -1149,8 +1271,8 @@ class EmployeeResource extends Resource
 
                             // Phase 2: Processing (Transactional)
                             try {
-                                \Illuminate\Support\Facades\DB::transaction(function() use ($processedData, &$stats, &$currentRowName, &$currentRowIndex, $headers) {
-                                     foreach ($processedData as $data) {
+                                \Illuminate\Support\Facades\DB::transaction(function () use ($processedData, &$stats, &$currentRowName, &$currentRowIndex, $headers) {
+                                    foreach ($processedData as $data) {
                                         $rowData = $data['row'];
                                         $ids = $data['ids'];
                                         $actualRowInFile = $data['line_number'];
@@ -1158,27 +1280,29 @@ class EmployeeResource extends Resource
                                         $currentRowName = $rowData['name'] ?? ($rowData['nippam'] ?? 'N/A');
                                         $currentRowIndex = $actualRowInFile;
 
-                                        $convertDate = function($dateStr) {
+                                        $convertDate = function ($dateStr) {
                                             if (empty($dateStr)) return null;
                                             $dateStr = trim($dateStr);
                                             $formats = ['d-m-Y', 'd/m/Y', 'd.m.Y', 'Y-m-d'];
                                             foreach ($formats as $format) {
-                                                try { 
+                                                try {
                                                     $d = \Carbon\Carbon::createFromFormat($format, $dateStr);
                                                     if ($d) return $d->format('Y-m-d');
-                                                } catch (\Exception $e) {}
+                                                } catch (\Exception $e) {
+                                                }
                                             }
                                             return null;
                                         };
 
                                         $isNew = empty($rowData['id']);
-                                        if ($isNew) $stats['created']++; else $stats['updated']++;
-                                        
+                                        if ($isNew) $stats['created']++;
+                                        else $stats['updated']++;
+
                                         $clean = fn($val) => ($val === '' || $val === null) ? null : trim($val);
 
                                         $gender = strtolower(trim($rowData['gender'] ?? ''));
                                         $gender = in_array($gender, ['male', 'female']) ? $gender : 'male';
-                                        
+
                                         $marital = strtolower(trim($rowData['marital_status'] ?? ''));
                                         $marital = in_array($marital, ['single', 'married', 'divorced', 'widowed']) ? $marital : 'single';
 
@@ -1263,41 +1387,41 @@ class EmployeeResource extends Resource
                                                 'users_id' => auth()->id() ?? 1,
                                             ]);
                                         }
-                                     }
+                                    }
                                 });
 
-                            Notification::make()
-                                ->title('Proses Berhasil')
-                                ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
-                                ->success()->send();
-                        } catch (\Exception $e) {
-                            $errorMessage = $e->getMessage();
-                            $friendlyMessage = "Terjadi kesalahan sistem saat menyimpan data.";
+                                Notification::make()
+                                    ->title('Proses Berhasil')
+                                    ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
+                                    ->success()->send();
+                            } catch (\Exception $e) {
+                                $errorMessage = $e->getMessage();
+                                $friendlyMessage = "Terjadi kesalahan sistem saat menyimpan data.";
 
-                            if (str_contains($errorMessage, 'Duplicate entry')) {
-                                $friendlyMessage = "Data ini sudah terdaftar (Duplikasi NIPPAM/PIN/NIK).";
-                            } elseif (str_contains($errorMessage, 'Data truncated')) {
-                                $friendlyMessage = "Format data tidak sesuai dengan batasan sistem (Data terlalu panjang atau pilihan tidak valid).";
-                            }
+                                if (str_contains($errorMessage, 'Duplicate entry')) {
+                                    $friendlyMessage = "Data ini sudah terdaftar (Duplikasi NIPPAM/PIN/NIK).";
+                                } elseif (str_contains($errorMessage, 'Data truncated')) {
+                                    $friendlyMessage = "Format data tidak sesuai dengan batasan sistem (Data terlalu panjang atau pilihan tidak valid).";
+                                }
 
-                            \Illuminate\Support\Facades\Log::error("Import Error: {$errorMessage} | Row: {$currentRowIndex} | Name: {$currentRowName}");
-                            
-                            Notification::make()
-                                ->title('Proses Gagal')
-                                ->body(new \Illuminate\Support\HtmlString("
+                                \Illuminate\Support\Facades\Log::error("Import Error: {$errorMessage} | Row: {$currentRowIndex} | Name: {$currentRowName}");
+
+                                Notification::make()
+                                    ->title('Proses Gagal')
+                                    ->body(new \Illuminate\Support\HtmlString("
                                     Terjadi kesalahan pada data <strong>{$currentRowName}</strong> (Baris {$currentRowIndex}).<br><br>
                                     <strong>Pesan:</strong> {$friendlyMessage}
                                 "))
-                                ->danger()
-                                ->persistent()
-                                ->send();
-                        }
-                    }),
+                                    ->danger()
+                                    ->persistent()
+                                    ->send();
+                            }
+                        }),
                 ])
-                ->label('Manajemen Data')
-                ->icon('heroicon-m-cog-6-tooth')
-                ->color('gray')
-                ->button(),
+                    ->label('Manajemen Data')
+                    ->icon('heroicon-m-cog-6-tooth')
+                    ->color('gray')
+                    ->button(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('departments_id')
@@ -1483,15 +1607,52 @@ class EmployeeResource extends Resource
                         ->color('info')
                         ->action(function (\Illuminate\Support\Collection $records) {
                             $headers = [
-                                'id', 'nippam', 'pin', 'name', 'gender', 'place_birth', 'date_birth', 'religion', 'marital_status', 'blood_type',
-                                'email', 'office_email', 'phone_number', 'id_number', 'familycard_number', 'npwp_number',
-                                'bank_account_number', 'bpjs_tk_number', 'bpjs_tk_status', 'bpjs_kes_number', 'bpjs_kes_status',
-                                'bpjs_kes_class', 'rek_dplk_pribadi', 'rek_dplk_bersama', 'dapenma_number', 'dapenma_phdp',
-                                'dapenma_status', 'address', 'work_unit_type', 'work_unit_name', 'sub_department_name',
-                                'position_name', 'employment_status_name', 'education_name', 'grade_name', 'mkg_years',
-                                'agreement_type_name', 'entry_date', 'probation_appointment_date', 'leave_balance',
-                                'agreement_date_start', 'agreement_date_end', 'grade_date_start', 'grade_date_end',
-                                'periodic_salary_date_start', 'periodic_salary_date_end'
+                                'id',
+                                'nippam',
+                                'pin',
+                                'name',
+                                'gender',
+                                'place_birth',
+                                'date_birth',
+                                'religion',
+                                'marital_status',
+                                'blood_type',
+                                'email',
+                                'office_email',
+                                'phone_number',
+                                'id_number',
+                                'familycard_number',
+                                'npwp_number',
+                                'bank_account_number',
+                                'bpjs_tk_number',
+                                'bpjs_tk_status',
+                                'bpjs_kes_number',
+                                'bpjs_kes_status',
+                                'bpjs_kes_class',
+                                'rek_dplk_pribadi',
+                                'rek_dplk_bersama',
+                                'dapenma_number',
+                                'dapenma_phdp',
+                                'dapenma_status',
+                                'address',
+                                'work_unit_type',
+                                'work_unit_name',
+                                'sub_department_name',
+                                'position_name',
+                                'employment_status_name',
+                                'education_name',
+                                'grade_name',
+                                'mkg_years',
+                                'agreement_type_name',
+                                'entry_date',
+                                'probation_appointment_date',
+                                'leave_balance',
+                                'agreement_date_start',
+                                'agreement_date_end',
+                                'grade_date_start',
+                                'grade_date_end',
+                                'periodic_salary_date_start',
+                                'periodic_salary_date_end'
                             ];
 
                             $callback = function () use ($records, $headers) {
@@ -1500,25 +1661,73 @@ class EmployeeResource extends Resource
 
                                 // Add Instruction Row for consistency
                                 fputcsv($file, [
-                                    'KOSONGKAN untuk Pegawai Baru, ISI untuk Update', 'Otomatis', 'PIN Absensi', 'Wajib', 'male/female', 'Wajib', 'dd-mm-yyyy', 'Islam/Kristen/sdh', 'single/married/sdh', 'A/B/O/AB',
-                                    'Email Pribadi', 'Email Kantor', 'Hanya Angka', '16 Digit', '16 Digit', 'NPWP',
-                                    'No Rek', 'No BPJS TK', 'Aktif/Tidak', 'No BPJS Kes', 'Aktif/Tidak',
-                                    'Kelas 1/2/3', 'DPLK', 'DPLK', 'No Dapenma', 'Hanya Angka',
-                                    'Aktif/Tidak', 'Alamat Lengkap', 'bagian/cabang/unit', 'Nama Bagian/ID', 'Nama/ID',
-                                    'Nama/ID', 'Nama/ID', 'Nama/ID', 'Nama/ID', 'Tahun (0/2/4)',
-                                    'Nama/ID', 'dd-mm-yyyy', 'dd-mm-yyyy', 'Angka',
-                                    'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy', 'dd-mm-yyyy'
+                                    'KOSONGKAN untuk Pegawai Baru, ISI untuk Update',
+                                    'Otomatis',
+                                    'PIN Absensi',
+                                    'Wajib',
+                                    'male/female',
+                                    'Wajib',
+                                    'dd-mm-yyyy',
+                                    'Islam/Kristen/sdh',
+                                    'single/married/sdh',
+                                    'A/B/O/AB',
+                                    'Email Pribadi',
+                                    'Email Kantor',
+                                    'Hanya Angka',
+                                    '16 Digit',
+                                    '16 Digit',
+                                    'NPWP',
+                                    'No Rek',
+                                    'No BPJS TK',
+                                    'Aktif/Tidak',
+                                    'No BPJS Kes',
+                                    'Aktif/Tidak',
+                                    'Kelas 1/2/3',
+                                    'DPLK',
+                                    'DPLK',
+                                    'No Dapenma',
+                                    'Hanya Angka',
+                                    'Aktif/Tidak',
+                                    'Alamat Lengkap',
+                                    'bagian/cabang/unit',
+                                    'Nama Bagian/ID',
+                                    'Nama/ID',
+                                    'Nama/ID',
+                                    'Nama/ID',
+                                    'Nama/ID',
+                                    'Nama/ID',
+                                    'Tahun (0/2/4)',
+                                    'Nama/ID',
+                                    'dd-mm-yyyy',
+                                    'dd-mm-yyyy',
+                                    'Angka',
+                                    'dd-mm-yyyy',
+                                    'dd-mm-yyyy',
+                                    'dd-mm-yyyy',
+                                    'dd-mm-yyyy',
+                                    'dd-mm-yyyy',
+                                    'dd-mm-yyyy'
                                 ]);
 
                                 foreach ($records as $record) {
                                     $record->load(['position', 'employmentStatus', 'education', 'grade', 'serviceGrade', 'agreement', 'department', 'subDepartment', 'bagian', 'cabang', 'unit']);
-                                    
+
                                     // Determine work unit type and name
-                                    $unitType = ''; $unitName = '';
-                                    if ($record->bagian_id) { $unitType = 'bagian'; $unitName = $record->bagian->name ?? ''; }
-                                    elseif ($record->cabang_id) { $unitType = 'cabang'; $unitName = $record->cabang->name ?? ''; }
-                                    elseif ($record->unit_id) { $unitType = 'unit'; $unitName = $record->unit->name ?? ''; }
-                                    elseif ($record->departments_id) { $unitType = 'bagian'; $unitName = $record->department->name ?? ''; }
+                                    $unitType = '';
+                                    $unitName = '';
+                                    if ($record->bagian_id) {
+                                        $unitType = 'bagian';
+                                        $unitName = $record->bagian->name ?? '';
+                                    } elseif ($record->cabang_id) {
+                                        $unitType = 'cabang';
+                                        $unitName = $record->cabang->name ?? '';
+                                    } elseif ($record->unit_id) {
+                                        $unitType = 'unit';
+                                        $unitName = $record->unit->name ?? '';
+                                    } elseif ($record->departments_id) {
+                                        $unitType = 'bagian';
+                                        $unitName = $record->department->name ?? '';
+                                    }
 
                                     fputcsv($file, [
                                         $record->id,
@@ -1599,13 +1808,13 @@ class EmployeeResource extends Resource
                                         ->state(fn($record) => $record->image ? url('image-view/' . $record->image) : null)
                                         ->extraImgAttributes(['class' => 'shadow-lg border-2 border-primary-500'])
                                         ->placeholder('Tidak ada foto'),
-                                    
+
                                     Infolists\Components\TextEntry::make('name')
                                         ->label('')
                                         ->weight('bold')
                                         ->size('lg')
                                         ->alignCenter(),
-                                    
+
                                     Infolists\Components\TextEntry::make('nippam')
                                         ->label('')
                                         ->color('gray')
@@ -1676,7 +1885,7 @@ class EmployeeResource extends Resource
                                                     Infolists\Components\TextEntry::make('phone_number')->label('No. Telepon')->icon('heroicon-o-phone'),
                                                 ]),
                                             Infolists\Components\TextEntry::make('address')->label('Alamat Sesuai KTP')->prose(),
-                                            
+
                                             // History: Family
                                             Infolists\Components\Section::make('Data Anggota Keluarga')
                                                 ->icon('heroicon-o-user-group')
@@ -1684,7 +1893,7 @@ class EmployeeResource extends Resource
                                                     Infolists\Components\ViewEntry::make('family_data')
                                                         ->view('filament.components.family-data-table')
                                                         ->hiddenLabel()
-                                                        ->hidden(fn (Employee $record) => $record->families->isEmpty()),
+                                                        ->hidden(fn(Employee $record) => $record->families->isEmpty()),
                                                 ])->compact()->collapsed(),
                                         ]),
 
@@ -1710,7 +1919,7 @@ class EmployeeResource extends Resource
                                                         ->color('primary'),
                                                     Infolists\Components\TextEntry::make('office_email')->label('Email Kantor')->icon('heroicon-o-envelope-open')->copyable(),
                                                 ]),
-                                            
+
                                             Infolists\Components\Section::make('Progres Rekrutmen / Orientasi')
                                                 ->schema([
                                                     Infolists\Components\ViewEntry::make('recruitment_progress')
@@ -1723,7 +1932,7 @@ class EmployeeResource extends Resource
                                                     Infolists\Components\ViewEntry::make('agreement_data')
                                                         ->view('filament.components.agreement-data-table')
                                                         ->hiddenLabel()
-                                                        ->hidden(fn (Employee $record) => $record->employeeAgreements->isEmpty()),
+                                                        ->hidden(fn(Employee $record) => $record->employeeAgreements->isEmpty()),
                                                 ])->compact(),
                                         ]),
 
@@ -1737,7 +1946,7 @@ class EmployeeResource extends Resource
                                                     Infolists\Components\TextEntry::make('bank_account_number')->label('No. Rekening Bank')->icon('heroicon-o-credit-card'),
                                                     Infolists\Components\TextEntry::make('npwp_number')->label('NPWP'),
                                                 ]),
-                                            
+
                                             Infolists\Components\Grid::make(3)
                                                 ->schema([
                                                     // BPJS TK
@@ -1827,7 +2036,7 @@ class EmployeeResource extends Resource
                                                         ->view('filament.components.assignment-history-table')
                                                         ->hiddenLabel(),
                                                 ])->compact(),
-                                            
+
                                             Infolists\Components\Section::make('Histori SPPD (Perjalanan Dinas)')
                                                 ->schema([
                                                     Infolists\Components\ViewEntry::make('business_travel_history')
@@ -1835,7 +2044,7 @@ class EmployeeResource extends Resource
                                                         ->hiddenLabel(),
                                                 ])->compact(),
                                         ]),
-                                    
+
                                     Infolists\Components\Tabs\Tab::make('Riwayat Presensi')
                                         ->icon('heroicon-o-clock')
                                         ->schema([
@@ -1875,7 +2084,7 @@ class EmployeeResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ])
-            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit']);
+            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit', 'nonPermanentSalary']);
     }
 
     public static function getPages(): array
