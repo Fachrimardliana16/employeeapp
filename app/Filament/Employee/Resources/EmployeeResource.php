@@ -678,7 +678,7 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('id_number')
                     ->label('NIK (KTP)')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('username')
                     ->label('Username')
                     ->searchable()
@@ -713,12 +713,12 @@ class EmployeeResource extends Resource
                     ->label('KGB Berikutnya')
                     ->date('d/m/Y')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('next_promotion_date')
                     ->label('Golongan Berikutnya')
                     ->date('d/m/Y')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('basic_salary_amount')
                     ->label('Gaji Pokok')
                     ->money('IDR')
@@ -770,7 +770,7 @@ class EmployeeResource extends Resource
                             '</div>';
                     })
                     ->searchable(['email', 'phone_number'])
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('birth_info')
                     ->label('Tempat, Tanggal Lahir')
                     ->getStateUsing(function (Employee $record) {
@@ -787,7 +787,7 @@ class EmployeeResource extends Resource
                             '</div>';
                     })
                     ->searchable(['place_birth', 'date_birth'])
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('formatted_length_service')
                     ->label('Masa Kerja')
                     ->getStateUsing(fn(Employee $record) => $record->formatted_length_service)
@@ -795,12 +795,13 @@ class EmployeeResource extends Resource
                         return $query->orderBy('permanent_appointment_date', $direction === 'asc' ? 'desc' : 'asc');
                     })
                     ->icon('heroicon-m-clock')
-                    ->placeholder('Belum ada data'),
+                    ->placeholder('Belum ada data')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('entry_date')
                     ->label('Tanggal Masuk')
                     ->date('d/m/Y')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d/m/Y H:i')

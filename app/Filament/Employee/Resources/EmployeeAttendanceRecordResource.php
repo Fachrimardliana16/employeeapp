@@ -239,7 +239,8 @@ class EmployeeAttendanceRecordResource extends Resource
 
                 Tables\Columns\ViewColumn::make('mini_map')
                     ->label('Peta')
-                    ->view('filament.tables.columns.leaflet-map'),
+                    ->view('filament.tables.columns.leaflet-map')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('officeLocation.name')
                     ->label('Lokasi & Jarak')
@@ -375,7 +376,9 @@ class EmployeeAttendanceRecordResource extends Resource
                     Tables\Actions\ForceDeleteBulkAction::make(),
                 ])->label('Aksi Masal'),
             ])
-            ->defaultSort('attendance_time', 'desc');
+            ->defaultSort('attendance_time', 'desc')
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100]);
     }
 
     public static function infolist(Infolist $infolist): Infolist
@@ -529,6 +532,7 @@ class EmployeeAttendanceRecordResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with(['officeLocation'])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
