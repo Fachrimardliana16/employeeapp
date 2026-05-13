@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use App\Models\Employee;
 use App\Models\MasterEmployeeStatusEmployment;
+use Illuminate\Support\Facades\Cache;
 
 class ListEmployees extends ListRecords
 {
@@ -32,17 +33,27 @@ class ListEmployees extends ListRecords
 
     public function getTabs(): array
     {
+        // Cache tab data 10 menit — hitung count per status employment
+        $tabData = Cache::remember('employee_tabs_data', now()->addMinutes(10), function () {
+            $totalCount = Employee::query()->count();
+            $statuses = MasterEmployeeStatusEmployment::where('is_active', true)->get();
+
+            $statusCounts = Employee::query()
+                ->selectRaw('employment_status_id, count(*) as total')
+                ->groupBy('employment_status_id')
+                ->pluck('total', 'employment_status_id');
+
+            return compact('totalCount', 'statuses', 'statusCounts');
+        });
+
         $tabs = [
             'all' => Tab::make('Semua Pegawai')
-                ->badge(Employee::query()->count()),
+                ->badge($tabData['totalCount']),
         ];
 
-        // Ambil semua status kepegawaian yang aktif
-        $statuses = MasterEmployeeStatusEmployment::where('is_active', true)->get();
-
-        foreach ($statuses as $status) {
+        foreach ($tabData['statuses'] as $status) {
             $tabs[\Illuminate\Support\Str::slug($status->name)] = Tab::make($status->name)
-                ->badge(Employee::query()->where('employment_status_id', $status->id)->count())
+                ->badge($tabData['statusCounts'][$status->id] ?? 0)
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('employment_status_id', $status->id));
         }
 
