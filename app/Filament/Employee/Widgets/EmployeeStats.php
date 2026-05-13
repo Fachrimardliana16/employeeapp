@@ -11,6 +11,7 @@ use App\Models\EmployeeAgreement;
 use App\Models\EmployeeAttendanceRecord;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class EmployeeStats extends BaseWidget
 {
@@ -20,35 +21,38 @@ class EmployeeStats extends BaseWidget
     protected function getStats(): array
     {
         $today = Carbon::today();
-        $thisMonth = Carbon::now()->startOfMonth();
+        $cacheKey = 'employee_dashboard_stats_' . $today->format('Y-m-d');
 
-        // Total lamaran bulan ini
-        $newApplications = JobApplication::where('created_at', '>=', $thisMonth)->count();
+        $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($today) {
+            $thisMonth = Carbon::now()->startOfMonth();
 
-        // Interview scheduled bulan ini
-        $scheduledInterviews = InterviewProcess::whereMonth('interview_date', Carbon::now()->month)
-            ->whereYear('interview_date', Carbon::now()->year)
-            ->count();
+            $newApplications = JobApplication::where('created_at', '>=', $thisMonth)->count();
 
-        // Total pegawai aktif (yang memiliki agreement aktif)
-        $activeEmployees = Employee::whereNotNull('master_employee_agreement_id')
-            ->where('agreement_date_start', '<=', $today)
-            ->where(function ($q) use ($today) {
-                $q->whereNull('agreement_date_end')
-                    ->orWhere('agreement_date_end', '>=', $today);
-            })
-            ->count();
+            $scheduledInterviews = InterviewProcess::whereMonth('interview_date', Carbon::now()->month)
+                ->whereYear('interview_date', Carbon::now()->year)
+                ->count();
 
-        // Kontrak yang akan habis dalam 30 hari
-        $expiringContracts = EmployeeAgreement::whereBetween('agreement_date_end', [
-            $today,
-            $today->copy()->addDays(30)
-        ])->count();
+            $activeEmployees = Employee::whereNotNull('master_employee_agreement_id')
+                ->where('agreement_date_start', '<=', $today)
+                ->where(function ($q) use ($today) {
+                    $q->whereNull('agreement_date_end')
+                        ->orWhere('agreement_date_end', '>=', $today);
+                })
+                ->count();
 
-        // Kehadiran hari ini (check-in)
-        $todayAttendance = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
-            ->where('state', 'check_in')
-            ->count();
+            $expiringContracts = EmployeeAgreement::whereBetween('agreement_date_end', [
+                $today,
+                $today->copy()->addDays(30)
+            ])->count();
+
+            $todayAttendance = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
+                ->where('state', 'check_in')
+                ->count();
+
+            return compact('newApplications', 'scheduledInterviews', 'activeEmployees', 'expiringContracts', 'todayAttendance');
+        });
+
+        extract($data);
 
         return [
             Stat::make('Lamaran Bulan Ini', $newApplications)

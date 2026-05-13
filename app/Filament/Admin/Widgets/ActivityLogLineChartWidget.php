@@ -6,6 +6,7 @@ use Filament\Widgets\ChartWidget;
 use Spatie\Activitylog\Models\Activity;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class ActivityLogLineChartWidget extends ChartWidget
 {
@@ -22,70 +23,74 @@ class ActivityLogLineChartWidget extends ChartWidget
     protected function getData(): array
     {
         $activeFilter = $this->filter;
-        $data = [];
-        $labels = [];
+        $cacheKey = 'activity_log_chart_' . $activeFilter . '_' . now()->format('Y-m-d-H');
 
-        if ($activeFilter === 'minute') {
-            $start = now()->subMinutes(59);
-            $activities = Activity::select(
-                    DB::raw(config('database.default') === 'sqlite' 
-                        ? "strftime('%H:%M', created_at) as time_label" 
-                        : "DATE_FORMAT(created_at, '%H:%i') as time_label"), 
-                    DB::raw('count(*) as aggregate')
-                )
-                ->where('created_at', '>=', $start)
-                ->groupBy('time_label')
-                ->pluck('aggregate', 'time_label');
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($activeFilter) {
+            $data = [];
+            $labels = [];
 
-            for ($i = 59; $i >= 0; $i--) {
-                $label = now()->subMinutes($i)->format('H:i');
-                $labels[] = $label;
-                $data[] = $activities[$label] ?? 0;
+            if ($activeFilter === 'minute') {
+                $start = now()->subMinutes(59);
+                $activities = Activity::select(
+                        DB::raw(config('database.default') === 'sqlite'
+                            ? "strftime('%H:%M', created_at) as time_label"
+                            : "DATE_FORMAT(created_at, '%H:%i') as time_label"),
+                        DB::raw('count(*) as aggregate')
+                    )
+                    ->where('created_at', '>=', $start)
+                    ->groupBy('time_label')
+                    ->pluck('aggregate', 'time_label');
+
+                for ($i = 59; $i >= 0; $i--) {
+                    $label = now()->subMinutes($i)->format('H:i');
+                    $labels[] = $label;
+                    $data[] = $activities[$label] ?? 0;
+                }
+            } elseif ($activeFilter === 'hour') {
+                $start = now()->subHours(23);
+                $activities = Activity::select(
+                        DB::raw(config('database.default') === 'sqlite'
+                            ? "strftime('%H:00', created_at) as time_label"
+                            : "DATE_FORMAT(created_at, '%H:00') as time_label"),
+                        DB::raw('count(*) as aggregate')
+                    )
+                    ->where('created_at', '>=', $start)
+                    ->groupBy('time_label')
+                    ->pluck('aggregate', 'time_label');
+
+                for ($i = 23; $i >= 0; $i--) {
+                    $label = now()->subHours($i)->format('H:00');
+                    $labels[] = $label;
+                    $data[] = $activities[$label] ?? 0;
+                }
+            } else { // default: day
+                $start = now()->subDays(29);
+                $activities = Activity::select(DB::raw("date(created_at) as time_label"), DB::raw('count(*) as aggregate'))
+                    ->where('created_at', '>=', $start)
+                    ->groupBy('time_label')
+                    ->pluck('aggregate', 'time_label');
+
+                for ($i = 29; $i >= 0; $i--) {
+                    $label = now()->subDays($i)->format('Y-m-d');
+                    $labels[] = Carbon::parse($label)->format('d M');
+                    $data[] = $activities[$label] ?? 0;
+                }
             }
-        } elseif ($activeFilter === 'hour') {
-            $start = now()->subHours(23);
-            $activities = Activity::select(
-                    DB::raw(config('database.default') === 'sqlite' 
-                        ? "strftime('%H:00', created_at) as time_label" 
-                        : "DATE_FORMAT(created_at, '%H:00') as time_label"), 
-                    DB::raw('count(*) as aggregate')
-                )
-                ->where('created_at', '>=', $start)
-                ->groupBy('time_label')
-                ->pluck('aggregate', 'time_label');
 
-            for ($i = 23; $i >= 0; $i--) {
-                $label = now()->subHours($i)->format('H:00');
-                $labels[] = $label;
-                $data[] = $activities[$label] ?? 0;
-            }
-        } else { // default: day
-            $start = now()->subDays(29);
-            $activities = Activity::select(DB::raw("date(created_at) as time_label"), DB::raw('count(*) as aggregate'))
-                ->where('created_at', '>=', $start)
-                ->groupBy('time_label')
-                ->pluck('aggregate', 'time_label');
-
-            for ($i = 29; $i >= 0; $i--) {
-                $label = now()->subDays($i)->format('Y-m-d');
-                $labels[] = Carbon::parse($label)->format('d M');
-                $data[] = $activities[$label] ?? 0;
-            }
-        }
-
-        return [
-            'datasets' => [
-                [
-                    'label' => 'Activity Log Count',
-                    'data' => $data,
-                    'fill' => 'start',
-                    'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
-                    'borderColor' => 'rgb(59, 130, 246)',
-                    'tension' => 0.4,
+            return [
+                'datasets' => [
+                    [
+                        'label' => 'Activity Log Count',
+                        'data' => $data,
+                        'fill' => 'start',
+                        'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
+                        'borderColor' => 'rgb(59, 130, 246)',
+                        'tension' => 0.4,
+                    ],
                 ],
-            ],
-            'labels' => $labels,
-        ];
+                'labels' => $labels,
+            ];
+        });
     }
 
     protected function getFilters(): ?array

@@ -7,6 +7,7 @@ use App\Models\EmployeeRetirement;
 use Filament\Widgets\ChartWidget;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class EmployeeGrowthChart extends ChartWidget
 {
@@ -19,8 +20,9 @@ class EmployeeGrowthChart extends ChartWidget
 
     protected function getData(): array
     {
-        $months = [];
-        $employeeCounts = [];
+        return Cache::remember('employee_growth_chart', now()->addHour(), function () {
+            $months = [];
+            $employeeCounts = [];
 
         $windowStart = Carbon::now()->subMonths(11)->startOfMonth();
 
@@ -72,19 +74,20 @@ class EmployeeGrowthChart extends ChartWidget
             $employeeCounts[] = max(0, $cumulativeHired - $cumulativeLeft);
         }
 
-        return [
-            'datasets' => [
-                [
-                    'label' => 'Total Pegawai',
-                    'data' => $employeeCounts,
-                    'fill' => 'start',
-                    'borderColor' => '#36A2EB',
-                    'backgroundColor' => 'rgba(54, 162, 235, 0.2)',
-                    'tension' => 0.3,
+            return [
+                'datasets' => [
+                    [
+                        'label' => 'Total Pegawai',
+                        'data' => $employeeCounts,
+                        'fill' => 'start',
+                        'borderColor' => '#36A2EB',
+                        'backgroundColor' => 'rgba(54, 162, 235, 0.2)',
+                        'tension' => 0.3,
+                    ],
                 ],
-            ],
-            'labels' => $months,
-        ];
+                'labels' => $months,
+            ];
+        });
     }
 
     protected function getType(): string

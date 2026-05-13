@@ -160,6 +160,7 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->query(Activity::query()->with('causer'))
             ->columns([
                 Tables\Columns\TextColumn::make('log_name')
                     ->label('Nama Log')

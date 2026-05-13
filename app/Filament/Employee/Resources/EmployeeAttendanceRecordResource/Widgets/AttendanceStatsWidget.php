@@ -8,6 +8,7 @@ use App\Models\AttendanceSpecialSchedule;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class AttendanceStatsWidget extends BaseWidget
 {
@@ -16,42 +17,42 @@ class AttendanceStatsWidget extends BaseWidget
     protected function getStats(): array
     {
         $today = Carbon::today();
+        $cacheKey = 'attendance_stats_widget_' . $today->format('Y-m-d');
 
-        // Count unique employees who checked in today
-        $presentCount = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
-            ->whereIn('state', ['check_in', 'in'])
-            ->distinct('pin')
-            ->count();
+        $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($today) {
+            $presentCount = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
+                ->whereIn('state', ['check_in', 'in'])
+                ->distinct('pin')
+                ->count();
 
-        // Assuming total active employees for base
-        $totalEmployees = Employee::count();
+            $totalEmployees = Employee::count();
 
-        // Count approved permissions (leaves) for today
-        $leaveCount = \App\Models\EmployeePermission::where('approval_status', 'approved')
-            ->whereDate('start_permission_date', '<=', $today)
-            ->whereDate('end_permission_date', '>=', $today)
-            ->distinct('employee_id')
-            ->count();
+            $leaveCount = \App\Models\EmployeePermission::where('approval_status', 'approved')
+                ->whereDate('start_permission_date', '<=', $today)
+                ->whereDate('end_permission_date', '>=', $today)
+                ->distinct('employee_id')
+                ->count();
 
-        // Count employees on national holiday or joint leave (not required to work)
-        $holidayCount = AttendanceSpecialSchedule::whereDate('date', $today)
-            ->where('is_working', false) // Tidak wajib masuk
-            ->whereIn('type', ['libur_nasional', 'cuti_bersama'])
-            ->distinct('employee_id')
-            ->count();
+            $holidayCount = AttendanceSpecialSchedule::whereDate('date', $today)
+                ->where('is_working', false)
+                ->whereIn('type', ['libur_nasional', 'cuti_bersama'])
+                ->distinct('employee_id')
+                ->count();
 
-        // Absent = Total - (Present + Leave + Holiday)
-        $absentCount = max(0, $totalEmployees - $presentCount - $leaveCount - $holidayCount);
+            $absentCount = max(0, $totalEmployees - $presentCount - $leaveCount - $holidayCount);
 
-        // Count late arrivals
-        $lateCount = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
-            ->where('attendance_status', 'late')
-            ->count();
+            $lateCount = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
+                ->where('attendance_status', 'late')
+                ->count();
 
-        // Count overtime records
-        $overtimeCount = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
-            ->whereIn('state', ['ot_in', 'ot_out'])
-            ->count();
+            $overtimeCount = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
+                ->whereIn('state', ['ot_in', 'ot_out'])
+                ->count();
+
+            return compact('presentCount', 'leaveCount', 'holidayCount', 'absentCount', 'lateCount');
+        });
+
+        extract($data);
 
         return [
             Stat::make('Pegawai Hadir', $presentCount)

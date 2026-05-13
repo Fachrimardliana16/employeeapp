@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\EmployeeAttendanceRecord;
 use Filament\Widgets\ChartWidget;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class TodayAttendanceChart extends ChartWidget
 {
@@ -19,20 +20,21 @@ class TodayAttendanceChart extends ChartWidget
     protected function getData(): array
     {
         $today = Carbon::today();
-        
-        $totalEmployees = Employee::count();
-        $present = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
-            ->where('state', 'check_in')
-            ->distinct('pin')
-            ->count();
-            
-        $absent = max(0, $totalEmployees - $present);
+        $data = Cache::remember('today_attendance_chart_' . $today->format('Y-m-d'), now()->addMinutes(5), function () use ($today) {
+            $totalEmployees = Employee::count();
+            $present = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
+                ->where('state', 'check_in')
+                ->distinct('pin')
+                ->count();
+            $absent = max(0, $totalEmployees - $present);
+            return compact('present', 'absent');
+        });
 
         return [
             'datasets' => [
                 [
                     'label' => 'Kehadiran',
-                    'data' => [$present, $absent],
+                    'data' => [$data['present'], $data['absent']],
                     'backgroundColor' => [
                         '#4BC0C0', // Green for Present
                         '#FF6384', // Red for Absent

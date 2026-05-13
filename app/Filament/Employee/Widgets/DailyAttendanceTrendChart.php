@@ -6,6 +6,7 @@ use App\Models\EmployeeAttendanceRecord;
 use Filament\Widgets\ChartWidget;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DailyAttendanceTrendChart extends ChartWidget
 {
@@ -31,60 +32,62 @@ class DailyAttendanceTrendChart extends ChartWidget
     protected function getData(): array
     {
         $activeFilter = $this->filter;
-        
-        $start = now()->startOfMonth();
-        $end = now()->endOfMonth();
-        
-        if ($activeFilter === 'this_week') {
-            $start = now()->startOfWeek();
-            $end = now()->endOfWeek();
-        } elseif ($activeFilter === 'last_month') {
-            $start = now()->subMonth()->startOfMonth();
-            $end = $start->copy()->endOfMonth();
-        } elseif ($activeFilter === 'this_year') {
-            $start = now()->startOfYear();
-            $end = now()->endOfYear();
-        }
+        $cacheKey = 'daily_attendance_chart_' . $activeFilter . '_' . now()->format('Y-m-d');
 
-        $query = EmployeeAttendanceRecord::query()
-            ->whereBetween('attendance_time', [$start, $end])
-            ->where('state', 'check_in')
-            ->select(
-                DB::raw(config('database.default') === 'sqlite' 
-                    ? 'strftime("%Y-%m-%d", attendance_time) as date' 
-                    : 'DATE(attendance_time) as date'), 
-                DB::raw('count(distinct pin) as total')
-            )
-            ->groupBy('date')
-            ->orderBy('date')
-            ->pluck('total', 'date')
-            ->toArray();
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($activeFilter) {
+            $start = now()->startOfMonth();
+            $end = now()->endOfMonth();
 
-        // Fill in missing dates with 0
-        $labels = [];
-        $data = [];
-        $current = $start->copy();
-        
-        while ($current <= $end && $current <= now()) {
-            $dateString = $current->toDateString();
-            $labels[] = $current->format('d M');
-            $data[] = $query[$dateString] ?? 0;
-            $current->addDay();
-        }
+            if ($activeFilter === 'this_week') {
+                $start = now()->startOfWeek();
+                $end = now()->endOfWeek();
+            } elseif ($activeFilter === 'last_month') {
+                $start = now()->subMonth()->startOfMonth();
+                $end = $start->copy()->endOfMonth();
+            } elseif ($activeFilter === 'this_year') {
+                $start = now()->startOfYear();
+                $end = now()->endOfYear();
+            }
 
-        return [
-            'datasets' => [
-                [
-                    'label' => 'Jumlah Pegawai Hadir',
-                    'data' => $data,
-                    'borderColor' => '#4BC0C0',
-                    'backgroundColor' => 'rgba(75, 192, 192, 0.2)',
-                    'fill' => true,
-                    'tension' => 0.1,
+            $query = EmployeeAttendanceRecord::query()
+                ->whereBetween('attendance_time', [$start, $end])
+                ->where('state', 'check_in')
+                ->select(
+                    DB::raw(config('database.default') === 'sqlite'
+                        ? 'strftime("%Y-%m-%d", attendance_time) as date'
+                        : 'DATE(attendance_time) as date'),
+                    DB::raw('count(distinct pin) as total')
+                )
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('total', 'date')
+                ->toArray();
+
+            $labels = [];
+            $data = [];
+            $current = $start->copy();
+
+            while ($current <= $end && $current <= now()) {
+                $dateString = $current->toDateString();
+                $labels[] = $current->format('d M');
+                $data[] = $query[$dateString] ?? 0;
+                $current->addDay();
+            }
+
+            return [
+                'datasets' => [
+                    [
+                        'label' => 'Jumlah Pegawai Hadir',
+                        'data' => $data,
+                        'borderColor' => '#4BC0C0',
+                        'backgroundColor' => 'rgba(75, 192, 192, 0.2)',
+                        'fill' => true,
+                        'tension' => 0.1,
+                    ],
                 ],
-            ],
-            'labels' => $labels,
-        ];
+                'labels' => $labels,
+            ];
+        });
     }
 
     protected function getType(): string
