@@ -11,6 +11,8 @@ use App\Models\MasterEmployeeGrade;
 use App\Models\MasterEmployeeEducation;
 use App\Models\MasterEmployeeStatusEmployment;
 use App\Models\MasterEmployeeAgreement;
+use App\Models\MasterEmployeeServiceGrade;
+use App\Models\MasterSubDepartment;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -28,6 +30,7 @@ use Filament\Tables\Actions\RestoreAction;
 use Filament\Tables\Actions\ForceDeleteAction;
 use Filament\Tables\Actions\DeleteAction;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Cache;
 
 class EmployeeResource extends Resource
 {
@@ -40,6 +43,38 @@ class EmployeeResource extends Resource
     protected static ?string $pluralModelLabel = 'Pegawai';
     protected static ?string $navigationGroup = 'Manajemen Pegawai';
     protected static ?int $navigationSort = 201;
+
+    /**
+     * Per-request in-memory cache for reference table lookups.
+     * Eliminates 9 repeated DB round-trips on each employee list load.
+     * Populated via Cache::remember (1-hour TTL) on first access per request.
+     */
+    private static ?array $_lookupCache = null;
+
+    /**
+     * Return all reference lookup data from cache (1 DB query vs 9 eager-load queries).
+     * Keys: positions, statuses, grades, serviceGrades, departments, deptTypes, subDepartments
+     */
+    public static function getLookupData(): array
+    {
+        if (self::$_lookupCache !== null) {
+            return self::$_lookupCache;
+        }
+
+        self::$_lookupCache = Cache::remember('employee_list_lookups', now()->addHour(), function () {
+            return [
+                'positions'      => MasterEmployeePosition::pluck('name', 'id')->toArray(),
+                'statuses'       => MasterEmployeeStatusEmployment::pluck('name', 'id')->toArray(),
+                'grades'         => MasterEmployeeGrade::pluck('name', 'id')->toArray(),
+                'serviceGrades'  => MasterEmployeeServiceGrade::pluck('service_grade', 'id')->toArray(),
+                'departments'    => MasterDepartment::pluck('name', 'id')->toArray(),
+                'deptTypes'      => MasterDepartment::pluck('type', 'id')->toArray(),
+                'subDepartments' => MasterSubDepartment::pluck('name', 'id')->toArray(),
+            ];
+        });
+
+        return self::$_lookupCache;
+    }
 
     public static function getModelLabel(): string
     {
@@ -686,19 +721,23 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('unit_kerja')
                     ->label('Unit Kerja / Bagian')
                     ->getStateUsing(function (Employee $record) {
-                        $unit = $record->getAttribute('_unit_name')
-                            ?? $record->getAttribute('_cabang_name')
-                            ?? $record->getAttribute('_bagian_name')
-                            ?? $record->getAttribute('_dept_name')
+                        $lu = self::getLookupData();
+                        $depts = $lu['departments'];
+                        $subs  = $lu['subDepartments'];
+                        $unitName = $depts[$record->unit_id]
+                            ?? $depts[$record->cabang_id]
+                            ?? $depts[$record->bagian_id]
+                            ?? $depts[$record->departments_id]
                             ?? '-';
-                        $subUnit = $record->getAttribute('_subdept_name') ?? '';
-                        return $unit . ($subUnit ? " / " . $subUnit : "");
+                        $subUnit = $subs[$record->sub_department_id] ?? '';
+                        return $unitName . ($subUnit ? ' / ' . $subUnit : '');
                     })
                     ->description(function (Employee $record) {
-                        return $record->getAttribute('_unit_type')
-                            ?? $record->getAttribute('_cabang_type')
-                            ?? $record->getAttribute('_bagian_type')
-                            ?? $record->getAttribute('_dept_type')
+                        $types = self::getLookupData()['deptTypes'];
+                        return $types[$record->unit_id]
+                            ?? $types[$record->cabang_id]
+                            ?? $types[$record->bagian_id]
+                            ?? $types[$record->departments_id]
                             ?? '';
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
@@ -709,16 +748,34 @@ class EmployeeResource extends Resource
                             ->orWhereHas('unit', fn($q) => $q->where('name', 'like', "%{$search}%"));
                     })
                     ->sortable(),
-                Tables\Columns\TextColumn::make('_grade_name')
+                Tables\Columns\TextColumn::make('grade.name')
                     ->label('Golongan')
-                    ->getStateUsing(fn(Employee $record) => $record->getAttribute('_grade_name') ?? '-')
-                    ->sortable(query: fn(Builder $query, string $direction): Builder => $query->orderBy('emp_grade.name', $direction))
-                    ->searchable(query: fn(Builder $query, string $search): Builder => $query->where('emp_grade.name', 'like', "%{$search}%")),
-                Tables\Columns\TextColumn::make('_service_grade')
+                    ->getStateUsing(fn(Employee $record) => self::getLookupData()['grades'][$record->basic_salary_id] ?? '-')
+                    ->sortable(query: fn(Builder $query, string $direction): Builder => $query->orderBy(
+                        \App\Models\MasterEmployeeGrade::select('name')
+                            ->whereColumn('id', 'employees.basic_salary_id')
+                            ->limit(1),
+                        $direction
+                    ))
+                    ->searchable(query: fn(Builder $query, string $search): Builder =>
+                        $query->whereIn('basic_salary_id',
+                            \App\Models\MasterEmployeeGrade::where('name', 'like', "%{$search}%")->pluck('id')
+                        )
+                    ),
+                Tables\Columns\TextColumn::make('serviceGrade.service_grade')
                     ->label('MKG (Thn)')
-                    ->getStateUsing(fn(Employee $record) => $record->getAttribute('_service_grade') ?? '-')
-                    ->sortable(query: fn(Builder $query, string $direction): Builder => $query->orderBy('emp_svc_grade.service_grade', $direction))
-                    ->searchable(query: fn(Builder $query, string $search): Builder => $query->where('emp_svc_grade.service_grade', 'like', "%{$search}%")),
+                    ->getStateUsing(fn(Employee $record) => self::getLookupData()['serviceGrades'][$record->employee_service_grade_id] ?? '-')
+                    ->sortable(query: fn(Builder $query, string $direction): Builder => $query->orderBy(
+                        \App\Models\MasterEmployeeServiceGrade::select('service_grade')
+                            ->whereColumn('id', 'employees.employee_service_grade_id')
+                            ->limit(1),
+                        $direction
+                    ))
+                    ->searchable(query: fn(Builder $query, string $search): Builder =>
+                        $query->whereIn('employee_service_grade_id',
+                            \App\Models\MasterEmployeeServiceGrade::where('service_grade', 'like', "%{$search}%")->pluck('id')
+                        )
+                    ),
                 Tables\Columns\TextColumn::make('next_kgb_date')
                     ->label('KGB Berikutnya')
                     ->date('d/m/Y')
@@ -747,8 +804,9 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('position_status')
                     ->label('Posisi / Status')
                     ->getStateUsing(function (Employee $record) {
-                        $position = $record->getAttribute('_pos_name') ?? '-';
-                        $status = $record->getAttribute('_status_name') ?? '-';
+                        $lu = self::getLookupData();
+                        $position = $lu['positions'][$record->employee_position_id] ?? '-';
+                        $status   = $lu['statuses'][$record->employment_status_id] ?? '-';
                         return $position . "\n" . $status;
                     })
                     ->html()
@@ -1702,7 +1760,7 @@ class EmployeeResource extends Resource
                         ->label('Hapus yang Dipilih'),
                 ]),
             ])
-            ->defaultSort('employees.created_at', 'desc')
+            ->defaultSort('created_at', 'desc')
             ->defaultPaginationPageOption(10)
             ->paginationPageOptions([10, 25, 50, 100]);
     }
@@ -2000,32 +2058,9 @@ class EmployeeResource extends Resource
         return parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ])
-            ->select([
-                'employees.*',
-                'emp_pos.name as _pos_name',
-                'emp_status.name as _status_name',
-                'emp_grade.name as _grade_name',
-                'emp_svc_grade.service_grade as _service_grade',
-                'dept.name as _dept_name',
-                'dept.type as _dept_type',
-                'subdept.name as _subdept_name',
-                'bag.name as _bagian_name',
-                'bag.type as _bagian_type',
-                'cab.name as _cabang_name',
-                'cab.type as _cabang_type',
-                'unt.name as _unit_name',
-                'unt.type as _unit_type',
-            ])
-            ->leftJoin('master_employee_positions as emp_pos', 'employees.employee_position_id', '=', 'emp_pos.id')
-            ->leftJoin('master_employee_status_employments as emp_status', 'employees.employment_status_id', '=', 'emp_status.id')
-            ->leftJoin('master_employee_grades as emp_grade', 'employees.basic_salary_id', '=', 'emp_grade.id')
-            ->leftJoin('master_employee_service_grade as emp_svc_grade', 'employees.employee_service_grade_id', '=', 'emp_svc_grade.id')
-            ->leftJoin('master_departments as dept', 'employees.departments_id', '=', 'dept.id')
-            ->leftJoin('master_sub_departments as subdept', 'employees.sub_department_id', '=', 'subdept.id')
-            ->leftJoin('master_departments as bag', 'employees.bagian_id', '=', 'bag.id')
-            ->leftJoin('master_departments as cab', 'employees.cabang_id', '=', 'cab.id')
-            ->leftJoin('master_departments as unt', 'employees.unit_id', '=', 'unt.id');
+            ]);
+        // No eager loading — reference data served from getLookupData() cache.
+        // This reduces DB round-trips from 9+ to 1 (cache table read) per request.
     }
 
     public static function getPages(): array
