@@ -22,7 +22,7 @@ class TodayAttendanceChart extends ChartWidget
         $today = Carbon::today();
         $data = Cache::remember('today_attendance_chart_' . $today->format('Y-m-d'), now()->addMinutes(5), function () use ($today) {
             $totalEmployees = Employee::count();
-            $present = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
+            $present = EmployeeAttendanceRecord::whereBetween('attendance_time', [$today->copy()->startOfDay(), $today->copy()->endOfDay()])
                 ->where('state', 'check_in')
                 ->distinct('pin')
                 ->count();

@@ -37,7 +37,6 @@ class UserPanelProvider extends PanelProvider
             ->pages([
                 //
             ])
-            ->discoverWidgets(in: app_path('Filament/User/Widgets'), for: 'App\\Filament\\User\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
             ])

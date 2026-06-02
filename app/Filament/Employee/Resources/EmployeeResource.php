@@ -820,7 +820,8 @@ class EmployeeResource extends Resource
                         fn(Employee $record) => $record->hasIncompleteData()
                             ? 'Data yang belum lengkap: ' . implode(', ', $record->getMissingDataFields())
                             : 'Data sudah lengkap'
-                    ),
+                    )
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([
                 Tables\Actions\Action::make('generate_report')

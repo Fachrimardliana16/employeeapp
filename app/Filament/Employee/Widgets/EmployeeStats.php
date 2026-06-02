@@ -45,7 +45,7 @@ class EmployeeStats extends BaseWidget
                 $today->copy()->addDays(30)
             ])->count();
 
-            $todayAttendance = EmployeeAttendanceRecord::whereDate('attendance_time', $today)
+            $todayAttendance = EmployeeAttendanceRecord::whereBetween('attendance_time', [$today->copy()->startOfDay(), $today->copy()->endOfDay()])
                 ->where('state', 'check_in')
                 ->count();
 

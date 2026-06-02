@@ -40,12 +40,11 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 // Pages\Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
                 // Default widgets removed
             ])
             ->plugins([
-                // \Rmsramos\Activitylog\ActivitylogPlugin::make(),
+                \Rmsramos\Activitylog\ActivitylogPlugin::make(),
             ])
             ->navigationGroups([
                 'Teknikal documentation',
