@@ -686,12 +686,20 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('unit_kerja')
                     ->label('Unit Kerja / Bagian')
                     ->getStateUsing(function (Employee $record) {
-                        $unit = $record->active_organizational_unit->name ?? '-';
-                        $subUnit = $record->subDepartment->name ?? '';
+                        $unit = $record->getAttribute('_unit_name')
+                            ?? $record->getAttribute('_cabang_name')
+                            ?? $record->getAttribute('_bagian_name')
+                            ?? $record->getAttribute('_dept_name')
+                            ?? '-';
+                        $subUnit = $record->getAttribute('_subdept_name') ?? '';
                         return $unit . ($subUnit ? " / " . $subUnit : "");
                     })
                     ->description(function (Employee $record) {
-                        return $record->active_organizational_unit->type ?? '';
+                        return $record->getAttribute('_unit_type')
+                            ?? $record->getAttribute('_cabang_type')
+                            ?? $record->getAttribute('_bagian_type')
+                            ?? $record->getAttribute('_dept_type')
+                            ?? '';
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query
@@ -701,14 +709,16 @@ class EmployeeResource extends Resource
                             ->orWhereHas('unit', fn($q) => $q->where('name', 'like', "%{$search}%"));
                     })
                     ->sortable(),
-                Tables\Columns\TextColumn::make('grade.name')
+                Tables\Columns\TextColumn::make('_grade_name')
                     ->label('Golongan')
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('serviceGrade.service_grade')
+                    ->getStateUsing(fn(Employee $record) => $record->getAttribute('_grade_name') ?? '-')
+                    ->sortable(query: fn(Builder $query, string $direction): Builder => $query->orderBy('emp_grade.name', $direction))
+                    ->searchable(query: fn(Builder $query, string $search): Builder => $query->where('emp_grade.name', 'like', "%{$search}%")),
+                Tables\Columns\TextColumn::make('_service_grade')
                     ->label('MKG (Thn)')
-                    ->sortable()
-                    ->searchable(),
+                    ->getStateUsing(fn(Employee $record) => $record->getAttribute('_service_grade') ?? '-')
+                    ->sortable(query: fn(Builder $query, string $direction): Builder => $query->orderBy('emp_svc_grade.service_grade', $direction))
+                    ->searchable(query: fn(Builder $query, string $search): Builder => $query->where('emp_svc_grade.service_grade', 'like', "%{$search}%")),
                 Tables\Columns\TextColumn::make('next_kgb_date')
                     ->label('KGB Berikutnya')
                     ->date('d/m/Y')
@@ -737,8 +747,8 @@ class EmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('position_status')
                     ->label('Posisi / Status')
                     ->getStateUsing(function (Employee $record) {
-                        $position = $record->position->name ?? '-';
-                        $status = $record->employmentStatus->name ?? '-';
+                        $position = $record->getAttribute('_pos_name') ?? '-';
+                        $status = $record->getAttribute('_status_name') ?? '-';
                         return $position . "\n" . $status;
                     })
                     ->html()
@@ -1692,7 +1702,7 @@ class EmployeeResource extends Resource
                         ->label('Hapus yang Dipilih'),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('employees.created_at', 'desc')
             ->defaultPaginationPageOption(10)
             ->paginationPageOptions([10, 25, 50, 100]);
     }
@@ -1991,7 +2001,31 @@ class EmployeeResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ])
-            ->with(['position', 'employmentStatus', 'grade', 'serviceGrade', 'department', 'subDepartment', 'bagian', 'cabang', 'unit', 'nonPermanentSalary']);
+            ->select([
+                'employees.*',
+                'emp_pos.name as _pos_name',
+                'emp_status.name as _status_name',
+                'emp_grade.name as _grade_name',
+                'emp_svc_grade.service_grade as _service_grade',
+                'dept.name as _dept_name',
+                'dept.type as _dept_type',
+                'subdept.name as _subdept_name',
+                'bag.name as _bagian_name',
+                'bag.type as _bagian_type',
+                'cab.name as _cabang_name',
+                'cab.type as _cabang_type',
+                'unt.name as _unit_name',
+                'unt.type as _unit_type',
+            ])
+            ->leftJoin('master_employee_positions as emp_pos', 'employees.employee_position_id', '=', 'emp_pos.id')
+            ->leftJoin('master_employee_status_employments as emp_status', 'employees.employment_status_id', '=', 'emp_status.id')
+            ->leftJoin('master_employee_grades as emp_grade', 'employees.basic_salary_id', '=', 'emp_grade.id')
+            ->leftJoin('master_employee_service_grade as emp_svc_grade', 'employees.employee_service_grade_id', '=', 'emp_svc_grade.id')
+            ->leftJoin('master_departments as dept', 'employees.departments_id', '=', 'dept.id')
+            ->leftJoin('master_sub_departments as subdept', 'employees.sub_department_id', '=', 'subdept.id')
+            ->leftJoin('master_departments as bag', 'employees.bagian_id', '=', 'bag.id')
+            ->leftJoin('master_departments as cab', 'employees.cabang_id', '=', 'cab.id')
+            ->leftJoin('master_departments as unt', 'employees.unit_id', '=', 'unt.id');
     }
 
     public static function getPages(): array
