@@ -27,7 +27,9 @@ class EmployeeRetirementWidget extends BaseWidget
                     ->where('retirement', '>=', now())
                     ->where('retirement', '<=', now()->addYears(5))
                     ->orderBy('retirement', 'ASC')
+                    ->limit(10)
             )
+            ->paginated(false)
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')

@@ -27,7 +27,9 @@ class EmployeeContractWidget extends BaseWidget
                     ->where('agreement_date_end', '>=', now())
                     ->where('agreement_date_end', '<=', now()->addMonths(6))
                     ->orderBy('agreement_date_end', 'ASC')
+                    ->limit(10)
             )
+            ->paginated(false)
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')

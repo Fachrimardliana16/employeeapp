@@ -28,6 +28,8 @@ class EmployeeRetiredListWidget extends BaseWidget
                     ->where('retirement', '>=', now()->subYears(5))
                     ->orderBy('retirement', 'DESC')
             )
+            ->defaultPaginationPageOption(5)
+            ->paginationPageOptions([5, 10, 25])
             ->columns([
                 Tables\Columns\TextColumn::make('nippam')
                     ->label('NIP')

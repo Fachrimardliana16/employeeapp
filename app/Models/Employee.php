@@ -104,6 +104,12 @@ class Employee extends Model
         'password',
     ];
 
+    /**
+     * Runtime cache untuk menghindari dekripsi ulang field encrypted per baris.
+     * Di-reset otomatis karena hanya ada di memori PHP (tidak di-persist).
+     */
+    private array $_computedCache = [];
+
     // Mutator untuk kolom decimal agar string kosong dikonversi ke null
     public function setDapenmaPhdpAttribute($value): void
     {
@@ -427,38 +433,60 @@ class Employee extends Model
     }
 
     /**
+     * Hitung kelengkapan data sekali per instance dan cache hasilnya.
+     * Mencegah dekripsi berulang pada 5 field encrypted (id_number, familycard_number,
+     * bank_account_number, bpjs_tk_number, bpjs_kes_number) untuk setiap baris tabel.
+     */
+    private function resolveDataCompleteness(): void
+    {
+        if (isset($this->_computedCache['done'])) {
+            return;
+        }
+
+        // Sumber tunggal definisi field penting — retirement/username/length_service
+        // dihilangkan karena digenerate otomatis
+        $importantFields = [
+            'id_number'                  => 'ID Number (KTP)',
+            'familycard_number'          => 'Family Card Number',
+            'bank_account_number'        => 'Bank Account Number',
+            'bpjs_kes_number'            => 'BPJS Kesehatan',
+            'bpjs_kes_status'            => 'Status BPJS Kesehatan',
+            'bpjs_kes_class'             => 'Kelas BPJS Kesehatan',
+            'bpjs_tk_number'             => 'BPJS Ketenagakerjaan',
+            'bpjs_tk_status'             => 'Status BPJS Ketenagakerjaan',
+            'rek_dplk_pribadi'           => 'DPLK Pribadi',
+            'rek_dplk_bersama'           => 'DPLK Bersama',
+            'dapenma_number'             => 'Nomor Dapenma',
+            'dapenma_phdp'               => 'PHDP Dapenma',
+            'dapenma_status'             => 'Status Dapenma',
+            'employee_education_id'      => 'Education Level',
+            'probation_appointment_date' => 'Probation Appointment Date',
+            'pin'                        => 'PIN Absensi',
+        ];
+
+        $missing = [];
+        $completed = 0;
+        foreach ($importantFields as $field => $label) {
+            if (empty($this->$field)) {
+                $missing[] = $label;
+            } else {
+                $completed++;
+            }
+        }
+
+        $this->_computedCache['missing_fields']   = $missing;
+        $this->_computedCache['has_incomplete']   = !empty($missing);
+        $this->_computedCache['completeness_pct'] = round(($completed / count($importantFields)) * 100);
+        $this->_computedCache['done']             = true;
+    }
+
+    /**
      * Check if employee has incomplete personal data.
      */
     public function hasIncompleteData(): bool
     {
-        // Hanya cek data yang memang penting dan biasanya kosong (exclude otomatis fields)
-        $importantEmptyFields = [
-            'id_number',
-            'familycard_number',
-            'bank_account_number',
-            'bpjs_tk_number',
-            'bpjs_tk_status',
-            'bpjs_kes_number',
-            'bpjs_kes_status',
-            'bpjs_kes_class',
-            'rek_dplk_pribadi',
-            'rek_dplk_bersama',
-            'dapenma_number',
-            'dapenma_phdp',
-            'dapenma_status',
-            'employee_education_id',
-            'probation_appointment_date',
-            'pin',
-            // retirement, username, length_service dihilangkan karena otomatis
-        ];
-
-        foreach ($importantEmptyFields as $field) {
-            if (empty($this->$field)) {
-                return true;
-            }
-        }
-
-        return false;
+        $this->resolveDataCompleteness();
+        return $this->_computedCache['has_incomplete'];
     }
 
     /**
@@ -466,34 +494,8 @@ class Employee extends Model
      */
     public function getMissingDataFields(): array
     {
-        $importantEmptyFields = [
-            'id_number' => 'ID Number (KTP)',
-            'familycard_number' => 'Family Card Number',
-            'bank_account_number' => 'Bank Account Number',
-            'bpjs_kes_number' => 'BPJS Kesehatan',
-            'bpjs_kes_status' => 'Status BPJS Kesehatan',
-            'bpjs_kes_class' => 'Kelas BPJS Kesehatan',
-            'bpjs_tk_number' => 'BPJS Ketenagakerjaan',
-            'bpjs_tk_status' => 'Status BPJS Ketenagakerjaan',
-            'rek_dplk_pribadi' => 'DPLK Pribadi',
-            'rek_dplk_bersama' => 'DPLK Bersama',
-            'dapenma_number' => 'Nomor Dapenma',
-            'dapenma_phdp' => 'PHDP Dapenma',
-            'dapenma_status' => 'Status Dapenma',
-            'employee_education_id' => 'Education Level',
-            'probation_appointment_date' => 'Probation Appointment Date',
-            'pin' => 'PIN Absensi',
-            // retirement, username, length_service dihilangkan karena otomatis
-        ];
-
-        $missing = [];
-        foreach ($importantEmptyFields as $field => $label) {
-            if (empty($this->$field)) {
-                $missing[] = $label;
-            }
-        }
-
-        return $missing;
+        $this->resolveDataCompleteness();
+        return $this->_computedCache['missing_fields'];
     }
 
     /**
@@ -501,34 +503,8 @@ class Employee extends Model
      */
     public function getDataCompletenessPercentage(): int
     {
-        $importantFields = [
-            'id_number',
-            'familycard_number',
-            'bank_account_number',
-            'bpjs_kes_number',
-            'bpjs_kes_status',
-            'bpjs_kes_class',
-            'bpjs_tk_number',
-            'bpjs_tk_status',
-            'rek_dplk_pribadi',
-            'rek_dplk_bersama',
-            'dapenma_number',
-            'dapenma_phdp',
-            'dapenma_status',
-            'employee_education_id',
-            'probation_appointment_date',
-            'pin'
-            // retirement, username, length_service dihilangkan karena otomatis
-        ];
-
-        $completedFields = 0;
-        foreach ($importantFields as $field) {
-            if (!empty($this->$field)) {
-                $completedFields++;
-            }
-        }
-
-        return round(($completedFields / count($importantFields)) * 100);
+        $this->resolveDataCompleteness();
+        return $this->_computedCache['completeness_pct'];
     }
 
     /**

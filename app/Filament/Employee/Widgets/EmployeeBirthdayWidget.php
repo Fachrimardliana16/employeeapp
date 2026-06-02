@@ -27,7 +27,9 @@ class EmployeeBirthdayWidget extends BaseWidget
                         fn ($query) => $query->orderByRaw('strftime("%d", date_birth) ASC'),
                         fn ($query) => $query->orderByRaw('DAY(date_birth) ASC')
                     )
+                    ->limit(10)
             )
+            ->paginated(false)
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
