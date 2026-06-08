@@ -40,16 +40,8 @@ class EmployeePanelProvider extends PanelProvider
 
             ->widgets([
                 \App\Filament\Employee\Widgets\EmployeeStats::class,
-                \App\Filament\Employee\Widgets\JobApplicationListWidget::class,
-                \App\Filament\Employee\Widgets\EmployeeBirthdayWidget::class,
-                \App\Filament\Employee\Widgets\EmployeeRetirementWidget::class,
-                \App\Filament\Employee\Widgets\EmployeeRetiredListWidget::class,
-                \App\Filament\Employee\Widgets\EmployeeContractWidget::class,
                 \App\Filament\Employee\Widgets\EmployeeStatusChart::class,
-                \App\Filament\Employee\Widgets\EmployeeEducationChart::class,
-                \App\Filament\Employee\Widgets\EmployeeGenderChart::class,
                 \App\Filament\Employee\Widgets\TodayAttendanceChart::class,
-                \App\Filament\Employee\Widgets\EmployeeGrowthChart::class,
                 \App\Filament\Employee\Widgets\DailyAttendanceTrendChart::class,
             ])
             ->userMenuItems([
