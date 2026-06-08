@@ -11,6 +11,7 @@ use Spatie\Activitylog\Models\Activity;
 use Illuminate\Database\Eloquent\Builder;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms;
+use Illuminate\Support\Facades\Cache;
 
 class ActivityLogResource extends Resource
 {
@@ -30,7 +31,8 @@ class ActivityLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->select(['id', 'log_name', 'description', 'subject_type', 'subject_id', 'causer_id', 'created_at']);
 
         if (auth()->user()?->hasRole("superadmin")) {
             return $query;
@@ -73,7 +75,6 @@ class ActivityLogResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('description')
                     ->label('Deskripsi')
-                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('subject_type')
                     ->label('Tipe Subjek')
@@ -87,7 +88,24 @@ class ActivityLogResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('log_name')
                     ->label('Kategori')
-                    ->options(fn () => Activity::where('causer_id', auth()->id())->distinct()->pluck('log_name', 'log_name')->toArray()),
+                    ->options(function (): array {
+                        $cacheKey = 'activity_log_names_' . (auth()->id() ?? 'guest') . '_' . (auth()->user()?->hasRole('superadmin') ? 'all' : 'self');
+
+                        return Cache::remember($cacheKey, now()->addMinutes(10), function (): array {
+                            $query = Activity::query()->whereNotNull('log_name');
+
+                            if (!auth()->user()?->hasRole('superadmin')) {
+                                $query->where('causer_id', auth()->id());
+                            }
+
+                            return $query
+                                ->distinct()
+                                ->orderBy('log_name')
+                                ->limit(50)
+                                ->pluck('log_name', 'log_name')
+                                ->toArray();
+                        });
+                    }),
                 Tables\Filters\Filter::make('created_at')
                     ->form([
                         Forms\Components\DatePicker::make('from')->label('Dari'),

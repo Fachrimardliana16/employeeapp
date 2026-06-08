@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 use App\Traits\LogsActivityTrait;
 
@@ -125,5 +126,10 @@ class AttendanceMachine extends Model
     public function commands(): HasMany
     {
         return $this->hasMany(AttendanceMachineCommand::class, 'attendance_machine_id');
+    }
+
+    public function latestCommand(): HasOne
+    {
+        return $this->hasOne(AttendanceMachineCommand::class, 'attendance_machine_id')->latestOfMany();
     }
 }

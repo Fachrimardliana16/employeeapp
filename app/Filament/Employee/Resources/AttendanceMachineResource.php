@@ -91,6 +91,7 @@ class AttendanceMachineResource extends Resource
     {
         return $table
             ->poll('30s')
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['officeLocation', 'latestCommand']))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
@@ -131,8 +132,7 @@ class AttendanceMachineResource extends Resource
                     ),
                 Tables\Columns\TextColumn::make('last_command_status')
                     ->getStateUsing(function ($record): string {
-                        $last = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $record->id)
-                            ->latest('id')->first();
+                        $last = $record->latestCommand;
                         if (!$last) return 'Tidak ada';
                         return match ($last->status) {
                             'pending' => '⏳ Menunggu',
@@ -144,8 +144,7 @@ class AttendanceMachineResource extends Resource
                     })
                     ->badge()
                     ->color(function ($record): string {
-                        $last = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $record->id)
-                            ->latest('id')->first();
+                        $last = $record->latestCommand;
                         if (!$last) return 'gray';
                         return match ($last->status) {
                             'pending' => 'gray',
@@ -157,8 +156,7 @@ class AttendanceMachineResource extends Resource
                     })
                     ->label('Perintah Terakhir')
                     ->tooltip(function ($record): string {
-                        $last = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $record->id)
-                            ->latest('id')->first();
+                        $last = $record->latestCommand;
                         if (!$last) return 'Belum ada perintah yang dikirim.';
                         $info = $last->command . ' | ' . $last->status;
                         if ($last->response_payload) {

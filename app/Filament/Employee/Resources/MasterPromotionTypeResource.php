@@ -25,7 +25,7 @@ class MasterPromotionTypeResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Jenis Kenaikan Pangkat';
 
-    protected static ?string $navigationGroup = 'Kepegawaian';
+    protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?int $navigationSort = 850;
 
@@ -87,11 +87,6 @@ class MasterPromotionTypeResource extends Resource
                     ->label('Aktif')
                     ->boolean()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('promotions_count')
-                    ->label('Jumlah Penggunaan')
-                    ->counts('promotions')
-                    ->badge()
-                    ->color('success'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d/m/Y H:i')

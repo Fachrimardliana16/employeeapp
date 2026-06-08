@@ -103,6 +103,7 @@ class JobApplicationArchiveResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['decidedByUser', 'employeeAgreement'])->withExists('employeeAgreement'))
             ->columns([
                 Tables\Columns\TextColumn::make('snapshot_name')
                     ->label('Pelamar')
@@ -136,7 +137,7 @@ class JobApplicationArchiveResource extends Resource
                 Tables\Columns\IconColumn::make('has_employee_agreement')
                     ->label('Kontrak')
                     ->boolean()
-                    ->getStateUsing(fn($record) => $record->employeeAgreement()->exists()),
+                    ->getStateUsing(fn($record) => (bool) $record->employee_agreement_exists),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('decision')
@@ -175,7 +176,7 @@ class JobApplicationArchiveResource extends Resource
                         ->label('Lihat Kontrak')
                         ->icon('heroicon-o-document')
                         ->color('info')
-                        ->visible(fn($record) => $record->decision === 'accepted' && $record->employeeAgreement()->exists())
+                        ->visible(fn($record) => $record->decision === 'accepted' && (bool) $record->employee_agreement_exists)
                         ->url(fn($record) => route('filament.employee.resources.employee-agreements.view', [
                             'record' => $record->employeeAgreement->id
                         ])),
