@@ -6,12 +6,11 @@
  *   - API calls: Network Only
  */
 
-const CACHE_NAME = 'portal-pegawai-v5';
+const CACHE_NAME = 'portal-pegawai-v6';
 const OFFLINE_URL = '/offline.html';
+const AUTH_PATHS = ['/login', '/mobile/login', '/user/login', '/admin/login', '/employee/login'];
 
 const PRECACHE_URLS = [
-  '/mobile',
-  '/mobile/login',
   '/offline.html',
   '/css/mobile-app.css',
   '/js/mobile-app.js',
@@ -46,6 +45,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+  const isAuthPath = AUTH_PATHS.some((path) => url.pathname === path || url.pathname.startsWith(`${path}/`));
 
   // Skip non-GET requests & browser-extensions
   if (request.method !== 'GET') return;
@@ -57,22 +57,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Auth pages should never be served from cache to avoid stale CSRF/session pages.
+  if (request.mode === 'navigate' && isAuthPath) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // Navigation (HTML pages) → Network First, fallback to offline
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          // Clone and cache successful navigation responses
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
+        .then((response) => response)
         .catch(() => {
-          return caches.match(request).then((cached) => {
-            return cached || caches.match(OFFLINE_URL);
-          });
+          if (url.pathname.startsWith('/mobile')) {
+            return caches.match(OFFLINE_URL);
+          }
+
+          return Response.error();
         })
     );
     return;
