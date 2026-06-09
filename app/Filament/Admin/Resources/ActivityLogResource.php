@@ -27,23 +27,6 @@ class ActivityLogResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()->select([
-            'id',
-            'log_name',
-            'description',
-            'subject_type',
-            'subject_id',
-            'causer_id',
-            'causer_type',
-            'event',
-            'batch_uuid',
-            'properties',
-            'created_at',
-        ]);
-    }
-
     public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
     {
         return $infolist
@@ -179,7 +162,18 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('causer:id,name'))
+            ->deferLoading()
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->select([
+                    'id',
+                    'log_name',
+                    'description',
+                    'subject_type',
+                    'subject_id',
+                    'causer_id',
+                    'created_at',
+                ])
+                ->with('causer:id,name'))
             ->columns([
                 Tables\Columns\TextColumn::make('log_name')
                     ->label('Nama Log')
@@ -199,7 +193,6 @@ class ActivityLogResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('causer.name')
                     ->label('Pengguna')
-                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Tanggal')
@@ -207,7 +200,7 @@ class ActivityLogResource extends Resource
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
-            ->defaultPaginationPageOption(25)
+            ->defaultPaginationPageOption(10)
             ->paginationPageOptions([10, 25, 50])
             ->filters([
                 Tables\Filters\SelectFilter::make('log_name')

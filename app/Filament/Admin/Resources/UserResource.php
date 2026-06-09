@@ -12,7 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
 
 class UserResource extends Resource
@@ -85,17 +87,25 @@ class UserResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $hasUsername = self::hasUsersColumn('username');
+
+        $baseColumns = [
+            'id',
+            'name',
+            'email',
+            'is_verified',
+            'is_active',
+            'email_verified_at',
+            'created_at',
+        ];
+
+        if ($hasUsername) {
+            $baseColumns[] = 'username';
+        }
+
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->select([
-                'id',
-                'name',
-                'email',
-                'username',
-                'is_verified',
-                'is_active',
-                'email_verified_at',
-                'created_at',
-            ]))
+            ->deferLoading()
+            ->modifyQueryUsing(fn (Builder $query) => $query->select($baseColumns))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
@@ -108,7 +118,8 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('username')
                     ->label('Username')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->visible($hasUsername),
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Peran')
                     ->badge()
@@ -182,6 +193,13 @@ class UserResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    protected static function hasUsersColumn(string $column): bool
+    {
+        return Cache::remember("users_has_column_{$column}", now()->addMinutes(30), function () use ($column): bool {
+            return Schema::hasColumn('users', $column);
+        });
     }
 
     public static function getPages(): array
