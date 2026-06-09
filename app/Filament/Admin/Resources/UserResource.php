@@ -30,6 +30,9 @@ class UserResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $hasUsername = self::hasUsersColumn('username');
+        $hasRoleTables = self::hasRoleTables();
+
         return $form
             ->schema([
                 Forms\Components\Section::make('Informasi Pengguna')
@@ -49,9 +52,10 @@ class UserResource extends Resource
                                     ->unique(ignoreRecord: true),
                                 Forms\Components\TextInput::make('username')
                                     ->label('Username')
-                                    ->required()
+                                    ->required($hasUsername)
                                     ->maxLength(255)
-                                    ->unique(ignoreRecord: true),
+                                    ->unique(ignoreRecord: true)
+                                    ->visible($hasUsername),
                             ]),
                         Forms\Components\Grid::make(2)
                             ->schema([
@@ -67,7 +71,8 @@ class UserResource extends Resource
                                     ->preload()
                                     ->searchable()
                                     ->required()
-                                    ->label('Role'),
+                                    ->label('Role')
+                                    ->visible($hasRoleTables),
                             ]),
                     ]),
                 Forms\Components\Section::make('Verifikasi & Status')
@@ -88,6 +93,7 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         $hasUsername = self::hasUsersColumn('username');
+        $hasRoleTables = self::hasRoleTables();
 
         $baseColumns = [
             'id',
@@ -103,46 +109,57 @@ class UserResource extends Resource
             $baseColumns[] = 'username';
         }
 
+        $tableColumns = [
+            Tables\Columns\TextColumn::make('name')
+                ->label('Nama')
+                ->searchable()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('email')
+                ->label('Email')
+                ->searchable()
+                ->sortable(),
+        ];
+
+        if ($hasUsername) {
+            $tableColumns[] = Tables\Columns\TextColumn::make('username')
+                ->label('Username')
+                ->searchable()
+                ->sortable();
+        }
+
+        if ($hasRoleTables) {
+            $tableColumns[] = Tables\Columns\TextColumn::make('roles.name')
+                ->label('Peran')
+                ->badge()
+                ->searchable(false);
+        }
+
+        $tableColumns[] = Tables\Columns\IconColumn::make('is_verified')
+            ->label('Terverifikasi')
+            ->boolean()
+            ->sortable();
+
+        $tableColumns[] = Tables\Columns\IconColumn::make('is_active')
+            ->label('Aktif')
+            ->boolean()
+            ->sortable();
+
+        $tableColumns[] = Tables\Columns\TextColumn::make('email_verified_at')
+            ->label('Diverifikasi Pada')
+            ->dateTime('d/m/Y H:i')
+            ->sortable()
+            ->toggleable(isToggledHiddenByDefault: true);
+
+        $tableColumns[] = Tables\Columns\TextColumn::make('created_at')
+            ->label('Dibuat Pada')
+            ->dateTime('d/m/Y H:i')
+            ->sortable()
+            ->toggleable(isToggledHiddenByDefault: true);
+
         return $table
             ->deferLoading()
             ->modifyQueryUsing(fn (Builder $query) => $query->select($baseColumns))
-            ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Nama')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('email')
-                    ->label('Email')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('username')
-                    ->label('Username')
-                    ->searchable()
-                    ->sortable()
-                    ->visible($hasUsername),
-                Tables\Columns\TextColumn::make('roles.name')
-                    ->label('Peran')
-                    ->badge()
-                    ->searchable(false),
-                Tables\Columns\IconColumn::make('is_verified')
-                    ->label('Terverifikasi')
-                    ->boolean()
-                    ->sortable(),
-                Tables\Columns\IconColumn::make('is_active')
-                    ->label('Aktif')
-                    ->boolean()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('email_verified_at')
-                    ->label('Diverifikasi Pada')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat Pada')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
+            ->columns($tableColumns)
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_verified')
                     ->label('Status Verifikasi'),
@@ -181,24 +198,38 @@ class UserResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            ActivitylogRelationManager::class,
-        ];
+        if (!Schema::hasTable('activity_log')) {
+            return [];
+        }
+
+        return [ActivitylogRelationManager::class];
     }
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->with('roles:id,name')
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        if (self::hasRoleTables()) {
+            $query->with('roles:id,name');
+        }
+
+        return $query;
     }
 
     protected static function hasUsersColumn(string $column): bool
     {
         return Cache::remember("users_has_column_{$column}", now()->addMinutes(30), function () use ($column): bool {
             return Schema::hasColumn('users', $column);
+        });
+    }
+
+    protected static function hasRoleTables(): bool
+    {
+        return Cache::remember('users_has_role_tables', now()->addMinutes(30), function (): bool {
+            return Schema::hasTable('roles') && Schema::hasTable('model_has_roles');
         });
     }
 
