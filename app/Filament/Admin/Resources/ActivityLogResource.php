@@ -8,6 +8,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Spatie\Activitylog\Models\Activity;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class ActivityLogResource extends Resource
 {
@@ -24,6 +26,23 @@ class ActivityLogResource extends Resource
     protected static ?string $navigationGroup = 'Sistem';
 
     protected static ?int $navigationSort = 2;
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->select([
+            'id',
+            'log_name',
+            'description',
+            'subject_type',
+            'subject_id',
+            'causer_id',
+            'causer_type',
+            'event',
+            'batch_uuid',
+            'properties',
+            'created_at',
+        ]);
+    }
 
     public static function infolist(\Filament\Infolists\Infolist $infolist): \Filament\Infolists\Infolist
     {
@@ -160,7 +179,7 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(Activity::query()->with('causer'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('causer:id,name'))
             ->columns([
                 Tables\Columns\TextColumn::make('log_name')
                     ->label('Nama Log')
@@ -169,16 +188,13 @@ class ActivityLogResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('description')
                     ->label('Deskripsi')
-                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('subject_type')
                     ->label('Tipe Subjek')
-                    ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('subject_id')
                     ->label('ID Subjek')
-                    ->searchable()
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('causer.name')
@@ -188,15 +204,38 @@ class ActivityLogResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Tanggal')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->searchable(),
+                    ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions([10, 25, 50])
             ->filters([
                 Tables\Filters\SelectFilter::make('log_name')
-                    ->label('Nama Log'),
+                    ->label('Nama Log')
+                    ->options(function (): array {
+                        return Cache::remember('admin_activitylog_log_names', now()->addMinutes(10), function (): array {
+                            return Activity::query()
+                                ->whereNotNull('log_name')
+                                ->distinct()
+                                ->orderBy('log_name')
+                                ->limit(100)
+                                ->pluck('log_name', 'log_name')
+                                ->toArray();
+                        });
+                    }),
                 Tables\Filters\SelectFilter::make('subject_type')
-                    ->label('Tipe Subjek'),
+                    ->label('Tipe Subjek')
+                    ->options(function (): array {
+                        return Cache::remember('admin_activitylog_subject_types', now()->addMinutes(10), function (): array {
+                            return Activity::query()
+                                ->whereNotNull('subject_type')
+                                ->distinct()
+                                ->orderBy('subject_type')
+                                ->limit(100)
+                                ->pluck('subject_type', 'subject_type')
+                                ->toArray();
+                        });
+                    }),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([

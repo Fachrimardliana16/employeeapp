@@ -86,6 +86,16 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->select([
+                'id',
+                'name',
+                'email',
+                'username',
+                'is_verified',
+                'is_active',
+                'email_verified_at',
+                'created_at',
+            ]))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
@@ -102,7 +112,7 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Peran')
                     ->badge()
-                    ->searchable(),
+                    ->searchable(false),
                 Tables\Columns\IconColumn::make('is_verified')
                     ->label('Terverifikasi')
                     ->boolean()
@@ -128,6 +138,8 @@ class UserResource extends Resource
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Status Aktif'),
             ])
+            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions([10, 25, 50])
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make()->label('Edit'),
@@ -166,7 +178,7 @@ class UserResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('roles')
+            ->with('roles:id,name')
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
