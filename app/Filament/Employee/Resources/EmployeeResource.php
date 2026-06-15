@@ -699,7 +699,7 @@ class EmployeeResource extends Resource
                     ->alignCenter(),
                 Tables\Columns\TextColumn::make('nippam')
                     ->label('NIPPAM / PIN')
-                    ->description(fn(Employee $record): string => $record->pin ? "PIN: " . str_repeat('*', max(0, strlen($record->pin) - 2)) . substr($record->pin, -2) : "PIN: -")
+                    ->description(fn(Employee $record): string => $record->pin ? "PIN: {$record->pin}" : "PIN: -")
                     ->searchable(['nippam', 'pin']),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
