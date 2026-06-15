@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
 
 class UserResource extends Resource
@@ -198,7 +199,7 @@ class UserResource extends Resource
 
     public static function getRelations(): array
     {
-        if (!Schema::hasTable('activity_log')) {
+        if (!self::safeHasTable('activity_log')) {
             return [];
         }
 
@@ -222,15 +223,33 @@ class UserResource extends Resource
     protected static function hasUsersColumn(string $column): bool
     {
         return Cache::remember("users_has_column_{$column}", now()->addMinutes(30), function () use ($column): bool {
-            return Schema::hasColumn('users', $column);
+            return self::safeHasColumn('users', $column);
         });
     }
 
     protected static function hasRoleTables(): bool
     {
         return Cache::remember('users_has_role_tables', now()->addMinutes(30), function (): bool {
-            return Schema::hasTable('roles') && Schema::hasTable('model_has_roles');
+            return self::safeHasTable('roles') && self::safeHasTable('model_has_roles');
         });
+    }
+
+    protected static function safeHasTable(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+
+    protected static function safeHasColumn(string $table, string $column): bool
+    {
+        try {
+            return Schema::hasColumn($table, $column);
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 
     public static function getPages(): array
