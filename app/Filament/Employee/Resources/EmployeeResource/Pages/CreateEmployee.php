@@ -12,6 +12,19 @@ class CreateEmployee extends CreateRecord
 {
     protected static string $resource = EmployeeResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        if (empty($data['pin'])) {
+            $data['pin'] = \App\Models\Employee::generatePin();
+        }
+
+        if (empty($data['nippam'])) {
+            $data['nippam'] = \App\Models\Employee::generateNippam($data['date_birth'] ?? null);
+        }
+
+        return $data;
+    }
+
     protected function getCreatedNotification(): ?Notification
     {
         return Notification::make()

@@ -111,5 +111,22 @@ class JobApplicationArchive extends Model
     public function getSnapshotDepartmentAttribute() { return $this->application_data['applied_department']['name'] ?? 'N/A'; }
     public function getSnapshotExpectedSalaryAttribute() { return $this->application_data['expected_salary'] ?? 0; }
     public function getSnapshotPhotoAttribute() { return $this->application_data['photo'] ?? null; }
-    public function getSnapshotDocumentsAttribute() { return $this->application_data['documents'] ?? []; }
+    public function getSnapshotDocumentsAttribute()
+    {
+        $documents = $this->application_data['documents'] ?? [];
+
+        if (is_null($documents)) {
+            return [];
+        }
+
+        if (is_string($documents)) {
+            return [$documents];
+        }
+
+        if (!is_array($documents)) {
+            return [];
+        }
+
+        return array_values(array_filter($documents, fn ($path) => is_string($path) && $path !== ''));
+    }
 }

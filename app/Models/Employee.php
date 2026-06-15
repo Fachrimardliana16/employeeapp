@@ -6,6 +6,7 @@ use App\Traits\HasUserTracking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -158,7 +159,12 @@ class Employee extends Model
 
         // Auto-generate NIPPAM if empty
         if (!$this->nippam) {
-            $this->nippam = static::generateNippam();
+            $this->nippam = static::generateNippam($this->date_birth);
+        }
+
+        // Auto-generate PIN if empty
+        if (!$this->pin) {
+            $this->pin = static::generatePin();
         }
 
         // Auto-generate next due dates for markers
@@ -174,22 +180,51 @@ class Employee extends Model
     /**
      * Generate unique NIPPAM
      */
-    public static function generateNippam(): string
+    public static function generateNippam($dateBirth = null): string
     {
-        $prefix = date('ym');
-        $lastEmployee = static::where('nippam', 'LIKE', $prefix . '%')
-            ->whereRaw('length(nippam) = 9')
-            ->orderBy('nippam', 'desc')
-            ->first();
+        $birthDate = $dateBirth ? Carbon::parse($dateBirth) : now();
+        $prefix = $birthDate->format('ym');
 
-        if (!$lastEmployee) {
-            return $prefix . '00001';
-        }
+        return Cache::lock('employee:nippam:' . $prefix, 5)->block(5, function () use ($prefix) {
+            $lastEmployee = static::query()
+                ->where('nippam', 'like', $prefix . '%')
+                ->whereRaw('LENGTH(nippam) = 9')
+                ->whereRaw('SUBSTR(nippam, 5, 5) REGEXP "^[0-9]{5}$"')
+                ->orderByDesc('nippam')
+                ->first();
 
-        $lastNumber = intval(substr($lastEmployee->nippam, 4));
-        $newNumber = str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
+            $nextNumber = $lastEmployee
+                ? ((int) substr((string) $lastEmployee->nippam, 4, 5)) + 1
+                : 1;
 
-        return $prefix . $newNumber;
+            do {
+                $candidate = $prefix . str_pad((string) $nextNumber, 5, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (static::query()->where('nippam', $candidate)->exists());
+
+            return $candidate;
+        });
+    }
+
+    /**
+     * Generate unique PIN for attendance machine.
+     */
+    public static function generatePin(): string
+    {
+        return Cache::lock('employee:pin', 5)->block(5, function () {
+            $lastPin = (int) static::query()
+                ->whereNotNull('pin')
+                ->where('pin', 'REGEXP', '^[0-9]+$')
+                ->max('pin');
+
+            $nextPin = $lastPin > 0 ? $lastPin + 1 : 1001;
+
+            while (static::query()->where('pin', (string) $nextPin)->exists()) {
+                $nextPin++;
+            }
+
+            return (string) $nextPin;
+        });
     }
 
     // Relationships

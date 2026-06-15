@@ -1217,9 +1217,17 @@ class EmployeeResource extends Resource
                                 'status' => \App\Models\MasterEmployeeStatusEmployment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
                                 'education' => \App\Models\MasterEmployeeEducation::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
                                 'grades' => \App\Models\MasterEmployeeGrade::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                'mkg' => \App\Models\MasterEmployeeServiceGrade::all()->mapWithKeys(fn($m) => [$m->mkg => $m->id])->toArray(),
+                                'mkg' => \App\Models\MasterEmployeeServiceGrade::query()
+                                    ->get()
+                                    ->mapWithKeys(fn($m) => [(string) $m->service_grade => $m->id])
+                                    ->toArray(),
                                 'agreements' => \App\Models\MasterEmployeeAgreement::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
                             ];
+
+                            $mkgById = \App\Models\MasterEmployeeServiceGrade::query()
+                                ->pluck('id')
+                                ->flip()
+                                ->toArray();
 
                             // Unique checks preparation
                             $uniques = [
@@ -1228,6 +1236,7 @@ class EmployeeResource extends Resource
                             ];
 
                             $errors = [];
+                            $warnings = [];
                             $processedData = [];
 
                             // Phase 1: Validation
@@ -1299,10 +1308,14 @@ class EmployeeResource extends Resource
                                 $mkgValue = trim($rowData['mkg_years'] ?? '');
                                 $mkgId = null;
                                 if ($mkgValue !== '') {
-                                    if (isset($masterLookups['mkg'][$mkgValue])) {
+                                    if (isset($masterLookups['mkg'][(string) $mkgValue])) {
                                         $mkgId = $masterLookups['mkg'][$mkgValue];
+                                    } elseif (is_numeric($mkgValue) && isset($mkgById[(int) $mkgValue])) {
+                                        // Allow direct FK input if CSV already provides relation ID.
+                                        $mkgId = (int) $mkgValue;
                                     } else {
-                                        $rowErrors[] = "MKG '{$mkgValue}' tidak ditemukan";
+                                        $displayName = ($rowData['name'] ?? null) ?: ($rowData['nippam'] ?? 'N/A');
+                                        $warnings[] = "Baris {$actualRowInFile} ({$displayName}): MKG '{$mkgValue}' tidak ditemukan, diset kosong.";
                                     }
                                 }
 
@@ -1471,6 +1484,20 @@ class EmployeeResource extends Resource
                                     ->title('Proses Berhasil')
                                     ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
                                     ->success()->send();
+
+                                if (!empty($warnings)) {
+                                    $warningPreview = implode('<br>', array_slice($warnings, 0, 10));
+                                    $warningFooter = count($warnings) > 10
+                                        ? '<br><br><strong>...dan ' . (count($warnings) - 10) . ' baris lainnya.</strong>'
+                                        : '';
+
+                                    Notification::make()
+                                        ->title('Import selesai dengan catatan MKG')
+                                        ->body(new \Illuminate\Support\HtmlString($warningPreview . $warningFooter))
+                                        ->warning()
+                                        ->persistent()
+                                        ->send();
+                                }
                             } catch (\Exception $e) {
                                 $errorMessage = $e->getMessage();
                                 $friendlyMessage = "Terjadi kesalahan sistem saat menyimpan data.";
