@@ -253,8 +253,10 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->default(0)
+                                    ->disabled()
+                                    ->dehydrated()
                                     ->visible(fn (Get $get) => filled($get('employee_id')))
-                                    ->live(debounce: 500)
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
                             ])
                             ->columns(2),
@@ -310,14 +312,16 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->default(0)
-                                    ->live(debounce: 500)
+                                    ->disabled()
+                                    ->dehydrated()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
                             ])
                             ->columns(3)
                             ->columnSpanFull()
                             ->addActionLabel('Tambah Pengikut')
                             ->defaultItems(0)
-                            ->live()
+                            ->live(debounce: 600)
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
                     ]),
 
@@ -330,7 +334,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->prefix('Rp')
                                     ->default(0)
                                     ->helperText('Gabungan biaya Hotel dan Uang Cadangan (Input Manual)')
-                                    ->live(debounce: 500)
+                                    ->live(debounce: 600)
                                     ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set))
                                     ->columnSpanFull(),
 

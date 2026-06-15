@@ -17,6 +17,16 @@ class ListEmployees extends ListRecords
 {
     protected static string $resource = EmployeeResource::class;
 
+    protected function getTableRecordsPerPageSelectOptions(): array
+    {
+        return [25, 50, 100, 500, 1000, 'all'];
+    }
+
+    public function getDefaultTableRecordsPerPageSelectOption(): int|string
+    {
+        return 100;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

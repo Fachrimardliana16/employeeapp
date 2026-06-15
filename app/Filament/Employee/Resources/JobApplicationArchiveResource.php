@@ -122,12 +122,14 @@ class JobApplicationArchiveResource extends Resource
                         'success' => 'accepted',
                         'danger' => 'rejected',
                     ])
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                    ->formatStateUsing(fn($state): string => match ((string) $state) {
                         'accepted' => 'Diterima',
                         'rejected' => 'Ditolak',
-                        default => $state,
+                        default => (string) $state,
                     })
-                    ->description(fn (JobApplicationArchive $record): string => $record->decision_date->format('d/m/Y')),
+                    ->description(fn (JobApplicationArchive $record): string => $record->decision_date
+                        ? \Illuminate\Support\Carbon::parse($record->decision_date)->format('d/m/Y')
+                        : '-'),
 
                 Tables\Columns\TextColumn::make('decidedByUser.name')
                     ->label('Diputuskan Oleh')
@@ -170,7 +172,9 @@ class JobApplicationArchiveResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make()->label('Lihat'),
+                    Tables\Actions\ViewAction::make()
+                        ->label('Lihat')
+                        ->url(fn (JobApplicationArchive $record): string => static::getUrl('view', ['record' => $record])),
 
                     Tables\Actions\Action::make('view_employee_agreement')
                         ->label('Lihat Kontrak')
@@ -235,15 +239,15 @@ class JobApplicationArchiveResource extends Resource
                                     Infolists\Components\TextEntry::make('decision')
                                         ->label('Keputusan Akhir')
                                         ->badge()
-                                        ->color(fn(string $state): string => match ($state) {
+                                        ->color(fn($state): string => match ((string) $state) {
                                             'accepted' => 'success',
                                             'rejected' => 'danger',
                                             default => 'gray',
                                         })
-                                        ->formatStateUsing(fn(string $state): string => match ($state) {
+                                        ->formatStateUsing(fn($state): string => match ((string) $state) {
                                             'accepted' => 'DITERIMA',
                                             'rejected' => 'DITOLAK',
-                                            default => strtoupper($state),
+                                            default => strtoupper((string) $state),
                                         })
                                         ->alignCenter()
                                         ->extraAttributes(['class' => 'mt-4']),

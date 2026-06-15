@@ -89,25 +89,9 @@ class EmployeeAgreementObserver
             $employee->update($employeeData);
         } else {
             // Buat employee baru
-            $employeeData['nippam'] = $this->generateNippam();
+            $employeeData['nippam'] = Employee::generateNippam($employeeAgreement->date_birth);
+            $employeeData['pin'] = Employee::generatePin();
             Employee::create($employeeData);
         }
-    }
-
-    /**
-     * Generate NIPPAM for new employee.
-     */
-    private function generateNippam(): string
-    {
-        $year = now()->format('Y');
-        $month = now()->format('m');
-        $lastEmployee = Employee::whereYear('created_at', now()->year)
-            ->whereMonth('created_at', now()->month)
-            ->orderBy('id', 'desc')
-            ->first();
-
-        $sequence = $lastEmployee ? (intval(substr($lastEmployee->nippam, -3)) + 1) : 1;
-
-        return $year . $month . str_pad($sequence, 3, '0', STR_PAD_LEFT);
     }
 }
