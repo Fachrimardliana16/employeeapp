@@ -270,6 +270,7 @@ class AttendanceMachineLogResource extends Resource
                                 'from_date' => $data['from_date'],
                                 'to_date' => $data['to_date'],
                                 'employee_id' => $data['employee_id'],
+                                'attendance_machine_id' => $data['attendance_machine_id'],
                             ]);
                             $table->getLivewire()->js("window.open('{$url}', '_blank');");
                             return;
