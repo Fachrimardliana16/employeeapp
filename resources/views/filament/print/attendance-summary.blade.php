@@ -54,6 +54,14 @@
                     <span>: {{ $singleEmployee ?: 'Semua Pegawai' }}</span>
                 </div>
                 <div class="flex gap-1">
+                    <span class="font-bold w-32">Cabang/Lokasi</span>
+                    <span>: {{ $singleLocation ?: 'Semua Cabang/Lokasi' }}</span>
+                </div>
+                <div class="flex gap-1">
+                    <span class="font-bold w-32">Mesin</span>
+                    <span>: {{ $singleMachine ?: 'Semua Mesin' }}</span>
+                </div>
+                <div class="flex gap-1">
                     <span class="font-bold w-32">Total Hari Kalender</span>
                     <span>: {{ \Carbon\Carbon::parse($startDate)->diffInDays(\Carbon\Carbon::parse($endDate)) + 1 }} Hari</span>
                 </div>
