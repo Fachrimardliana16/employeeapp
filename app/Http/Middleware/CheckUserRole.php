@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckUserRole
@@ -15,12 +16,10 @@ class CheckUserRole
      */
     public function handle(Request $request, Closure $next, string $role): Response
     {
-        // User sudah dipastikan login oleh Authenticate middleware
         $user = auth()->user();
-        
-        // Prevent access if not verified
-        if (!$user->is_verified) {
-            auth()->logout();
+
+        if (! $user || ! $user->is_active || ! $user->is_verified) {
+            Auth::logout();
             return redirect('/admin/login')->withErrors([
                 'email' => 'Your account is not verified yet. Please contact the administrator.',
             ]);
@@ -35,21 +34,23 @@ class CheckUserRole
 
         $permission = $permissionMap[$role] ?? "access_{$role}_panel";
 
-        // Check for permission
         if ($user->hasPermissionTo($permission)) {
             return $next($request);
         }
 
-        // Redirect to appropriate panel based on the FIRST available permission
-        if ($user->hasPermissionTo('access_admin_panel')) {
-            return redirect('/admin');
-        } elseif ($user->hasPermissionTo('access_employee_panel')) {
-            return redirect('/employee');
-        } elseif ($user->hasPermissionTo('access_user_panel')) {
-            return redirect('/user');
+        $panelRedirects = [
+            'access_admin_panel' => '/admin',
+            'access_employee_panel' => '/employee',
+            'access_user_panel' => '/user',
+        ];
+
+        foreach ($panelRedirects as $permissionName => $path) {
+            if ($user->hasPermissionTo($permissionName)) {
+                return redirect($path);
+            }
         }
 
-        auth()->logout();
+        Auth::logout();
         return redirect('/admin/login')->withErrors([
             'email' => 'You do not have permission to access any panel.',
         ]);

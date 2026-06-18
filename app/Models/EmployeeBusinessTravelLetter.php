@@ -7,6 +7,7 @@ use App\Traits\LogsActivityTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class EmployeeBusinessTravelLetter extends Model
 {
@@ -22,6 +23,7 @@ class EmployeeBusinessTravelLetter extends Model
         'purpose_of_trip',
         'business_trip_expenses',
         'pasal',
+        'bukti_realisasi',
         'employee_signatory_id',
         'additional_employees',
         'additional_employee_ids',
@@ -61,11 +63,29 @@ class EmployeeBusinessTravelLetter extends Model
         'meal_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
         'status' => 'string',
+        'bukti_realisasi' => 'array',
     ];
+
+    protected array $previousBuktiRealisasiFiles = [];
 
     protected static function boot()
     {
         parent::boot();
+
+        static::saving(function (self $model) {
+            $model->previousBuktiRealisasiFiles = $model->extractBuktiRealisasiFiles($model->getOriginal('bukti_realisasi'));
+        });
+
+        static::saved(function (self $model) {
+            $currentFiles = $model->extractBuktiRealisasiFiles($model->bukti_realisasi);
+            $removedFiles = array_diff($model->previousBuktiRealisasiFiles, $currentFiles);
+
+            $model->deleteStoredBuktiRealisasiFiles($removedFiles);
+        });
+
+        static::deleting(function (self $model) {
+            $model->deleteStoredBuktiRealisasiFiles($model->extractBuktiRealisasiFiles($model->bukti_realisasi));
+        });
 
         static::creating(function ($model) {
             if (empty($model->registration_number)) {
@@ -81,6 +101,28 @@ class EmployeeBusinessTravelLetter extends Model
                 $model->status = 'selesai';
             }
         });
+    }
+
+    protected function extractBuktiRealisasiFiles(mixed $state): array
+    {
+        if (! is_array($state)) {
+            return [];
+        }
+
+        return collect($state)
+            ->pluck('foto_bukti')
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    protected function deleteStoredBuktiRealisasiFiles(array $paths): void
+    {
+        foreach (array_unique(array_filter($paths)) as $path) {
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
     }
 
     /**

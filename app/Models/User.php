@@ -23,17 +23,21 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Pastikan user aktif dan terverifikasi
-        if (!$this->is_active || !$this->is_verified) {
+        if (! $this->is_active || ! $this->is_verified) {
             return false;
         }
 
-        return match ($panel->getId()) {
-            'admin' => $this->hasRole('superadmin'),
-            'employee' => $this->hasRole(['superadmin', 'admin']),
-            'user' => $this->hasRole(['superadmin', 'admin', 'user']),
-            default => false,
-        };
+        if ($this->hasRole('superadmin')) {
+            return true;
+        }
+
+        // Allow authentication from any panel login page, then redirect to the
+        // first panel the user is authorized for.
+        return $this->hasAnyPermission([
+            'access_admin_panel',
+            'access_employee_panel',
+            'access_user_panel',
+        ]);
     }
 
     /**

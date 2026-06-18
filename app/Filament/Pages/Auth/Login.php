@@ -26,15 +26,15 @@ class Login extends BaseLogin
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
-        if ($user->hasRole('superadmin')) {
+        if ($user->hasPermissionTo('access_admin_panel')) {
             return '/admin';
         }
 
-        if ($user->hasRole('admin')) {
+        if ($user->hasPermissionTo('access_employee_panel')) {
             return '/employee';
         }
 
-        if ($user->hasRole('user')) {
+        if ($user->hasPermissionTo('access_user_panel')) {
             return '/user';
         }
 

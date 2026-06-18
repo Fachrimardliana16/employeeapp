@@ -21,6 +21,7 @@ use Filament\Tables\Actions\RestoreAction;
 use Filament\Tables\Actions\ForceDeleteAction;
 use App\Models\MasterStandarHargaSatuan;
 use App\Models\Employee;
+use Illuminate\Support\Str;
 
 class EmployeeBusinessTravelLetterResource extends Resource
 {
@@ -75,34 +76,8 @@ class EmployeeBusinessTravelLetterResource extends Resource
             // 1. Pegawai Utama
             if ($mainEmpId = $get('employee_id')) {
                 $totalEmployees += 1;
-                $mainEmp = Employee::with(['position', 'grade'])->find($mainEmpId);
-                
-                $mainPocketMoney = (float)($get('pocket_money_cost') ?: 0);
-
-                if ($mainEmp && $shsCategory && $shsLocation) {
-                    $mappedSpesifikasi = MasterStandarHargaSatuan::mapPositionToSpesifikasi(
-                        $mainEmp->position->name ?? '', 
-                        $mainEmp->grade->name ?? null
-                    );
-
-                    $baseLoc = preg_match('/^ZONA\s+[IVXLCDM]+/i', $shsLocation, $m) ? strtoupper($m[0]) : $shsLocation;
-
-                    $shs = MasterStandarHargaSatuan::where('category', $shsCategory)
-                        ->where(function ($query) use ($shsLocation, $baseLoc) {
-                            $query->where('location', trim($shsLocation))
-                                  ->orWhere('location', 'LIKE', $baseLoc . '%');
-                        })
-                        ->where('spesifikasi', trim($mappedSpesifikasi))
-                        ->first();
-
-                    if ($shs) {
-                        $mainPocketMoney = (float)$shs->amount;
-                        $set('pocket_money_cost', $mainPocketMoney);
-                        if (!empty($shs->description)) {
-                            $accommodationNote = "Rekomendasi Utama: " . $shs->description;
-                        }
-                    }
-                }
+                $mainPocketMoney = static::resolvePocketMoneyAmount($mainEmpId, $shsCategory, $shsLocation);
+                $set('pocket_money_cost', $mainPocketMoney);
                 
                 $totalPocketMoney += ($mainPocketMoney * $days);
             }
@@ -135,6 +110,105 @@ class EmployeeBusinessTravelLetterResource extends Resource
         } catch (\Exception $e) {
             // Log or ignore to prevent crash
         }
+    }
+
+    protected static function normalizeShsLocation(?string $location): string
+    {
+        return trim(preg_replace('/\s+/', ' ', (string) $location));
+    }
+
+    public static function resolvePocketMoneyAmount(?int $employeeId, ?string $shsCategory, ?string $shsLocation): float
+    {
+        if (! $employeeId || blank($shsCategory) || blank($shsLocation)) {
+            return 0;
+        }
+
+        $employee = Employee::with(['position', 'grade'])->find($employeeId);
+
+        if (! $employee) {
+            return 0;
+        }
+
+        $mappedSpesifikasi = trim(MasterStandarHargaSatuan::mapPositionToSpesifikasi(
+            $employee->position->name ?? '',
+            $employee->grade->name ?? null
+        ));
+
+        $normalizedLocation = static::normalizeShsLocation($shsLocation);
+        $baseLocation = preg_match('/^ZONA\s+[IVXLCDM]+/i', $normalizedLocation, $matches)
+            ? strtoupper($matches[0])
+            : $normalizedLocation;
+
+        $shs = MasterStandarHargaSatuan::query()
+            ->where('category', $shsCategory)
+            ->whereRaw('TRIM(spesifikasi) = ?', [$mappedSpesifikasi])
+            ->where(function ($query) use ($normalizedLocation, $baseLocation) {
+                $query->whereRaw('TRIM(location) = ?', [$normalizedLocation]);
+
+                if ($baseLocation !== '') {
+                    $query->orWhereRaw('TRIM(location) LIKE ?', [$baseLocation . '%']);
+                }
+            })
+            ->orderByRaw('CASE WHEN TRIM(location) = ? THEN 0 ELSE 1 END', [$normalizedLocation])
+            ->first();
+
+        return (float) ($shs?->amount ?? 0);
+    }
+
+    public static function recalculateFormData(array $data): array
+    {
+        $startDate = filled($data['start_date'] ?? null) ? \Carbon\Carbon::parse($data['start_date']) : null;
+        $endDate = filled($data['end_date'] ?? null) ? \Carbon\Carbon::parse($data['end_date']) : null;
+
+        $days = 0;
+        if ($startDate && $endDate) {
+            $days = $startDate->diffInDays($endDate) + 1;
+        }
+
+        $mainPocketMoney = static::resolvePocketMoneyAmount(
+            isset($data['employee_id']) ? (int) $data['employee_id'] : null,
+            $data['shs_category'] ?? null,
+            $data['shs_location'] ?? null,
+        );
+
+        $data['pocket_money_cost'] = $mainPocketMoney;
+        $data['trip_duration_days'] = $days;
+
+        $totalEmployees = filled($data['employee_id'] ?? null) ? 1 : 0;
+        $totalPocketMoney = $mainPocketMoney * $days;
+        $additionalEmployees = [];
+
+        foreach (($data['additional_employees_detail'] ?? []) as $item) {
+            $employeeId = isset($item['employee_id']) ? (int) $item['employee_id'] : null;
+
+            if ($employeeId) {
+                $employee = Employee::with(['position', 'grade'])->find($employeeId);
+                $item['position'] = $employee?->position?->name ?? ($item['position'] ?? null);
+                $item['pocket_money_cost'] = static::resolvePocketMoneyAmount(
+                    $employeeId,
+                    $data['shs_category'] ?? null,
+                    $data['shs_location'] ?? null,
+                );
+
+                $totalEmployees++;
+                $totalPocketMoney += ((float) $item['pocket_money_cost']) * $days;
+            } else {
+                $item['pocket_money_cost'] = (float) ($item['pocket_money_cost'] ?? 0);
+            }
+
+            $additionalEmployees[] = $item;
+        }
+
+        $data['additional_employees_detail'] = $additionalEmployees;
+        $data['total_employees'] = $totalEmployees;
+
+        $combinedOperational = (float) ($data['accommodation_reserve_cost'] ?? 0);
+        $grandTotal = $combinedOperational + $totalPocketMoney;
+
+        $data['total_cost'] = $grandTotal;
+        $data['business_trip_expenses'] = $grandTotal;
+
+        return $data;
     }
 
     public static function form(Form $form): Form
@@ -206,6 +280,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->live()
                                     ->afterStateUpdated(function (Set $set) {
                                         $set('shs_location', null);
+                                        $set('pocket_money_cost', 0);
                                     }),
 
                                 Forms\Components\Select::make('shs_location')
@@ -253,11 +328,9 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->default(0)
-                                    ->disabled()
+                                        ->readOnly()
                                     ->dehydrated()
                                     ->visible(fn (Get $get) => filled($get('employee_id')))
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
                             ])
                             ->columns(2),
 
@@ -284,19 +357,7 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                                 $shsLocation = $get('../../shs_location');
                                                 
                                                 if ($shsCategory && $shsLocation) {
-                                                    $mappedSpesifikasi = MasterStandarHargaSatuan::mapPositionToSpesifikasi(
-                                                        $employee->position->name ?? '', 
-                                                        $employee->grade->name ?? null
-                                                    );
-
-                                                    $shs = MasterStandarHargaSatuan::where('category', $shsCategory)
-                                                        ->where('location', $shsLocation)
-                                                        ->where('spesifikasi', $mappedSpesifikasi)
-                                                        ->first();
-
-                                                    if ($shs) {
-                                                        $set('pocket_money_cost', $shs->amount);
-                                                    }
+                                                    $set('pocket_money_cost', self::resolvePocketMoneyAmount($state, $shsCategory, $shsLocation));
                                                 }
                                             }
                                         }
@@ -312,10 +373,8 @@ class EmployeeBusinessTravelLetterResource extends Resource
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->default(0)
-                                    ->disabled()
+                                    ->readOnly()
                                     ->dehydrated()
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
                             ])
                             ->columns(3)
                             ->columnSpanFull()
@@ -455,6 +514,43 @@ class EmployeeBusinessTravelLetterResource extends Resource
                             ->maxSize(2048)
                             ->downloadable()
                             ->openable(),
+                        Forms\Components\Repeater::make('bukti_realisasi')
+                            ->label('Bukti Realisasi')
+                            ->helperText('Tambahkan bukti realisasi perjalanan dinas dalam bentuk item per dokumen.')
+                            ->schema([
+                                Forms\Components\TextInput::make('nama_dokumen')
+                                    ->label('Nama Dokumen')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('nominal')
+                                    ->label('Nominal')
+                                    ->required()
+                                    ->numeric()
+                                    ->prefix('Rp')
+                                    ->inputMode('decimal'),
+                                Forms\Components\Textarea::make('keterangan')
+                                    ->label('Keterangan')
+                                    ->rows(3)
+                                    ->columnSpanFull(),
+                                Forms\Components\FileUpload::make('foto_bukti')
+                                    ->label('Foto Bukti')
+                                    ->image()
+                                    ->disk('public')
+                                    ->visibility('public')
+                                    ->directory('business-travel-proof')
+                                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                                    ->maxSize(4096)
+                                    ->optimize('webp')
+                                    ->getUploadedFileNameForStorageUsing(
+                                        fn ($file): string => (string) Str::uuid() . '.webp'
+                                    )
+                                    ->downloadable()
+                                    ->openable(),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Tambah Bukti Realisasi')
+                            ->collapsible()
+                            ->columnSpanFull(),
                         Forms\Components\Select::make('status')
                             ->label('Status Surat')
                             ->options([
