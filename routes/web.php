@@ -1,49 +1,58 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AdmsController;
 use App\Http\Controllers\Api\AttendanceController;
-use App\Http\Controllers\Mobile\MobileAuthController;
-use App\Http\Controllers\Mobile\MobileDashboardController;
 use App\Http\Controllers\Mobile\MobileAttendanceController;
-use App\Http\Controllers\Mobile\MobilePermissionController;
+use App\Http\Controllers\Mobile\MobileAuthController;
 use App\Http\Controllers\Mobile\MobileDailyReportController;
-use App\Http\Controllers\Mobile\MobileProfileController;
+use App\Http\Controllers\Mobile\MobileDashboardController;
 use App\Http\Controllers\Mobile\MobileDocumentController;
-use App\Http\Controllers\Mobile\MobileTrainingController;
 use App\Http\Controllers\Mobile\MobileFamilyController;
+use App\Http\Controllers\Mobile\MobilePermissionController;
+use App\Http\Controllers\Mobile\MobileProfileController;
 use App\Http\Controllers\Mobile\MobileRetirementController;
-
-use App\Models\EmployeeAttendanceRecord;
-use App\Models\MasterOfficeLocation;
+use App\Http\Controllers\Mobile\MobileTrainingController;
+use App\Http\Controllers\PayrollRunLaporanController;
+use App\Http\Controllers\PayrollRunSlipController;
+use App\Http\Controllers\ReportController;
+use App\Models\AttendanceMachine;
+use App\Models\AttendanceMachineLog;
+use App\Models\AttendanceSchedule;
+use App\Models\AttendanceSpecialSchedule;
 use App\Models\Employee;
+use App\Models\EmployeeAttendanceRecord;
+use App\Models\EmployeeDailyReport;
+use App\Models\EmployeePermission;
 use App\Models\JobApplication;
+use App\Models\MasterOfficeLocation;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 // Storage Bridge route to handle file access on restrictive hostings without symlink
 Route::get('/image-view/{path}', function ($path) {
     if (Storage::disk('public')->exists($path)) {
         return response()->file(Storage::disk('public')->path($path));
     }
-    
+
     if (Storage::disk('local')->exists($path)) {
         return response()->file(Storage::disk('local')->path($path));
     }
 
     // Direct fallback to storage/app/ for legacy files
-    $fallbackPath = storage_path('app/' . $path);
+    $fallbackPath = storage_path('app/'.$path);
     if (file_exists($fallbackPath)) {
         return response()->file($fallbackPath);
     }
-    
+
     abort(404);
 })->where('path', '.*');
 
 // Redirect root to user panel
 Route::redirect('/', '/user');
 
-Route::get('/login', \App\Filament\Pages\Auth\Login::class)->name('login');
-Route::redirect('/admin/login', '/login');
-Route::redirect('/employee/login', '/login');
-Route::redirect('/user/login', '/login');
+Route::redirect('/login', '/employee/login')->name('login');
 
 // ─── Mobile PWA Portal ─────────────────────────────────────────
 Route::prefix('mobile')->name('mobile.')->group(function () {
@@ -80,8 +89,6 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
     });
 });
 
-
-
 // API routes for attendance
 Route::prefix('api/attendance')->group(function () {
     Route::post('/upload-photo', [AttendanceController::class, 'uploadPhoto'])->name('api.attendance.upload-photo');
@@ -89,25 +96,26 @@ Route::prefix('api/attendance')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/job-applications/{record}/print', function (\App\Models\JobApplication $record) {
+    Route::get('/job-applications/{record}/print', function (JobApplication $record) {
         return view('job-applications.print-profile', compact('record'));
     })->name('job-applications.print');
 
-    Route::get('/job-applications/{record}/print-interview-result', function (\App\Models\JobApplication $record) {
+    Route::get('/job-applications/{record}/print-interview-result', function (JobApplication $record) {
         $record->load(['interviewProcesses', 'archive']);
+
         return view('job-applications.print-interview-result', compact('record'));
     })->name('job-applications.print-interview-result');
 
-    Route::get('/employees/{record}/print', function (\App\Models\Employee $record) {
+    Route::get('/employees/{record}/print', function (Employee $record) {
         return view('reports.employee-profile', compact('record'));
     })->name('employees.print');
 
-    Route::get('/attendance-records/{record}/print', function (\App\Models\EmployeeAttendanceRecord $record) {
+    Route::get('/attendance-records/{record}/print', function (EmployeeAttendanceRecord $record) {
         return view('filament.print.attendance-slip', ['record' => $record]);
     })->name('attendance.print');
 
-    Route::get('/attendance-report', function (\Illuminate\Http\Request $request) {
-        $query = \App\Models\EmployeeAttendanceRecord::query()->with('officeLocation');
+    Route::get('/attendance-report', function (Request $request) {
+        $query = EmployeeAttendanceRecord::query()->with('officeLocation');
 
         if ($request->filled('from_date')) {
             $query->whereDate('attendance_time', '>=', $request->from_date);
@@ -117,9 +125,9 @@ Route::middleware(['auth'])->group(function () {
         }
         if ($request->filled('employee_id')) {
             $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
-            $employees = \App\Models\Employee::whereIn('id', $ids)->get();
+            $employees = Employee::whereIn('id', $ids)->get();
             $pins = $employees->pluck('pin')->filter()->toArray();
-            if (!empty($pins)) {
+            if (! empty($pins)) {
                 $query->whereIn('pin', $pins);
             }
         }
@@ -131,15 +139,15 @@ Route::middleware(['auth'])->group(function () {
 
         // Integrate Approved Permissions (Leaves)
         if ($request->filled('from_date') && $request->filled('to_date')) {
-            $permissionQuery = \App\Models\EmployeePermission::where('approval_status', 'approved')
+            $permissionQuery = EmployeePermission::where('approval_status', 'approved')
                 ->with(['employee', 'permission'])
-                ->where(function($q) use ($request) {
+                ->where(function ($q) use ($request) {
                     $q->whereBetween('start_permission_date', [$request->from_date, $request->to_date])
-                      ->orWhereBetween('end_permission_date', [$request->from_date, $request->to_date])
-                      ->orWhere(function($subQ) use ($request) {
-                          $subQ->where('start_permission_date', '<=', $request->from_date)
-                               ->where('end_permission_date', '>=', $request->to_date);
-                      });
+                        ->orWhereBetween('end_permission_date', [$request->from_date, $request->to_date])
+                        ->orWhere(function ($subQ) use ($request) {
+                            $subQ->where('start_permission_date', '<=', $request->from_date)
+                                ->where('end_permission_date', '>=', $request->to_date);
+                        });
                 });
 
             if ($request->filled('employee_id')) {
@@ -150,50 +158,50 @@ Route::middleware(['auth'])->group(function () {
             $permissions = $permissionQuery->get();
 
             foreach ($permissions as $permission) {
-                $reqFrom = \Carbon\Carbon::parse($request->from_date)->startOfDay();
-                $reqTo = \Carbon\Carbon::parse($request->to_date)->endOfDay();
-                $startDate = \Carbon\Carbon::parse($permission->start_permission_date)->max($reqFrom);
-                $endDate = \Carbon\Carbon::parse($permission->end_permission_date)->min($reqTo);
+                $reqFrom = Carbon::parse($request->from_date)->startOfDay();
+                $reqTo = Carbon::parse($request->to_date)->endOfDay();
+                $startDate = Carbon::parse($permission->start_permission_date)->max($reqFrom);
+                $endDate = Carbon::parse($permission->end_permission_date)->min($reqTo);
 
-                $period = \Carbon\CarbonPeriod::create($startDate, $endDate);
+                $period = CarbonPeriod::create($startDate, $endDate);
 
                 foreach ($period as $date) {
-                    $records->push((object)[
-                        'id' => 'perm_' . $permission->id . '_' . $date->format('Ymd'),
+                    $records->push((object) [
+                        'id' => 'perm_'.$permission->id.'_'.$date->format('Ymd'),
                         'attendance_time' => $date->startOfDay(),
                         'employee_name' => $permission->employee->name ?? 'Pegawai',
                         'pin' => $permission->employee->pin ?? '-',
                         'state' => 'permission',
                         'attendance_status' => 'on_time',
                         'permission_name' => $permission->permission->name ?? 'Izin/Cuti',
-                        'officeLocation' => (object)['name' => '-'],
+                        'officeLocation' => (object) ['name' => '-'],
                         'distance_from_office' => null,
                         'is_within_radius' => true,
                     ]);
                 }
             }
-            
+
             // Re-sort records by attendance_time
-            $records = $records->sortBy(function($record) {
-                return \Carbon\Carbon::parse($record->attendance_time)->timestamp;
+            $records = $records->sortBy(function ($record) {
+                return Carbon::parse($record->attendance_time)->timestamp;
             });
         }
-        
+
         if ($request->filled('employee_id')) {
             $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
-            $selectedEmployees = \App\Models\Employee::whereIn('id', $ids)->get();
+            $selectedEmployees = Employee::whereIn('id', $ids)->get();
             if ($selectedEmployees->count() === 1) {
                 $employeeName = $selectedEmployees->first()->name;
             } elseif ($selectedEmployees->count() > 1) {
-                $employeeName = "Beberapa Pegawai (" . $selectedEmployees->count() . " Orang)";
+                $employeeName = 'Beberapa Pegawai ('.$selectedEmployees->count().' Orang)';
             } else {
-                $employeeName = "Beberapa Pegawai";
+                $employeeName = 'Beberapa Pegawai';
             }
         } else {
             $employeeName = null;
         }
 
-        $locationName = $request->filled('office_location_id') ? \App\Models\MasterOfficeLocation::find($request->office_location_id)?->name : null;
+        $locationName = $request->filled('office_location_id') ? MasterOfficeLocation::find($request->office_location_id)?->name : null;
 
         return view('filament.print.attendance-report', [
             'records' => $records,
@@ -204,6 +212,7 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('attendance.report');
 
+<<<<<<< HEAD
     Route::get('/attendance-summary-report', function (\Illuminate\Http\Request $request) {
         $fromDate = \Carbon\Carbon::parse($request->from_date)->startOfDay();
         $toDate = \Carbon\Carbon::parse($request->to_date)->endOfDay();
@@ -238,13 +247,19 @@ Route::middleware(['auth'])->group(function () {
             : [];
         $machineNames = $selectedMachines->pluck('name')->filter()->values()->all();
         
+=======
+    Route::get('/attendance-summary-report', function (Request $request) {
+        $fromDate = Carbon::parse($request->from_date)->startOfDay();
+        $toDate = Carbon::parse($request->to_date)->endOfDay();
+
+>>>>>>> 561b9c1 (fix(auth): improve login credential matching and route redirect)
         // 1. Fetch Active Schedules for all days
-        $allSchedules = \App\Models\AttendanceSchedule::where('is_active', true)->get()->keyBy(function($item) {
+        $allSchedules = AttendanceSchedule::where('is_active', true)->get()->keyBy(function ($item) {
             return strtolower($item->day);
         });
-        
+
         $activeDayNames = $allSchedules->keys()->toArray();
-        
+
         // Day translation for Indonesian DB compatibility
         $dayMap = [
             'monday' => 'senin',
@@ -257,6 +272,7 @@ Route::middleware(['auth'])->group(function () {
         ];
 
         // 2. Fetch Employees
+<<<<<<< HEAD
         $query = \App\Models\Employee::with(['position', 'employmentStatus', 'department', 'subDepartment']);
         if (!empty($employeeIds)) {
             $query->whereIn('id', $employeeIds);
@@ -274,6 +290,12 @@ Route::middleware(['auth'])->group(function () {
             } else {
                 $query->whereRaw('1 = 0');
             }
+=======
+        $query = Employee::with(['position', 'employmentStatus', 'department', 'subDepartment']);
+        if ($request->filled('employee_id')) {
+            $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
+            $query->whereIn('id', $ids);
+>>>>>>> 561b9c1 (fix(auth): improve login credential matching and route redirect)
         }
         $employees = $query->get();
 
@@ -295,14 +317,14 @@ Route::middleware(['auth'])->group(function () {
         }
 
         // 3. Fetch Special Schedules for the range
-        $specialSchedules = \App\Models\AttendanceSpecialSchedule::whereBetween('date', [$fromDate, $toDate])
+        $specialSchedules = AttendanceSpecialSchedule::whereBetween('date', [$fromDate, $toDate])
             ->get()
             ->groupBy('employee_id');
 
         $summaries = collect();
 
         foreach ($employees as $employee) {
-            $empSpecialSchedules = $specialSchedules->get($employee->id, collect())->keyBy(function($item) {
+            $empSpecialSchedules = $specialSchedules->get($employee->id, collect())->keyBy(function ($item) {
                 return $item->date->toDateString();
             });
 
@@ -312,7 +334,9 @@ Route::middleware(['auth'])->group(function () {
             while ($checkDate <= $toDate) {
                 $dayInd = $dayMap[strtolower($checkDate->format('l'))] ?? strtolower($checkDate->format('l'));
                 if ($empSpecialSchedules->has($checkDate->toDateString())) {
-                    if ($empSpecialSchedules->get($checkDate->toDateString())->is_working) $empTotalWorkingDays++;
+                    if ($empSpecialSchedules->get($checkDate->toDateString())->is_working) {
+                        $empTotalWorkingDays++;
+                    }
                 } elseif (in_array($dayInd, $activeDayNames)) {
                     $empTotalWorkingDays++;
                 }
@@ -320,7 +344,7 @@ Route::middleware(['auth'])->group(function () {
             }
 
             // --- LOGIKA BARU: DETAIL BUKTI ---
-            
+
             $presentDetails = collect();
             $absentDetails = collect();
             $lateDetails = collect();
@@ -329,10 +353,15 @@ Route::middleware(['auth'])->group(function () {
             $leaveDetails = collect();
 
             // 1. Gather all actual logs for present dates
+<<<<<<< HEAD
             $allLogs = (clone $logsQuery)
                 ->where('pin', $employee->pin)
+=======
+            $allLogs = AttendanceMachineLog::where('pin', $employee->pin)
+                ->whereBetween('timestamp', [$fromDate, $toDate])
+>>>>>>> 561b9c1 (fix(auth): improve login credential matching and route redirect)
                 ->get()
-                ->groupBy(fn($item) => $item->timestamp->toDateString());
+                ->groupBy(fn ($item) => $item->timestamp->toDateString());
 
             // 2. Iterate Calendar to find Absences & Details
             $currentDate = $fromDate->copy();
@@ -340,7 +369,7 @@ Route::middleware(['auth'])->group(function () {
                 $dateStr = $currentDate->toDateString();
                 $dayEng = strtolower($currentDate->format('l'));
                 $dayInd = $dayMap[$dayEng] ?? $dayEng;
-                
+
                 // Identify if it's a working day
                 $isWork = false;
                 if ($empSpecialSchedules->has($dateStr)) {
@@ -351,7 +380,7 @@ Route::middleware(['auth'])->group(function () {
 
                 if ($isWork) {
                     // Check if employee has approved leave on this day
-                    $hasLeave = \App\Models\EmployeePermission::where('employee_id', $employee->id)
+                    $hasLeave = EmployeePermission::where('employee_id', $employee->id)
                         ->where('approval_status', 'approved')
                         ->where('start_permission_date', '<=', $dateStr)
                         ->where('end_permission_date', '>=', $dateStr)
@@ -371,17 +400,17 @@ Route::middleware(['auth'])->group(function () {
                                     'date' => $dateStr,
                                     'day' => $dayInd,
                                     'time' => $inLog->timestamp->format('H:i:s'),
-                                    'machine' => $inLog->machine?->name ?? 'Mesin'
+                                    'machine' => $inLog->machine?->name ?? 'Mesin',
                                 ]);
 
                                 // Check Lateness
                                 $schedule = $allSchedules->get($dayInd);
                                 if ($schedule) {
                                     $limit = $schedule->late_threshold ?: $schedule->check_in_end;
-                                    
+
                                     if ($limit && $inLog->timestamp->format('H:i:s') > $limit) {
-                                        $startTime = \Carbon\Carbon::parse($limit);
-                                        $endTime = \Carbon\Carbon::parse($inLog->timestamp->format('H:i:s'));
+                                        $startTime = Carbon::parse($limit);
+                                        $endTime = Carbon::parse($inLog->timestamp->format('H:i:s'));
                                         $diffInMinutes = $endTime->diffInMinutes($startTime);
 
                                         $lateDetails->push([
@@ -389,13 +418,13 @@ Route::middleware(['auth'])->group(function () {
                                             'day' => $dayInd,
                                             'time' => $inLog->timestamp->format('H:i:s'),
                                             'limit' => $limit,
-                                            'duration' => $diffInMinutes
+                                            'duration' => $diffInMinutes,
                                         ]);
                                     } else {
                                         $onTimeDetails->push([
                                             'date' => $dateStr,
                                             'day' => $dayInd,
-                                            'time' => $inLog->timestamp->format('H:i:s')
+                                            'time' => $inLog->timestamp->format('H:i:s'),
                                         ]);
                                     }
 
@@ -406,7 +435,7 @@ Route::middleware(['auth'])->group(function () {
                                                 'date' => $dateStr,
                                                 'day' => $dayInd,
                                                 'time' => $outLog->timestamp->format('H:i:s'),
-                                                'limit' => $schedule->check_out_start
+                                                'limit' => $schedule->check_out_start,
                                             ]);
                                         }
                                     }
@@ -429,7 +458,7 @@ Route::middleware(['auth'])->group(function () {
             $performanceScore = $presentDetails->count() - $lateDetails->count() - $earlyDetails->count();
             $presencePerformancePct = round((max(0, $performanceScore) / $denom) * 100, 1);
 
-            $summaries->push((object)[
+            $summaries->push((object) [
                 'employee' => $employee,
                 'total_working_days' => $empTotalWorkingDays,
                 'effective_working_days' => max(0, $empTotalWorkingDays - $leaveDetails->count()),
@@ -460,9 +489,9 @@ Route::middleware(['auth'])->group(function () {
             'endDate' => $request->to_date,
             'totalWorkingDays' => $summaries->max('total_working_days'), // Use max for display header context
             'singleEmployee' => $request->filled('employee_id') ? (
-                is_array($request->employee_id) 
-                    ? (count($request->employee_id) === 1 ? \App\Models\Employee::find($request->employee_id[0])?->name : "Beberapa Pegawai (" . count($request->employee_id) . " Orang)")
-                    : \App\Models\Employee::find($request->employee_id)?->name
+                is_array($request->employee_id)
+                    ? (count($request->employee_id) === 1 ? Employee::find($request->employee_id[0])?->name : 'Beberapa Pegawai ('.count($request->employee_id).' Orang)')
+                    : Employee::find($request->employee_id)?->name
             ) : false,
             'singleMachine' => !empty($machineNames)
                 ? (count($machineNames) === 1 ? $machineNames[0] : 'Beberapa Mesin (' . count($machineNames) . ' Mesin)')
@@ -473,8 +502,8 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('attendance.summary.report');
 
-    Route::get('/daily-reports-report', function (\Illuminate\Http\Request $request) {
-        $query = \App\Models\EmployeeDailyReport::query()->with('employee');
+    Route::get('/daily-reports-report', function (Request $request) {
+        $query = EmployeeDailyReport::query()->with('employee');
 
         if ($request->filled('from_date')) {
             $query->whereDate('daily_report_date', '>=', $request->from_date);
@@ -487,7 +516,7 @@ Route::middleware(['auth'])->group(function () {
         }
 
         $records = $query->orderBy('daily_report_date', 'asc')->get();
-        $employeeName = $request->filled('employee_id') ? \App\Models\Employee::find($request->employee_id)?->name : null;
+        $employeeName = $request->filled('employee_id') ? Employee::find($request->employee_id)?->name : null;
 
         return view('filament.print.daily-report', [
             'records' => $records,
@@ -497,22 +526,24 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('daily-reports.report');
 
-    Route::get('/career-movement-report', [\App\Http\Controllers\ReportController::class, 'careerMovement'])->name('report.career-movement');
-    Route::get('/career-schedule-report', [\App\Http\Controllers\ReportController::class, 'careerSchedule'])->name('report.career-schedule');
-    Route::get('/kgb-schedule-report', [\App\Http\Controllers\ReportController::class, 'kgbSchedule'])->name('report.kgb-schedule');
-    Route::get('/promotion-schedule-report', [\App\Http\Controllers\ReportController::class, 'promotionSchedule'])->name('report.promotion-schedule');
-    Route::get('/contract-schedule-report', [\App\Http\Controllers\ReportController::class, 'contractSchedule'])->name('report.contract-schedule');
+    Route::get('/career-movement-report', [ReportController::class, 'careerMovement'])->name('report.career-movement');
+    Route::get('/career-schedule-report', [ReportController::class, 'careerSchedule'])->name('report.career-schedule');
+    Route::get('/kgb-schedule-report', [ReportController::class, 'kgbSchedule'])->name('report.kgb-schedule');
+    Route::get('/promotion-schedule-report', [ReportController::class, 'promotionSchedule'])->name('report.promotion-schedule');
+    Route::get('/contract-schedule-report', [ReportController::class, 'contractSchedule'])->name('report.contract-schedule');
 
-    Route::get('/attendance-logs-report-pdf', function (\Illuminate\Http\Request $request) {
-        $query = \App\Models\AttendanceMachineLog::with(['machine.officeLocation', 'employee'])
-            ->when($request->from_date, fn($q, $date) => $q->whereDate('timestamp', '>=', $date))
-            ->when($request->to_date, fn($q, $date) => $q->whereDate('timestamp', '<=', $date))
-            ->when($request->employee_id, function($q, $id) {
+    Route::get('/attendance-logs-report-pdf', function (Request $request) {
+        $query = AttendanceMachineLog::with(['machine.officeLocation', 'employee'])
+            ->when($request->from_date, fn ($q, $date) => $q->whereDate('timestamp', '>=', $date))
+            ->when($request->to_date, fn ($q, $date) => $q->whereDate('timestamp', '<=', $date))
+            ->when($request->employee_id, function ($q, $id) {
                 $ids = is_array($id) ? $id : [$id];
-                $pins = \App\Models\Employee::whereIn('id', $ids)->pluck('pin')->filter()->toArray();
-                if (!empty($pins)) $q->whereIn('pin', $pins);
+                $pins = Employee::whereIn('id', $ids)->pluck('pin')->filter()->toArray();
+                if (! empty($pins)) {
+                    $q->whereIn('pin', $pins);
+                }
             })
-            ->when($request->attendance_machine_id, fn($q, $id) => $q->where('attendance_machine_id', $id))
+            ->when($request->attendance_machine_id, fn ($q, $id) => $q->where('attendance_machine_id', $id))
             ->orderBy('timestamp', 'asc'); // Use ASC to process properly for duplicate detection
 
         $records = $query->get();
@@ -523,17 +554,17 @@ Route::middleware(['auth'])->group(function () {
         ];
 
         // 1. Identify Duplicates
-        $grouped = $records->groupBy(function($item) {
-            return $item->timestamp->toDateString() . '_' . $item->pin . '_' . $item->type;
+        $grouped = $records->groupBy(function ($item) {
+            return $item->timestamp->toDateString().'_'.$item->pin.'_'.$item->type;
         });
 
         foreach ($grouped as $group) {
             if ($group->count() > 1) {
                 // Determine primary based on type
                 $type = $group->first()->type;
-                if (in_array((string)$type, ['0', '3', '4'])) {
+                if (in_array((string) $type, ['0', '3', '4'])) {
                     $primaryId = $group->sortBy('timestamp')->first()->id;
-                } elseif ((string)$type === '1') {
+                } elseif ((string) $type === '1') {
                     $primaryId = $group->sortByDesc('timestamp')->first()->id;
                 } else {
                     $primaryId = $group->sortBy('timestamp')->first()->id;
@@ -548,7 +579,7 @@ Route::middleware(['auth'])->group(function () {
         }
 
         // Add Indonesian Day
-        $records->each(function($log) use ($dayMap) {
+        $records->each(function ($log) use ($dayMap) {
             $dayEng = strtolower($log->timestamp->format('l'));
             $log->hari_indonesia = $dayMap[$dayEng] ?? $dayEng;
         });
@@ -558,16 +589,25 @@ Route::middleware(['auth'])->group(function () {
             'startDate' => $request->from_date,
             'endDate' => $request->to_date,
             'singleEmployee' => $request->filled('employee_id') ? (
-                is_array($request->employee_id) 
-                    ? (count($request->employee_id) === 1 ? \App\Models\Employee::find($request->employee_id[0])?->name : "Beberapa Pegawai (" . count($request->employee_id) . " Orang)")
-                    : \App\Models\Employee::find($request->employee_id)?->name
+                is_array($request->employee_id)
+                    ? (count($request->employee_id) === 1 ? Employee::find($request->employee_id[0])?->name : 'Beberapa Pegawai ('.count($request->employee_id).' Orang)')
+                    : Employee::find($request->employee_id)?->name
             ) : false,
-            'singleMachine' => $request->filled('attendance_machine_id') ? \App\Models\AttendanceMachine::find($request->attendance_machine_id)?->name : false,
+            'singleMachine' => $request->filled('attendance_machine_id') ? AttendanceMachine::find($request->attendance_machine_id)?->name : false,
         ]);
     })->name('attendance.logs.report.pdf');
 });
 
+// Slip Gaji Payroll Run
+Route::get('/payroll-run/{run}/slip', [PayrollRunSlipController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('payroll-run.slip');
+
+Route::get('/payroll-run/{run}/laporan', [PayrollRunLaporanController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('payroll-run.laporan');
+
 // ADMS (Attendance Machine) Routes - Root Level
-Route::any('/iclock/cdata', [\App\Http\Controllers\AdmsController::class, 'cdata']);
-Route::get('/iclock/getrequest', [\App\Http\Controllers\AdmsController::class, 'getrequest']);
-Route::any('/iclock/devicecmd', [\App\Http\Controllers\AdmsController::class, 'devicecmd']);
+Route::any('/iclock/cdata', [AdmsController::class, 'cdata']);
+Route::get('/iclock/getrequest', [AdmsController::class, 'getrequest']);
+Route::any('/iclock/devicecmd', [AdmsController::class, 'devicecmd']);

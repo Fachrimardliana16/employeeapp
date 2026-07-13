@@ -2,8 +2,10 @@
 
 namespace App\Filament\Pages\Auth;
 
+use App\Models\User;
+use Filament\Forms\Components\Component;
+use Filament\Forms\Components\TextInput;
 use Filament\Pages\Auth\Login as BaseLogin;
-use Filament\Models\Contracts\FilamentUser;
 
 class Login extends BaseLogin
 {
@@ -23,7 +25,7 @@ class Login extends BaseLogin
 
     protected function getRedirectUrl(): string
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = auth()->user();
 
         if ($user->hasRole('superadmin')) {
@@ -43,18 +45,49 @@ class Login extends BaseLogin
 
     protected function getCredentialsFromFormData(array $data): array
     {
-        $loginField = filter_var($data['email'], FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        $loginInput = trim((string) ($data['email'] ?? ''));
+        $password = (string) ($data['password'] ?? '');
+
+        if ($loginInput === '') {
+            return [
+                'email' => '',
+                'password' => $password,
+                'is_active' => true,
+            ];
+        }
+
+        if (filter_var($loginInput, FILTER_VALIDATE_EMAIL)) {
+            return [
+                'email' => strtolower($loginInput),
+                'password' => $password,
+                'is_active' => true,
+            ];
+        }
+
+        // Support login by username OR email local-part (before @).
+        $matchedUser = User::query()
+            ->where('username', $loginInput)
+            ->orWhere('email', 'like', $loginInput.'@%')
+            ->first();
+
+        if ($matchedUser) {
+            return [
+                'email' => $matchedUser->email,
+                'password' => $password,
+                'is_active' => true,
+            ];
+        }
 
         return [
-            $loginField => $data['email'],
-            'password' => $data['password'],
+            'username' => $loginInput,
+            'password' => $password,
             'is_active' => true,
         ];
     }
 
-    protected function getEmailFormComponent(): \Filament\Forms\Components\Component
+    protected function getEmailFormComponent(): Component
     {
-        return \Filament\Forms\Components\TextInput::make('email')
+        return TextInput::make('email')
             ->label('EMAIL / USERNAME')
             ->placeholder('Masukkan email atau username anda')
             ->required()
@@ -65,7 +98,7 @@ class Login extends BaseLogin
             ->prefixIconColor('blue');
     }
 
-    protected function getPasswordFormComponent(): \Filament\Forms\Components\Component
+    protected function getPasswordFormComponent(): Component
     {
         return parent::getPasswordFormComponent()
             ->label('PASSWORD')
