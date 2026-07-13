@@ -212,47 +212,10 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('attendance.report');
 
-<<<<<<< HEAD
-    Route::get('/attendance-summary-report', function (\Illuminate\Http\Request $request) {
-        $fromDate = \Carbon\Carbon::parse($request->from_date)->startOfDay();
-        $toDate = \Carbon\Carbon::parse($request->to_date)->endOfDay();
-        $employeeIds = $request->filled('employee_id')
-            ? (is_array($request->employee_id) ? $request->employee_id : [$request->employee_id])
-            : [];
-        $selectedMachineIds = $request->filled('attendance_machine_id')
-            ? (is_array($request->attendance_machine_id) ? $request->attendance_machine_id : [$request->attendance_machine_id])
-            : [];
-        $scopedMachineIds = $selectedMachineIds;
-
-        $selectedMachines = !empty($selectedMachineIds)
-            ? \App\Models\AttendanceMachine::with('officeLocation')->whereIn('id', $selectedMachineIds)->get()
-            : collect();
-
-        $scopedLocationIds = $selectedMachines
-            ->pluck('master_office_location_id')
-            ->filter()
-            ->unique()
-            ->values()
-            ->toArray();
-
-        if (!empty($scopedLocationIds)) {
-            $scopedMachineIds = \App\Models\AttendanceMachine::whereIn('master_office_location_id', $scopedLocationIds)
-                ->pluck('id')
-                ->filter()
-                ->toArray();
-        }
-
-        $locationNames = !empty($scopedLocationIds)
-            ? \App\Models\MasterOfficeLocation::whereIn('id', $scopedLocationIds)->pluck('name')->filter()->values()->all()
-            : [];
-        $machineNames = $selectedMachines->pluck('name')->filter()->values()->all();
-        
-=======
     Route::get('/attendance-summary-report', function (Request $request) {
         $fromDate = Carbon::parse($request->from_date)->startOfDay();
         $toDate = Carbon::parse($request->to_date)->endOfDay();
 
->>>>>>> 561b9c1 (fix(auth): improve login credential matching and route redirect)
         // 1. Fetch Active Schedules for all days
         $allSchedules = AttendanceSchedule::where('is_active', true)->get()->keyBy(function ($item) {
             return strtolower($item->day);
@@ -272,49 +235,12 @@ Route::middleware(['auth'])->group(function () {
         ];
 
         // 2. Fetch Employees
-<<<<<<< HEAD
-        $query = \App\Models\Employee::with(['position', 'employmentStatus', 'department', 'subDepartment']);
-        if (!empty($employeeIds)) {
-            $query->whereIn('id', $employeeIds);
-        } elseif (!empty($scopedMachineIds)) {
-            $machinePins = \App\Models\AttendanceMachineLog::query()
-                ->whereBetween('timestamp', [$fromDate, $toDate])
-                ->whereIn('attendance_machine_id', $scopedMachineIds)
-                ->distinct()
-                ->pluck('pin')
-                ->filter()
-                ->toArray();
-
-            if (!empty($machinePins)) {
-                $query->whereIn('pin', $machinePins);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-=======
         $query = Employee::with(['position', 'employmentStatus', 'department', 'subDepartment']);
         if ($request->filled('employee_id')) {
             $ids = is_array($request->employee_id) ? $request->employee_id : [$request->employee_id];
             $query->whereIn('id', $ids);
->>>>>>> 561b9c1 (fix(auth): improve login credential matching and route redirect)
         }
         $employees = $query->get();
-
-        $logsQuery = \App\Models\AttendanceMachineLog::query()
-            ->with(['machine.officeLocation', 'employee'])
-            ->whereBetween('timestamp', [$fromDate, $toDate]);
-
-        if (!empty($scopedMachineIds)) {
-            $logsQuery->whereIn('attendance_machine_id', $scopedMachineIds);
-        }
-
-        if (!empty($employeeIds)) {
-            $pins = \App\Models\Employee::whereIn('id', $employeeIds)->pluck('pin')->filter()->toArray();
-            if (!empty($pins)) {
-                $logsQuery->whereIn('pin', $pins);
-            } else {
-                $logsQuery->whereRaw('1 = 0');
-            }
-        }
 
         // 3. Fetch Special Schedules for the range
         $specialSchedules = AttendanceSpecialSchedule::whereBetween('date', [$fromDate, $toDate])
@@ -353,13 +279,8 @@ Route::middleware(['auth'])->group(function () {
             $leaveDetails = collect();
 
             // 1. Gather all actual logs for present dates
-<<<<<<< HEAD
-            $allLogs = (clone $logsQuery)
-                ->where('pin', $employee->pin)
-=======
             $allLogs = AttendanceMachineLog::where('pin', $employee->pin)
                 ->whereBetween('timestamp', [$fromDate, $toDate])
->>>>>>> 561b9c1 (fix(auth): improve login credential matching and route redirect)
                 ->get()
                 ->groupBy(fn ($item) => $item->timestamp->toDateString());
 
@@ -493,12 +414,6 @@ Route::middleware(['auth'])->group(function () {
                     ? (count($request->employee_id) === 1 ? Employee::find($request->employee_id[0])?->name : 'Beberapa Pegawai ('.count($request->employee_id).' Orang)')
                     : Employee::find($request->employee_id)?->name
             ) : false,
-            'singleMachine' => !empty($machineNames)
-                ? (count($machineNames) === 1 ? $machineNames[0] : 'Beberapa Mesin (' . count($machineNames) . ' Mesin)')
-                : false,
-            'singleLocation' => !empty($locationNames)
-                ? (count($locationNames) === 1 ? $locationNames[0] : 'Beberapa Lokasi (' . count($locationNames) . ' Lokasi)')
-                : false,
         ]);
     })->name('attendance.summary.report');
 
