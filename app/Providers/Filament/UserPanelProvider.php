@@ -50,7 +50,7 @@ class UserPanelProvider extends PanelProvider
                     ->label('Panel Kepegawaian')
                     ->url('/employee')
                     ->icon('heroicon-o-building-office-2')
-                    ->visible(fn () => auth()->user()?->hasRole('superadmin')),
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['superadmin', 'admin'])),
             ])
             ->authMiddleware([
                 Authenticate::class,

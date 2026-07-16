@@ -60,7 +60,8 @@ class EmployeeTrainingResource extends Resource
                             ->imageEditor()
                             ->imageResizeMode('cover')
                             ->imageResizeTargetWidth(1024)
-                            ->optimize('webp')
+                            ->imageResizeUpscale(false)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                             ->maxSize(15360),
                         Forms\Components\FileUpload::make('docs_training')
                             ->label('Dokumen Pelatihan')

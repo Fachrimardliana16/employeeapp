@@ -236,13 +236,13 @@ class EmployeeResource extends Resource
                                                     ->imageResizeMode('cover')
                                                     ->imageResizeTargetWidth(800)
                                                     ->imageResizeTargetHeight(800)
+                                                    ->imageResizeUpscale(false)
                                                     ->disk('public')
                                                     ->visibility('public')
                                                     ->directory('employees/photos')
                                                     ->maxSize(15360)
                                                     ->imageEditor()
-                                                    ->acceptedFileTypes(['image/jpeg', 'image/png'])
-                                                    ->optimize('webp')
+                                                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                                                     ->columnSpan(1),
                                                 Forms\Components\Group::make()
                                                     ->schema([

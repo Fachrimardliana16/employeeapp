@@ -81,10 +81,10 @@ class EmployeeTrainingResource extends Resource
                             ->imageCropAspectRatio('16:9')
                             ->imageResizeTargetWidth('1920')
                             ->imageResizeTargetHeight('1080')
-                            ->optimize('webp')
+                            ->imageResizeUpscale(false)
                             ->maxSize(15360)
-                            ->acceptedFileTypes(['image/jpeg', 'image/png'])
-                            ->helperText('Format: JPG, PNG. Rasio 16:9 untuk hasil terbaik.'),
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->helperText('Format: JPG, PNG, WebP. Rasio 16:9 untuk hasil terbaik.'),
                         Forms\Components\FileUpload::make('docs_training')
                             ->label('Dokumen Pelatihan')
                             ->directory('training-docs')

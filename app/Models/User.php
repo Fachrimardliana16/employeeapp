@@ -29,7 +29,7 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return match ($panel->getId()) {
-            'admin' => $this->hasRole('superadmin'),
+            'admin' => $this->hasRole(['superadmin', 'admin']),
             'employee' => $this->hasRole(['superadmin', 'admin']),
             'user' => $this->hasRole(['superadmin', 'admin', 'user']),
             default => false,

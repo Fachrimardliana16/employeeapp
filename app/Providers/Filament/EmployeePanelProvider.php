@@ -54,7 +54,7 @@ class EmployeePanelProvider extends PanelProvider
                     ->label('Panel Pegawai')
                     ->url('/user')
                     ->icon('heroicon-o-users')
-                    ->visible(fn () => auth()->user()?->hasRole('superadmin')),
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['superadmin', 'admin'])),
             ])
             ->authMiddleware([
                 Authenticate::class,

@@ -62,8 +62,9 @@ class EmployeeDailyReportResource extends Resource
                     ->imageEditor()
                     ->imageResizeMode('cover')
                     ->imageResizeTargetWidth('1024')
-                    ->acceptedFileTypes(['image/jpeg', 'image/png'])
-                    ->optimize('webp'),
+                    ->imageResizeTargetHeight('768')
+                    ->imageResizeUpscale(false)
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp']),
                 Forms\Components\Hidden::make('users_id')
                     ->default(auth()->id()),
             ]);

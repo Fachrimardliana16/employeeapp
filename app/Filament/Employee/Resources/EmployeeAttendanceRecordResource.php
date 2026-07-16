@@ -91,12 +91,15 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->directory('attendance/photo_checkin')
                             ->visibility('public')
                             ->maxSize(5120)
-                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
                             ->disk('public')
                             ->extraInputAttributes([
                                 'capture' => 'user',
                             ])
-                            ->optimize('webp')
+                            ->imageResizeMode('cover')
+                            ->imageResizeTargetWidth(800)
+                            ->imageResizeTargetHeight(800)
+                            ->imageResizeUpscale(false)
                             ->resize(50)
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_in'),
@@ -114,12 +117,15 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->directory('attendance/photo_checkout')
                             ->visibility('private')
                             ->maxSize(5120)
-                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
                             ->disk('public')->visibility('public')
                             ->extraInputAttributes([
                                 'capture' => 'user',
                             ])
-                            ->optimize('webp')
+                            ->imageResizeMode('cover')
+                            ->imageResizeTargetWidth(800)
+                            ->imageResizeTargetHeight(800)
+                            ->imageResizeUpscale(false)
                             ->resize(50)
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_out'),
