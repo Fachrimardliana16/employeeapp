@@ -101,11 +101,11 @@ class EmployeeTrainingResource extends Resource
                     Tables\Actions\EditAction::make()->label('Edit'),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])
-                ->label('Aksi')
-                ->icon('heroicon-m-ellipsis-vertical')
-                ->size('sm')
-                ->color('gray')
-                ->button(),
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

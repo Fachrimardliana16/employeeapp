@@ -49,12 +49,12 @@ class EmployeePanelProvider extends PanelProvider
                     ->label('Panel Admin')
                     ->url('/admin')
                     ->icon('heroicon-o-cog-6-tooth')
-                    ->visible(fn () => auth()->user()?->hasRole('superadmin')),
+                    ->visible(fn() => auth()->user()?->hasRole('superadmin')),
                 MenuItem::make()
                     ->label('Panel Pegawai')
                     ->url('/user')
                     ->icon('heroicon-o-users')
-                    ->visible(fn () => auth()->user()?->hasAnyRole(['superadmin', 'admin'])),
+                    ->visible(fn() => auth()->user()?->hasAnyRole(['superadmin', 'admin'])),
             ])
             ->authMiddleware([
                 Authenticate::class,
@@ -83,8 +83,8 @@ class EmployeePanelProvider extends PanelProvider
                 'Bantuan',
             ])
             ->sidebarCollapsibleOnDesktop();
-            // ->spa() dihapus: di shared hosting yang lambat, SPA mode
-            // membuat navigasi terasa "stuck" karena tidak ada loading bar browser.
-            // Tanpa SPA, browser menampilkan loading indicator bawaan saat pindah halaman.
+        // ->spa() dihapus: di shared hosting yang lambat, SPA mode
+        // membuat navigasi terasa "stuck" karena tidak ada loading bar browser.
+        // Tanpa SPA, browser menampilkan loading indicator bawaan saat pindah halaman.
     }
 }

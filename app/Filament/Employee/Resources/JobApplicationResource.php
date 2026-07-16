@@ -65,7 +65,7 @@ class JobApplicationResource extends Resource
                                     ->maxLength(16)
                                     ->placeholder('Contoh: 3302123456780001')
                                     ->live()
-                                    ->helperText(fn ($state) => (strlen($state) ?? 0) . ' / 16 Digit')
+                                    ->helperText(fn($state) => (strlen($state) ?? 0) . ' / 16 Digit')
                                     ->unique(ignoreRecord: true),
                             ]),
 
@@ -318,12 +318,12 @@ class JobApplicationResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('photo')
                     ->label('Foto Pas')
-                    ->formatStateUsing(fn ($state) => $state ? '<div class="flex justify-center"><img src="'.url('image-view/'.$state).'" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
+                    ->formatStateUsing(fn($state) => $state ? '<div class="flex justify-center"><img src="' . url('image-view/' . $state) . '" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
                     ->html()
                     ->alignCenter(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Lengkap')
-                    ->description(fn (JobApplication $record): string => $record->application_number)
+                    ->description(fn(JobApplication $record): string => $record->application_number)
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('gender')
@@ -339,34 +339,34 @@ class JobApplicationResource extends Resource
                         'female' => 'danger',
                         default => 'gray',
                     })
-                    ->description(fn (JobApplication $record): string => 
-                        ($record->date_birth ? $record->date_birth->age . ' Thn' : '-') . ' / ' .
-                        ($record->marital_status ? match ($record->marital_status) {
-                            'single' => 'Belum Menikah',
-                            'married' => 'Menikah',
-                            'divorced' => 'Cerai',
-                            'widowed' => 'Janda/Duda',
-                            default => $record->marital_status,
-                        } : '')
+                    ->description(
+                        fn(JobApplication $record): string => ($record->date_birth ? $record->date_birth->age . ' Thn' : '-') . ' / ' .
+                            ($record->marital_status ? match ($record->marital_status) {
+                                'single' => 'Belum Menikah',
+                                'married' => 'Menikah',
+                                'divorced' => 'Cerai',
+                                'widowed' => 'Janda/Duda',
+                                default => $record->marital_status,
+                            } : '')
                     )
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('email')
                     ->label('Kontak')
-                    ->description(fn (JobApplication $record): string => $record->phone_number ?? '')
+                    ->description(fn(JobApplication $record): string => $record->phone_number ?? '')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('appliedPosition.name')
                     ->label('Posisi & Bagian')
-                    ->description(fn (JobApplication $record): string => $record->appliedDepartment->name ?? '')
+                    ->description(fn(JobApplication $record): string => $record->appliedDepartment->name ?? '')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('educationLevel.name')
                     ->label('Pendidikan')
-                    ->description(fn (JobApplication $record): string => ($record->education_institution ?? '') . ($record->education_major ? " - " . $record->education_major : ""))
+                    ->description(fn(JobApplication $record): string => ($record->education_institution ?? '') . ($record->education_major ? " - " . $record->education_major : ""))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('last_company_name')
                     ->label('Pengalaman Terakhir')
-                    ->description(fn (JobApplication $record): string => $record->last_position ?? '')
+                    ->description(fn(JobApplication $record): string => $record->last_position ?? '')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('expected_salary')
                     ->label('Ekspektasi Gaji')
@@ -391,9 +391,10 @@ class JobApplicationResource extends Resource
                         'pending' => 'Menunggu',
                         default => '-',
                     })
-                    ->description(fn (JobApplication $record): string => 
-                        isset($record->interview_results['last_score']) 
-                            ? "Skor: {$record->interview_results['last_score']}" 
+                    ->description(
+                        fn(JobApplication $record): string =>
+                        isset($record->interview_results['last_score'])
+                            ? "Skor: {$record->interview_results['last_score']}"
                             : (isset($record->interview_results['overall_score']) ? "Skor: {$record->interview_results['overall_score']}%" : "")
                     )
                     ->toggleable(),
@@ -628,9 +629,9 @@ class JobApplicationResource extends Resource
                                     ->options(function (Forms\Get $get) {
                                         $agreementId = $get('proposed_agreement_type_id');
                                         if ($agreementId == 1) { // PKWT
-                                             return MasterEmployeeStatusEmployment::whereIn('id', [1, 2, 3])->pluck('name', 'id');
+                                            return MasterEmployeeStatusEmployment::whereIn('id', [1, 2, 3])->pluck('name', 'id');
                                         } elseif ($agreementId == 2) { // PKWTT
-                                             return MasterEmployeeStatusEmployment::whereIn('id', [4, 5])->pluck('name', 'id');
+                                            return MasterEmployeeStatusEmployment::whereIn('id', [4, 5])->pluck('name', 'id');
                                         }
                                         return MasterEmployeeStatusEmployment::where('id', '!=', 6)->pluck('name', 'id');
                                     })
@@ -706,7 +707,7 @@ class JobApplicationResource extends Resource
                             $firstName = Str::slug(Str::before($record->name, ' '), '');
                             $username = $firstName;
                             $officeEmail = $firstName . '@pdampurbalingga.co.id';
-                            
+
                             $counter = 1;
                             while (\App\Models\User::where('username', $username)->orWhere('email', $officeEmail)->exists() || \App\Models\Employee::where('username', $username)->orWhere('office_email', $officeEmail)->exists()) {
                                 $username = $firstName . $counter;
@@ -868,13 +869,13 @@ class JobApplicationResource extends Resource
                                         ->state(fn($record) => $record->photo ? url('image-view/' . $record->photo) : null)
                                         ->extraImgAttributes(['class' => 'shadow-lg border-2 border-primary-500'])
                                         ->placeholder('Tidak ada foto'),
-                                    
+
                                     Infolists\Components\TextEntry::make('name')
                                         ->label('')
                                         ->weight('bold')
                                         ->size('lg')
                                         ->alignCenter(),
-                                    
+
                                     Infolists\Components\TextEntry::make('application_number')
                                         ->label('')
                                         ->color('gray')
@@ -898,20 +899,20 @@ class JobApplicationResource extends Resource
                                         ->alignCenter()
                                         ->extraAttributes(['class' => 'mt-4']),
 
-                                     Infolists\Components\RepeatableEntry::make('documents')
+                                    Infolists\Components\RepeatableEntry::make('documents')
                                         ->label('Dokumen Lampiran')
                                         ->schema([
                                             Infolists\Components\TextEntry::make('')
-                                                ->formatStateUsing(fn ($state) => $state ? basename((string)$state) : '-')
+                                                ->formatStateUsing(fn($state) => $state ? basename((string)$state) : '-')
                                                 ->weight('medium')
                                                 ->suffixAction(
                                                     Infolists\Components\Actions\Action::make('download')
                                                         ->label('Unduh')
                                                         ->icon('heroicon-o-arrow-down-tray')
                                                         ->color('primary')
-                                                        ->url(fn ($component) => $component->getState() ? url('image-view/' . $component->getState()) : null)
+                                                        ->url(fn($component) => $component->getState() ? url('image-view/' . $component->getState()) : null)
                                                         ->openUrlInNewTab()
-                                                        ->visible(fn ($component) => !empty($component->getState()))
+                                                        ->visible(fn($component) => !empty($component->getState()))
                                                 ),
                                         ])
                                         ->grid(1)

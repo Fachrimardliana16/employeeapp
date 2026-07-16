@@ -757,8 +757,10 @@ class EmployeeResource extends Resource
                             ->limit(1),
                         $direction
                     ))
-                    ->searchable(query: fn(Builder $query, string $search): Builder =>
-                        $query->whereIn('basic_salary_id',
+                    ->searchable(
+                        query: fn(Builder $query, string $search): Builder =>
+                        $query->whereIn(
+                            'basic_salary_id',
                             \App\Models\MasterEmployeeGrade::where('name', 'like', "%{$search}%")->pluck('id')
                         )
                     ),
@@ -771,8 +773,10 @@ class EmployeeResource extends Resource
                             ->limit(1),
                         $direction
                     ))
-                    ->searchable(query: fn(Builder $query, string $search): Builder =>
-                        $query->whereIn('employee_service_grade_id',
+                    ->searchable(
+                        query: fn(Builder $query, string $search): Builder =>
+                        $query->whereIn(
+                            'employee_service_grade_id',
                             \App\Models\MasterEmployeeServiceGrade::where('service_grade', 'like', "%{$search}%")->pluck('id')
                         )
                     ),
@@ -1143,10 +1147,16 @@ class EmployeeResource extends Resource
                         ->color('success')
                         ->form(function () {
                             // Dynamically fetch options for help text (cached 1 jam)
-                            $grades = \Illuminate\Support\Facades\Cache::remember('import_grades_hint', now()->addHour(), fn() =>
+                            $grades = \Illuminate\Support\Facades\Cache::remember(
+                                'import_grades_hint',
+                                now()->addHour(),
+                                fn() =>
                                 \App\Models\MasterEmployeeGrade::all()->map(fn($g) => "{$g->id}:{$g->name}")->implode(', ')
                             );
-                            $edus = \Illuminate\Support\Facades\Cache::remember('import_edus_hint', now()->addHour(), fn() =>
+                            $edus = \Illuminate\Support\Facades\Cache::remember(
+                                'import_edus_hint',
+                                now()->addHour(),
+                                fn() =>
                                 \App\Models\MasterEmployeeEducation::all()->map(fn($e) => "{$e->id}:{$e->name}")->implode(', ')
                             );
 
