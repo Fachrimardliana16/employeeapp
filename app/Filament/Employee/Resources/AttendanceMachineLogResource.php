@@ -52,6 +52,15 @@ class AttendanceMachineLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->with([
+                    'machine:id,name,master_office_location_id',
+                    'machine.officeLocation:id,name',
+                    'employee:id,pin,name'
+                ])
+            )
+            ->defaultPaginationPageOption(50)
+            ->paginationPageOptions([25, 50, 100, 200])
             ->columns([
                 Tables\Columns\TextColumn::make('timestamp')
                     ->dateTime()

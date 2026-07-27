@@ -90,8 +90,17 @@ class AttendanceMachineResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('30s')
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['officeLocation', 'latestCommand']))
+            // Disable auto-polling to reduce DB load on shared hosting
+            // Users can manually refresh if needed
+            // ->poll('30s')  // DISABLED: Causes too many queries on shared hosting
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->with([
+                    'officeLocation:id,name',  // Only load needed columns
+                    'latestCommand' => fn($q) => $q->select('id', 'attendance_machine_id', 'command', 'status', 'response_payload', 'created_at')
+                ])
+            )
+            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions([10, 25, 50])
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
@@ -214,18 +223,26 @@ class AttendanceMachineResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Sinkronisasi Otomatis Semua Mesin')
-                    ->modalDescription('Sistem akan mengirim perintah tarik data ke SEMUA mesin yang online.')
+                    ->modalDescription('Sistem akan mengirim perintah tarik data ke SEMUA mesin yang online. Proses dilakukan dalam batch untuk menghindari overload.')
                     ->action(function () {
                         $machines = AttendanceMachine::where('last_heard_at', '>=', now()->subMinutes(5))->get();
                         $count = 0;
 
+                        // Batch insert to reduce DB overhead
+                        $commands = [];
                         foreach ($machines as $machine) {
-                            \App\Models\AttendanceMachineCommand::create([
+                            $commands[] = [
                                 'attendance_machine_id' => $machine->id,
                                 'command' => 'DATA QUERY ATTLOG',
                                 'status' => 'pending',
-                            ]);
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
                             $count++;
+                        }
+                        
+                        if (!empty($commands)) {
+                            \App\Models\AttendanceMachineCommand::insert($commands);
                         }
 
                         \Filament\Notifications\Notification::make()
@@ -242,20 +259,28 @@ class AttendanceMachineResource extends Resource
                     ->color('warning')
                     ->requiresConfirmation()
                     ->modalHeading('Perbaiki Jam Mesin Otomatis')
-                    ->modalDescription('Sistem akan mengirim perintah RESTART ke semua mesin yang jamnya tidak sinkron (selisih > 20 detik).')
+                    ->modalDescription('Sistem akan mengirim perintah RESTART ke semua mesin yang jamnya tidak sinkron (selisih > 20 detik). Proses dilakukan dalam batch.')
                     ->action(function () {
                         $machines = AttendanceMachine::whereNotNull('time_drift_seconds')
                             ->whereRaw('ABS(time_drift_seconds) > 20')
                             ->get();
                         $count = 0;
 
+                        // Batch insert to reduce DB overhead
+                        $commands = [];
                         foreach ($machines as $machine) {
-                            \App\Models\AttendanceMachineCommand::create([
+                            $commands[] = [
                                 'attendance_machine_id' => $machine->id,
                                 'command' => 'REBOOT',
                                 'status' => 'pending',
-                            ]);
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
                             $count++;
+                        }
+                        
+                        if (!empty($commands)) {
+                            \App\Models\AttendanceMachineCommand::insert($commands);
                         }
 
                         \Filament\Notifications\Notification::make()
