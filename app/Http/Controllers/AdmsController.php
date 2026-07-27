@@ -394,14 +394,15 @@ class AdmsController extends Controller
                 }
             }
 
-            // CRITICAL FIX: Force handshake periodically to update machine Delay settings
-            // This ensures machines receive the new Delay=30 configuration
-            // Send handshake every 10 minutes per machine
-            if ($this->shouldThrottle("force-handshake:{$sn}", 600)) {
+            // CRITICAL FIX: Force handshake to update machine Delay settings IMMEDIATELY
+            // Send handshake every 30 seconds until machine stabilizes to 30s polling
+            // This ensures machines quickly receive Delay=30 configuration
+            if ($this->shouldThrottle("force-handshake:{$sn}", 30)) {
                 $response = $this->getHandshakeOptions($sn, $machine);
                 Log::info("ADMS Force Handshake Sent (Delay=30 update)", [
                     'SN' => $sn,
-                    'reason' => 'Periodic handshake to ensure machine has latest Delay=30 config'
+                    'interval' => '30s',
+                    'reason' => 'Rapid handshake delivery to force Delay=30 adoption'
                 ]);
                 if ($this->shouldLogHeartbeat($sn)) {
                     $this->logCommunication($sn, 'getrequest', $request, $response, 200, 'Force handshake for Delay update', $machine);
