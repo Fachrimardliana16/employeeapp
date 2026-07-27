@@ -18,6 +18,10 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
+    # ADMS CPU Optimization: Bypass Laravel entirely for getrequest
+    # Since the machines only send data (1-way), getrequest is useless and wastes CPU
+    RewriteRule ^iclock/getrequest$ adms_ok.txt [L]
+
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
