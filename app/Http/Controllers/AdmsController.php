@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceMachine;
 use App\Models\AttendanceMachineLog;
-use App\Models\AttendanceMachineCommand;
 use App\Models\AttendanceMachineCommunication;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -152,27 +151,7 @@ class AdmsController extends Controller
         );
     }
 
-    /**
-     * Throttle expensive pending-command lookup during high-frequency polling.
-     */
-    private function shouldPollPendingCommand(string $sn): bool
-    {
-        return $this->shouldThrottle(
-            "heartbeat:poll-command:{$sn}",
-            self::HEARTBEAT_COMMAND_POLL_INTERVAL_SECONDS
-        );
-    }
 
-    /**
-     * Sweep stale sent-commands periodically per machine, not on every heartbeat.
-     */
-    private function shouldSweepSentTimeout(int $machineId): bool
-    {
-        return $this->shouldThrottle(
-            "heartbeat:sweep-timeout:{$machineId}",
-            self::HEARTBEAT_TIMEOUT_SWEEP_INTERVAL_SECONDS
-        );
-    }
 
     private function upsertMachineFromHeartbeat(string $sn, string $ip): ?AttendanceMachine
     {
@@ -311,68 +290,7 @@ class AdmsController extends Controller
         try {
             $machine = $this->upsertMachineFromHeartbeat($sn, $request->ip());
 
-            // Check for pending commands and timeout stale ones
-            if ($machine) {
-                if ($this->shouldSweepSentTimeout($machine->id)) {
-                    // Timeout detection with throttled execution.
-                    AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                        ->where('status', 'sent')
-                        ->where('sent_at', '<', now()->subMinutes(self::COMMAND_TIMEOUT_MINUTES))
-                        ->update([
-                            'status' => 'failed',
-                            'completed_at' => now(),
-                            'response_payload' => 'TIMEOUT: Mesin tidak merespons dalam 2 menit. Kemungkinan mesin tidak mendukung perintah ini.',
-                        ]);
-                }
 
-                if ($this->shouldPollPendingCommand($sn)) {
-                    $pendingCommand = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                        ->where('status', 'pending')
-                        ->orderBy('created_at', 'asc')
-                        ->first();
-
-                    if ($pendingCommand) {
-                        $pendingCommand->update([
-                            'status' => 'sent',
-                            'sent_at' => now(),
-                        ]);
-
-                        // Return command in ZKTeco format: C:ID:COMMAND
-                        $response = "C:{$pendingCommand->id}:{$pendingCommand->command}";
-
-                        Log::info("ADMS Command Sent", [
-                            'SN' => $sn,
-                            'command_id' => $pendingCommand->id,
-                            'command' => $pendingCommand->command,
-                        ]);
-
-                        // Log command sent (important for debugging commands)
-                        $this->logCommunication($sn, 'getrequest', $request, $response, 200, 'Command sent', $machine);
-                        return response($response);
-                    }
-                }
-
-                // Ask machine time less frequently to avoid command churn on busy polling.
-                $shouldAskTime = !$machine->time_checked_at ||
-                    $machine->time_checked_at->diffInMinutes(now()) >= self::INFO_QUERY_INTERVAL_MINUTES;
-
-                if ($shouldAskTime) {
-                    $alreadyAsked = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                        ->where('command', 'DATA QUERY INFO')
-                        ->where('status', 'pending')
-                        ->exists();
-
-                    if (!$alreadyAsked) {
-                        AttendanceMachineCommand::create([
-                            'attendance_machine_id' => $machine->id,
-                            'command' => 'DATA QUERY INFO',
-                            'status' => 'pending',
-                        ]);
-                    }
-
-                    $machine->update(['time_checked_at' => now()]);
-                }
-            }
 
             // Send handshake periodically to enforce Delay=30 and sync time settings.
             if ($this->shouldThrottle("force-handshake-sent:{$sn}", 60)) {
@@ -422,29 +340,6 @@ class AdmsController extends Controller
 
         try {
             $machine = AttendanceMachine::where('serial_number', $sn)->first();
-
-            if ($id) {
-                $command = AttendanceMachineCommand::find($id);
-                if ($command) {
-                    $command->update([
-                        'status' => 'completed',
-                        'completed_at' => now(),
-                        'response_payload' => $content,
-                    ]);
-
-                    Log::info("ADMS Command Completed", [
-                        'SN' => $sn,
-                        'command_id' => $id,
-                        'command' => $command->command,
-                        'response_length' => strlen($content),
-                    ]);
-
-                    // If this was an INFO command, parse the machine's datetime for sync verification
-                    if (str_contains($command->command, 'INFO')) {
-                        $this->parseInfoResponse($sn, $content);
-                    }
-                }
-            }
 
             // Also handle unsolicited INFO responses (machine may send without command ID)
             if ($sn && str_contains($content, 'DateTime')) {

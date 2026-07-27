@@ -123,13 +123,5 @@ class AttendanceMachine extends Model
 
         return round(($this->communication_error_count / $total) * 100, 2);
     }
-    public function commands(): HasMany
-    {
-        return $this->hasMany(AttendanceMachineCommand::class, 'attendance_machine_id');
-    }
 
-    public function latestCommand(): HasOne
-    {
-        return $this->hasOne(AttendanceMachineCommand::class, 'attendance_machine_id')->latestOfMany();
-    }
 }
