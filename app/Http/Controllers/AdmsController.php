@@ -84,7 +84,7 @@ class AdmsController extends Controller
             "Stamp=9999",
             "OpStamp=9999",
             "ErrorDelay=60",
-            "Delay=1",
+            "Delay=10",
             "TransTimes=00:00;14:05",
             "TransInterval=1",
             "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
