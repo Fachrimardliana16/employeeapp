@@ -96,7 +96,7 @@ class AttendanceMachineResource extends Resource
             ->modifyQueryUsing(fn (Builder $query) => $query
                 ->with([
                     'officeLocation:id,name',  // Only load needed columns
-                    'latestCommand' => fn($q) => $q->select('id', 'attendance_machine_id', 'command', 'status', 'response_payload', 'created_at')
+                    'latestCommand' => fn($q) => $q->select('attendance_machine_commands.id', 'attendance_machine_commands.attendance_machine_id', 'attendance_machine_commands.command', 'attendance_machine_commands.status', 'attendance_machine_commands.response_payload', 'attendance_machine_commands.created_at')
                 ])
             )
             ->defaultPaginationPageOption(25)
