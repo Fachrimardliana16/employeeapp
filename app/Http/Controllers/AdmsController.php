@@ -323,9 +323,7 @@ class AdmsController extends Controller
         }
 
         if (!$sn) {
-            if ($this->shouldLogHeartbeat('UNKNOWN')) {
-                $this->logCommunication($sn ?? 'UNKNOWN', 'getrequest', $request, "OK", 200, "No SN provided");
-            }
+            // Skip logging for requests without SN - reduces DB overhead
             return response("OK");
         }
 
@@ -367,7 +365,8 @@ class AdmsController extends Controller
                             'command' => $pendingCommand->command,
                         ]);
 
-                        $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
+                        // Log command sent (important for debugging commands)
+                        $this->logCommunication($sn, 'getrequest', $request, $response, 200, 'Command sent', $machine);
                         return response($response);
                     }
                 }
@@ -394,26 +393,18 @@ class AdmsController extends Controller
                 }
             }
 
-            // CRITICAL FIX: Force handshake to update machine Delay settings IMMEDIATELY
-            // Send handshake every 30 seconds until machine stabilizes to 30s polling
-            // This ensures machines quickly receive Delay=30 configuration
-            if ($this->shouldThrottle("force-handshake:{$sn}", 30)) {
+            // CRITICAL FIX: ALWAYS send handshake until machine adopts Delay=30
+            // Once machine polls at 30s, this won't trigger often (only 2 req/min)
+            // Throttle prevents spam: send max 1 handshake per 10s per machine
+            if (!$this->shouldThrottle("force-handshake-sent:{$sn}", 10)) {
                 $response = $this->getHandshakeOptions($sn, $machine);
-                Log::info("ADMS Force Handshake Sent (Delay=30 update)", [
-                    'SN' => $sn,
-                    'interval' => '30s',
-                    'reason' => 'Rapid handshake delivery to force Delay=30 adoption'
-                ]);
-                if ($this->shouldLogHeartbeat($sn)) {
-                    $this->logCommunication($sn, 'getrequest', $request, $response, 200, 'Force handshake for Delay update', $machine);
-                }
+                Log::info("ADMS Force Handshake Sent (Delay=30)", ['SN' => $sn]);
+                // Skip communication logging for handshake - reduces DB load
                 return response($response);
             }
             
             $response = "OK";
-            if ($this->shouldLogHeartbeat($sn)) {
-                $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
-            }
+            // Skip heartbeat logging - reduces DB INSERT overhead (was 21,600 inserts/day)
             return response($response);
         } catch (\Exception $e) {
             $error = "DB Error: " . $e->getMessage();
@@ -608,21 +599,28 @@ class AdmsController extends Controller
      *
      * IMPORTANT RULES:
      * 1. NEVER send CLEAR/DELETE commands to machine — data stays on machine
-     * 2. Use updateOrCreate to avoid duplicates but preserve existing data
+     * 2. Use BATCH processing to avoid N+1 queries (critical for performance)
      * 3. Type field: 0=Check In, 1=Check Out, 2=Break Out, 3=Break In, 4=OT In, 5=OT Out
+     * 
+     * PERFORMANCE: Batch processing reduces 300 queries/100 lines to ~10 queries total
      */
     private function parseAttendanceLogs($machine, $sn, $content)
     {
         $lines = explode("\n", $content);
         $processedCount = 0;
         $errorCount = 0;
+        
+        // Batch collections for bulk insert
+        $machineLogsToInsert = [];
+        $attendanceRecordsToInsert = [];
+        $uniquePins = [];
 
+        // Step 1: Parse all lines and collect data
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
 
             try {
-                // Format: PIN\tTimestamp\tType\tVerifyMethod\tWorkCode\tReserved
                 $data = explode("\t", $line);
                 if (count($data) < 2) continue;
 
@@ -633,22 +631,19 @@ class AdmsController extends Controller
 
                 if (empty($pin) || empty($time)) continue;
 
-                // Store raw log — updateOrCreate prevents duplicates
-                // NEVER sends CLEAR command back to machine
-                AttendanceMachineLog::updateOrCreate(
-                    [
-                        'serial_number' => $sn,
-                        'pin'           => $pin,
-                        'timestamp'     => $time,
-                    ],
-                    [
-                        'attendance_machine_id' => $machine?->id,
-                        'type'                  => $type,
-                        'raw_payload'           => $line,
-                    ]
-                );
-
-                // Sync to main attendance table
+                $uniquePins[$pin] = true;
+                
+                $machineLogsToInsert[] = [
+                    'attendance_machine_id' => $machine?->id,
+                    'serial_number' => $sn,
+                    'pin' => $pin,
+                    'timestamp' => $time,
+                    'type' => $type,
+                    'raw_payload' => $line,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                
                 $attendanceTime = \Carbon\Carbon::parse($time);
                 $state = match ($type) {
                     '0' => 'check_in',
@@ -659,22 +654,15 @@ class AdmsController extends Controller
                     '5' => 'ot_out',
                     default => 'check_in'
                 };
-
-                $employee = \App\Models\Employee::where('pin', $pin)->first();
-                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
-                    [
-                        'pin'             => $pin,
-                        'attendance_time' => $attendanceTime->toDateTimeString(),
-                        'state'           => $state,
-                    ],
-                    [
-                        'employee_name'     => $employee ? $employee->name : "Unknown (PIN: {$pin})",
-                        'attendance_status' => 'on_time',
-                        'verification'      => $verify,
-                        'device'            => $machine ? $machine->name : $sn,
-                        'office_location_id' => $machine?->master_office_location_id,
-                    ]
-                );
+                
+                $attendanceRecordsToInsert[] = [
+                    'pin' => $pin,
+                    'attendance_time' => $attendanceTime,
+                    'state' => $state,
+                    'verification' => $verify,
+                    'device' => $machine ? $machine->name : $sn,
+                    'office_location_id' => $machine?->master_office_location_id,
+                ];
 
                 $processedCount++;
             } catch (\Exception $e) {
@@ -685,6 +673,54 @@ class AdmsController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+        
+        if (empty($machineLogsToInsert)) {
+            return;
+        }
+
+        // Step 2: Eager load ALL employees by PINs (1 query instead of N queries)
+        $employees = \App\Models\Employee::whereIn('pin', array_keys($uniquePins))
+            ->get()
+            ->keyBy('pin');
+
+        // Step 3: Batch insert machine logs with INSERT IGNORE to skip duplicates
+        try {
+            $chunks = array_chunk($machineLogsToInsert, 500);
+            foreach ($chunks as $chunk) {
+                \DB::table('attendance_machine_logs')->insertOrIgnore($chunk);
+            }
+        } catch (\Exception $e) {
+            Log::error("ADMS Batch insert machine logs failed", [
+                'SN' => $sn,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Step 4: Process attendance records with employee names
+        foreach ($attendanceRecordsToInsert as &$record) {
+            $employee = $employees->get($record['pin']);
+            $record['employee_name'] = $employee ? $employee->name : "Unknown (PIN: {$record['pin']})";
+            $record['attendance_status'] = 'on_time';
+            $record['created_at'] = now();
+            $record['updated_at'] = now();
+        }
+        
+        // Step 5: Batch upsert attendance records
+        try {
+            $chunks = array_chunk($attendanceRecordsToInsert, 500);
+            foreach ($chunks as $chunk) {
+                \DB::table('employee_attendance_records')->upsert(
+                    $chunk,
+                    ['pin', 'attendance_time', 'state'], // Unique keys
+                    ['employee_name', 'verification', 'device', 'office_location_id', 'attendance_status', 'updated_at'] // Update columns
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error("ADMS Batch upsert attendance records failed", [
+                'SN' => $sn,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         Log::info("ADMS ATTLOG processed", [
