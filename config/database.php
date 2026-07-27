@@ -145,7 +145,7 @@ return [
 
     'redis' => [
 
-        'client' => env('REDIS_CLIENT', 'predis'), // Ubah default fallback ke predis
+        'client' => 'predis', // Di-hardcode agar mengabaikan .env
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
