@@ -657,7 +657,7 @@ class AdmsController extends Controller
                 
                 $attendanceRecordsToInsert[] = [
                     'pin' => $pin,
-                    'attendance_time' => $attendanceTime,
+                    'attendance_time' => $attendanceTime->toDateTimeString(),
                     'state' => $state,
                     'verification' => $verify,
                     'device' => $machine ? $machine->name : $sn,
