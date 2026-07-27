@@ -177,8 +177,8 @@ class AttendanceMachineResource extends Resource
                     ->query(fn(Builder $query): Builder => $query->whereNotNull('time_drift_seconds')->whereRaw('ABS(time_drift_seconds) > 20'))
                     ->label('Jam Tidak Sinkron'),
             ])
-            ])
             ->actions([
+                Tables\Actions\Action::make('view_communications')
                     ->label('Log Komunikasi')
                     ->icon('heroicon-o-signal')
                     ->color('gray')
