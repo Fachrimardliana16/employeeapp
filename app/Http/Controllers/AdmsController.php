@@ -25,32 +25,13 @@ class AdmsController extends Controller
     private const COMMAND_TIMEOUT_MINUTES = 2;
 
     /**
-     * In-memory throttle cache to avoid database I/O on every request.
-     * Critical for shared hosting performance under high-frequency polling.
-     */
-    private static $throttleCache = [];
-
-    /**
-     * Fast in-memory throttle check without database overhead.
+     * Fast throttle check using Redis to avoid database overhead.
+     * Uses atomic Cache::add to prevent race conditions.
      */
     private function shouldThrottle(string $key, int $seconds): bool
     {
-        $now = time();
-        
-        // Cleanup old entries every 100 requests to prevent memory leak
-        if (count(self::$throttleCache) > 1000) {
-            self::$throttleCache = array_filter(
-                self::$throttleCache,
-                fn($expires) => $expires > $now
-            );
-        }
-        
-        if (isset(self::$throttleCache[$key]) && self::$throttleCache[$key] > $now) {
-            return false; // Still throttled
-        }
-        
-        self::$throttleCache[$key] = $now + $seconds;
-        return true; // Allow operation
+        // Cache::add returns true if the key was added (not throttled), false if it already exists (throttled)
+        return \Illuminate\Support\Facades\Cache::add('adms_throttle_' . $key, true, $seconds);
     }
 
     /**
@@ -393,10 +374,8 @@ class AdmsController extends Controller
                 }
             }
 
-            // CRITICAL FIX: ALWAYS send handshake until machine adopts Delay=30
-            // Once machine polls at 30s, this won't trigger often (only 2 req/min)
-            // Throttle prevents spam: send max 1 handshake per 10s per machine
-            if (!$this->shouldThrottle("force-handshake-sent:{$sn}", 10)) {
+            // Send handshake periodically to enforce Delay=30 and sync time settings.
+            if ($this->shouldThrottle("force-handshake-sent:{$sn}", 60)) {
                 $response = $this->getHandshakeOptions($sn, $machine);
                 Log::info("ADMS Force Handshake Sent (Delay=30)", ['SN' => $sn]);
                 // Skip communication logging for handshake - reduces DB load
