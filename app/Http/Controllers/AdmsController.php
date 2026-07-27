@@ -7,10 +7,23 @@ use App\Models\AttendanceMachineLog;
 use App\Models\AttendanceMachineCommand;
 use App\Models\AttendanceMachineCommunication;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class AdmsController extends Controller
 {
+    private const HEARTBEAT_MACHINE_UPDATE_INTERVAL_SECONDS = 20;
+
+    private const HEARTBEAT_LOG_SAMPLE_INTERVAL_SECONDS = 60;
+
+    private const HEARTBEAT_COMMAND_POLL_INTERVAL_SECONDS = 2;
+
+    private const HEARTBEAT_TIMEOUT_SWEEP_INTERVAL_SECONDS = 30;
+
+    private const INFO_QUERY_INTERVAL_MINUTES = 10;
+
+    private const COMMAND_TIMEOUT_MINUTES = 2;
+
     /**
      * Log communication for troubleshooting and monitoring.
      * CRITICAL: This helps track communication issues and machine behavior.
@@ -108,6 +121,86 @@ class AdmsController extends Controller
     }
 
     /**
+     * Avoid writing machine heartbeat metadata on every poll.
+     */
+    private function shouldUpdateMachineHeartbeat(string $sn): bool
+    {
+        return Cache::add(
+            "adms:heartbeat:update:{$sn}",
+            1,
+            now()->addSeconds(self::HEARTBEAT_MACHINE_UPDATE_INTERVAL_SECONDS)
+        );
+    }
+
+    /**
+     * Sample getrequest communication logs to keep observability without overwhelming DB.
+     */
+    private function shouldLogHeartbeat(string $sn): bool
+    {
+        return Cache::add(
+            "adms:heartbeat:log:{$sn}",
+            1,
+            now()->addSeconds(self::HEARTBEAT_LOG_SAMPLE_INTERVAL_SECONDS)
+        );
+    }
+
+    /**
+     * Throttle expensive pending-command lookup during high-frequency polling.
+     */
+    private function shouldPollPendingCommand(string $sn): bool
+    {
+        return Cache::add(
+            "adms:heartbeat:poll-command:{$sn}",
+            1,
+            now()->addSeconds(self::HEARTBEAT_COMMAND_POLL_INTERVAL_SECONDS)
+        );
+    }
+
+    /**
+     * Sweep stale sent-commands periodically per machine, not on every heartbeat.
+     */
+    private function shouldSweepSentTimeout(int $machineId): bool
+    {
+        return Cache::add(
+            "adms:heartbeat:sweep-timeout:{$machineId}",
+            1,
+            now()->addSeconds(self::HEARTBEAT_TIMEOUT_SWEEP_INTERVAL_SECONDS)
+        );
+    }
+
+    private function upsertMachineFromHeartbeat(string $sn, string $ip): ?AttendanceMachine
+    {
+        $machine = AttendanceMachine::where('serial_number', $sn)->first();
+
+        if (!$machine) {
+            $locationId = \App\Models\MasterOfficeLocation::first()?->id;
+            if (!$locationId) {
+                return null;
+            }
+
+            return AttendanceMachine::create([
+                'serial_number' => $sn,
+                'name' => 'Auto Registered: '.$sn,
+                'master_office_location_id' => $locationId,
+                'status' => 'online',
+                'ip_address' => $ip,
+                'last_heard_at' => now(),
+                'auto_sync_time' => false,
+            ]);
+        }
+
+        if ($this->shouldUpdateMachineHeartbeat($sn)) {
+            $machine->update([
+                'last_heard_at' => now(),
+                'ip_address' => $ip,
+                'status' => 'online',
+            ]);
+        }
+
+        return $machine;
+    }
+
+    /**
      * Handle the handshake and data upload from machines.
      * URL: /iclock/cdata
      */
@@ -117,12 +210,14 @@ class AdmsController extends Controller
         $response = '';
         $error = null;
 
-        Log::debug("ADMS cdata Request", [
-            'SN' => $sn,
-            'IP' => $request->ip(),
-            'Method' => $request->method(),
-            'Query' => $request->query(),
-        ]);
+        if (config('app.debug')) {
+            Log::debug("ADMS cdata Request", [
+                'SN' => $sn,
+                'IP' => $request->ip(),
+                'Method' => $request->method(),
+                'Query' => $request->query(),
+            ]);
+        }
 
         if (!$sn) {
             $error = "SN NOT FOUND in request";
@@ -133,30 +228,7 @@ class AdmsController extends Controller
         // DB operations wrapped in try-catch — if DB is temporarily unreachable,
         // we still send the handshake so machine stays connected
         try {
-            $machine = AttendanceMachine::where('serial_number', $sn)->first();
-
-            if (!$machine) {
-                $locationId = \App\Models\MasterOfficeLocation::first()?->id;
-
-                if ($locationId) {
-                    $machine = AttendanceMachine::create([
-                        'serial_number' => $sn,
-                        'name' => 'Auto Registered: ' . $sn,
-                        'master_office_location_id' => $locationId,
-                        'status' => 'online',
-                        'ip_address' => $request->ip(),
-                        'last_heard_at' => now(),
-                        'auto_sync_time' => false, // Default: DON'T sync time automatically
-                    ]);
-                    Log::info("Auto-registered new attendance machine: " . $sn);
-                }
-            } else {
-                $machine->update([
-                    'last_heard_at' => now(),
-                    'ip_address' => $request->ip(),
-                    'status' => 'online',
-                ]);
-            }
+            $machine = $this->upsertMachineFromHeartbeat($sn, $request->ip());
 
             // If it's a POST, it's data upload
             if ($request->isMethod('post')) {
@@ -211,82 +283,69 @@ class AdmsController extends Controller
         $response = '';
         $error = null;
 
-        Log::debug("ADMS getrequest Heartbeat", [
-            'SN' => $sn,
-            'IP' => $request->ip(),
-            'Query' => $request->query(),
-        ]);
+        if (config('app.debug') && $this->shouldLogHeartbeat($sn ?? 'UNKNOWN')) {
+            Log::debug("ADMS getrequest Heartbeat", [
+                'SN' => $sn,
+                'IP' => $request->ip(),
+                'Query' => $request->query(),
+            ]);
+        }
 
         if (!$sn) {
-            $this->logCommunication($sn ?? 'UNKNOWN', 'getrequest', $request, "OK", 200, "No SN provided");
+            if ($this->shouldLogHeartbeat('UNKNOWN')) {
+                $this->logCommunication($sn ?? 'UNKNOWN', 'getrequest', $request, "OK", 200, "No SN provided");
+            }
             return response("OK");
         }
 
         try {
-            $machine = AttendanceMachine::where('serial_number', $sn)->first();
-            if (!$machine) {
-                $locationId = \App\Models\MasterOfficeLocation::first()?->id;
-                if ($locationId) {
-                    $machine = AttendanceMachine::create([
-                        'serial_number' => $sn,
-                        'name' => 'Auto Registered: ' . $sn,
-                        'master_office_location_id' => $locationId,
-                        'status' => 'online',
-                        'ip_address' => $request->ip(),
-                        'last_heard_at' => now(),
-                        'auto_sync_time' => false,
-                    ]);
-                }
-            } else {
-                $machine->update([
-                    'last_heard_at' => now(),
-                    'ip_address' => $request->ip(),
-                    'status' => 'online',
-                ]);
-            }
+            $machine = $this->upsertMachineFromHeartbeat($sn, $request->ip());
 
             // Check for pending commands and timeout stale ones
             if ($machine) {
-                // --- Timeout Detection: mark 'sent' commands older than 2 min as 'failed' ---
-                AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                    ->where('status', 'sent')
-                    ->where('sent_at', '<', now()->subMinutes(2))
-                    ->update([
-                        'status' => 'failed',
-                        'completed_at' => now(),
-                        'response_payload' => 'TIMEOUT: Mesin tidak merespons dalam 2 menit. Kemungkinan mesin tidak mendukung perintah ini.',
-                    ]);
-
-                $pendingCommand = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                    ->where('status', 'pending')
-                    ->orderBy('created_at', 'asc')
-                    ->first();
-
-                if ($pendingCommand) {
-                    $pendingCommand->update([
-                        'status' => 'sent',
-                        'sent_at' => now(),
-                    ]);
-
-                    // Return command in ZKTeco format: C:ID:COMMAND
-                    $response = "C:{$pendingCommand->id}:{$pendingCommand->command}";
-
-                    Log::info("ADMS Command Sent", [
-                        'SN' => $sn,
-                        'command_id' => $pendingCommand->id,
-                        'command' => $pendingCommand->command,
-                    ]);
-
-                    $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
-                    return response($response);
+                if ($this->shouldSweepSentTimeout($machine->id)) {
+                    // Timeout detection with throttled execution.
+                    AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
+                        ->where('status', 'sent')
+                        ->where('sent_at', '<', now()->subMinutes(self::COMMAND_TIMEOUT_MINUTES))
+                        ->update([
+                            'status' => 'failed',
+                            'completed_at' => now(),
+                            'response_payload' => 'TIMEOUT: Mesin tidak merespons dalam 2 menit. Kemungkinan mesin tidak mendukung perintah ini.',
+                        ]);
                 }
 
-                // --- Realtime Time Sync Check (Auto-polling every 1 minute) ---
+                if ($this->shouldPollPendingCommand($sn)) {
+                    $pendingCommand = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
+                        ->where('status', 'pending')
+                        ->orderBy('created_at', 'asc')
+                        ->first();
+
+                    if ($pendingCommand) {
+                        $pendingCommand->update([
+                            'status' => 'sent',
+                            'sent_at' => now(),
+                        ]);
+
+                        // Return command in ZKTeco format: C:ID:COMMAND
+                        $response = "C:{$pendingCommand->id}:{$pendingCommand->command}";
+
+                        Log::info("ADMS Command Sent", [
+                            'SN' => $sn,
+                            'command_id' => $pendingCommand->id,
+                            'command' => $pendingCommand->command,
+                        ]);
+
+                        $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
+                        return response($response);
+                    }
+                }
+
+                // Ask machine time less frequently to avoid command churn on busy polling.
                 $shouldAskTime = !$machine->time_checked_at ||
-                    $machine->time_checked_at->diffInMinutes(now()) >= 1;
+                    $machine->time_checked_at->diffInMinutes(now()) >= self::INFO_QUERY_INTERVAL_MINUTES;
 
                 if ($shouldAskTime) {
-                    // 1. Actively ask the machine for its current time
                     $alreadyAsked = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
                         ->where('command', 'DATA QUERY INFO')
                         ->where('status', 'pending')
@@ -295,39 +354,19 @@ class AdmsController extends Controller
                     if (!$alreadyAsked) {
                         AttendanceMachineCommand::create([
                             'attendance_machine_id' => $machine->id,
-                            'command' => "DATA QUERY INFO",
+                            'command' => 'DATA QUERY INFO',
                             'status' => 'pending',
                         ]);
                     }
 
-                    // 2. Passive Fallback: Check recent logs in case machine doesn't reply to INFO
-                    $latestLog = AttendanceMachineLog::where('attendance_machine_id', $machine->id)
-                        ->whereNotNull('timestamp')
-                        ->where('created_at', '>=', now()->subDay())
-                        ->orderByDesc('created_at')
-                        ->first();
-
-                    if ($latestLog && $latestLog->timestamp && $latestLog->created_at) {
-                        $machineTime = \Carbon\Carbon::parse($latestLog->timestamp);
-                        $serverTime = $latestLog->created_at;
-
-                        // Calculate drift: machine - server
-                        $driftSeconds = $serverTime->diffInSeconds($machineTime, false);
-
-                        $machine->update([
-                            'machine_datetime' => $machineTime,
-                            'time_checked_at' => now(), // Mark as checked
-                            'time_drift_seconds' => $driftSeconds,
-                        ]);
-                    } else {
-                        // Mark as checked to prevent loop
-                        $machine->update(['time_checked_at' => now()]);
-                    }
+                    $machine->update(['time_checked_at' => now()]);
                 }
             }
 
             $response = "OK";
-            $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
+            if ($this->shouldLogHeartbeat($sn)) {
+                $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
+            }
             return response($response);
         } catch (\Exception $e) {
             $error = "DB Error: " . $e->getMessage();
@@ -355,12 +394,14 @@ class AdmsController extends Controller
         $response = "OK";
         $error = null;
 
-        Log::debug("ADMS devicecmd Feedback", [
-            'SN' => $sn,
-            'ID' => $id,
-            'Return' => substr($content, 0, 500), // Log first 500 chars
-            'IP' => $request->ip(),
-        ]);
+        if (config('app.debug')) {
+            Log::debug("ADMS devicecmd Feedback", [
+                'SN' => $sn,
+                'ID' => $id,
+                'Return' => substr($content, 0, 500), // Log first 500 chars
+                'IP' => $request->ip(),
+            ]);
+        }
 
         try {
             $machine = AttendanceMachine::where('serial_number', $sn)->first();

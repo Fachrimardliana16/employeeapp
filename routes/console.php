@@ -18,6 +18,7 @@ Schedule::command('attendance:auto-sync')
     ->between('07:00', '17:00')
     ->weekdays()
     ->timezone('Asia/Jakarta')
+    ->withoutOverlapping(20)
     ->runInBackground()
     ->description('Auto-sync attendance logs from all online machines');
 
@@ -27,6 +28,7 @@ Schedule::command('attendance:auto-process')
     ->between('08:00', '18:00')
     ->weekdays()
     ->timezone('Asia/Jakarta')
+    ->withoutOverlapping(50)
     ->runInBackground()
     ->description('Auto-process today\'s attendance logs to records');
 
@@ -34,6 +36,7 @@ Schedule::command('attendance:auto-process')
 Schedule::command('attendance:auto-fix-time --threshold=60')
     ->dailyAt('00:30')
     ->timezone('Asia/Jakarta')
+    ->withoutOverlapping(30)
     ->runInBackground()
     ->description('Auto-fix machines with time drift > 60 seconds');
 
@@ -59,6 +62,7 @@ Schedule::call(function () {
     ->between('07:00', '17:00')
     ->weekdays()
     ->timezone('Asia/Jakarta')
+    ->withoutOverlapping(30)
     ->name('check-machine-time-sync')
     ->description('Check time sync status on all online machines');
 
@@ -71,6 +75,7 @@ Schedule::call(function () {
     \Illuminate\Support\Facades\Log::info("Scheduled cleanup: Deleted {$count} old attendance logs.");
 })->monthlyOn(1, '02:00')
     ->timezone('Asia/Jakarta')
+    ->withoutOverlapping(120)
     ->name('cleanup-old-logs')
     ->description('Cleanup attendance logs older than 1 year');
 
@@ -80,5 +85,6 @@ Schedule::call(function () {
         ->where('status', 'online')
         ->update(['status' => 'offline']);
 })->everyFiveMinutes()
+    ->withoutOverlapping(10)
     ->name('mark-offline-machines')
     ->description('Mark machines as offline if not heard from in 5 minutes');
