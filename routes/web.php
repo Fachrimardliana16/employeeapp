@@ -526,3 +526,24 @@ Route::get('/payroll-run/{run}/laporan', [PayrollRunLaporanController::class, 'i
 Route::any('/iclock/cdata', [AdmsController::class, 'cdata']);
 Route::get('/iclock/getrequest', [AdmsController::class, 'getrequest']);
 Route::any('/iclock/devicecmd', [AdmsController::class, 'devicecmd']);
+
+// ─── Utility Routes (Sementara untuk Testing Redis) ─────────────────────
+
+Route::get('/cek-redis', function () {
+    try {
+        \Illuminate\Support\Facades\Redis::ping();
+        
+        \Illuminate\Support\Facades\Cache::put('test_key', 'Redis Berhasil Menyimpan Data!', 10);
+        $data = \Illuminate\Support\Facades\Cache::get('test_key');
+
+        return "<h1>Status: BERHASIL TERKONEKSI! 🎉</h1> <p>Pesan dari Cache: " . $data . "</p>";
+    } catch (\Exception $e) {
+        return "<h1>Status: GAGAL ❌</h1> <p>Pesan Error: " . $e->getMessage() . "</p>";
+    }
+});
+
+Route::get('/clear-cache', function() {
+    \Illuminate\Support\Facades\Artisan::call('config:clear');
+    \Illuminate\Support\Facades\Artisan::call('cache:clear');
+    return "<h1>Cache and Config cleared successfully!</h1>";
+});
