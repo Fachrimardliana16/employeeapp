@@ -180,7 +180,7 @@ class AdmsController extends Controller
 
             return AttendanceMachine::create([
                 'serial_number' => $sn,
-                'name' => 'Auto Registered: '.$sn,
+                'name' => 'Auto Registered: ' . $sn,
                 'master_office_location_id' => $locationId,
                 'status' => 'online',
                 'ip_address' => $ip,
