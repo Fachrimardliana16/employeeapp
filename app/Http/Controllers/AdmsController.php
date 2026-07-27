@@ -25,6 +25,35 @@ class AdmsController extends Controller
     private const COMMAND_TIMEOUT_MINUTES = 2;
 
     /**
+     * In-memory throttle cache to avoid database I/O on every request.
+     * Critical for shared hosting performance under high-frequency polling.
+     */
+    private static $throttleCache = [];
+
+    /**
+     * Fast in-memory throttle check without database overhead.
+     */
+    private function shouldThrottle(string $key, int $seconds): bool
+    {
+        $now = time();
+        
+        // Cleanup old entries every 100 requests to prevent memory leak
+        if (count(self::$throttleCache) > 1000) {
+            self::$throttleCache = array_filter(
+                self::$throttleCache,
+                fn($expires) => $expires > $now
+            );
+        }
+        
+        if (isset(self::$throttleCache[$key]) && self::$throttleCache[$key] > $now) {
+            return false; // Still throttled
+        }
+        
+        self::$throttleCache[$key] = $now + $seconds;
+        return true; // Allow operation
+    }
+
+    /**
      * Log communication for troubleshooting and monitoring.
      * CRITICAL: This helps track communication issues and machine behavior.
      */
@@ -84,7 +113,7 @@ class AdmsController extends Controller
             "Stamp=9999",
             "OpStamp=9999",
             "ErrorDelay=60",
-            "Delay=10",
+            "Delay=30",
             "TransTimes=00:00;14:05",
             "TransInterval=1",
             "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
@@ -125,10 +154,9 @@ class AdmsController extends Controller
      */
     private function shouldUpdateMachineHeartbeat(string $sn): bool
     {
-        return Cache::add(
-            "adms:heartbeat:update:{$sn}",
-            1,
-            now()->addSeconds(self::HEARTBEAT_MACHINE_UPDATE_INTERVAL_SECONDS)
+        return $this->shouldThrottle(
+            "heartbeat:update:{$sn}",
+            self::HEARTBEAT_MACHINE_UPDATE_INTERVAL_SECONDS
         );
     }
 
@@ -137,10 +165,9 @@ class AdmsController extends Controller
      */
     private function shouldLogHeartbeat(string $sn): bool
     {
-        return Cache::add(
-            "adms:heartbeat:log:{$sn}",
-            1,
-            now()->addSeconds(self::HEARTBEAT_LOG_SAMPLE_INTERVAL_SECONDS)
+        return $this->shouldThrottle(
+            "heartbeat:log:{$sn}",
+            self::HEARTBEAT_LOG_SAMPLE_INTERVAL_SECONDS
         );
     }
 
@@ -149,10 +176,9 @@ class AdmsController extends Controller
      */
     private function shouldPollPendingCommand(string $sn): bool
     {
-        return Cache::add(
-            "adms:heartbeat:poll-command:{$sn}",
-            1,
-            now()->addSeconds(self::HEARTBEAT_COMMAND_POLL_INTERVAL_SECONDS)
+        return $this->shouldThrottle(
+            "heartbeat:poll-command:{$sn}",
+            self::HEARTBEAT_COMMAND_POLL_INTERVAL_SECONDS
         );
     }
 
@@ -161,10 +187,9 @@ class AdmsController extends Controller
      */
     private function shouldSweepSentTimeout(int $machineId): bool
     {
-        return Cache::add(
-            "adms:heartbeat:sweep-timeout:{$machineId}",
-            1,
-            now()->addSeconds(self::HEARTBEAT_TIMEOUT_SWEEP_INTERVAL_SECONDS)
+        return $this->shouldThrottle(
+            "heartbeat:sweep-timeout:{$machineId}",
+            self::HEARTBEAT_TIMEOUT_SWEEP_INTERVAL_SECONDS
         );
     }
 
@@ -206,6 +231,9 @@ class AdmsController extends Controller
      */
     public function cdata(Request $request)
     {
+        // Prevent stuck processes
+        set_time_limit(30);
+        
         $sn = $request->query('SN');
         $response = '';
         $error = null;
@@ -279,6 +307,9 @@ class AdmsController extends Controller
      */
     public function getrequest(Request $request)
     {
+        // Prevent stuck processes
+        set_time_limit(15);
+        
         $sn = $request->query('SN');
         $response = '';
         $error = null;
