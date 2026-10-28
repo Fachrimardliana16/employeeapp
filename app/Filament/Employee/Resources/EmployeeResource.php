@@ -1078,26 +1078,45 @@ class EmployeeResource extends Resource
 
                                 $dataRows = array_slice($tempRows, $headerIndex + 1);
                                 $instructionTemplateByHeader = static::buildEmployeeImportInstructionMap($headers);
+                                $headerCount = count($headers);
 
                                 // Pre-load necessary masters for performance
-                                $masterLookups = [
-                                    'units' => \App\Models\MasterDepartment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                    'sub_depts' => \App\Models\MasterSubDepartment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                    'positions' => \App\Models\MasterEmployeePosition::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                    'status' => \App\Models\MasterEmployeeStatusEmployment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                    'education' => \App\Models\MasterEmployeeEducation::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                    'grades' => \App\Models\MasterEmployeeGrade::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                    'mkg' => \App\Models\MasterEmployeeServiceGrade::query()
-                                        ->get()
-                                        ->mapWithKeys(fn($m) => [(string) $m->service_grade => $m->id])
-                                        ->toArray(),
-                                    'agreements' => \App\Models\MasterEmployeeAgreement::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                ];
+                                $masterLookups = Cache::remember('employee_import_master_lookups', now()->addMinutes(15), function () {
+                                    return [
+                                        'units' => \App\Models\MasterDepartment::query()->pluck('id', 'name')
+                                            ->mapWithKeys(fn($id, $name) => [strtolower(trim((string) $name)) => (int) $id])
+                                            ->toArray(),
+                                        'sub_depts' => \App\Models\MasterSubDepartment::query()->pluck('id', 'name')
+                                            ->mapWithKeys(fn($id, $name) => [strtolower(trim((string) $name)) => (int) $id])
+                                            ->toArray(),
+                                        'positions' => \App\Models\MasterEmployeePosition::query()->pluck('id', 'name')
+                                            ->mapWithKeys(fn($id, $name) => [strtolower(trim((string) $name)) => (int) $id])
+                                            ->toArray(),
+                                        'status' => \App\Models\MasterEmployeeStatusEmployment::query()->pluck('id', 'name')
+                                            ->mapWithKeys(fn($id, $name) => [strtolower(trim((string) $name)) => (int) $id])
+                                            ->toArray(),
+                                        'education' => \App\Models\MasterEmployeeEducation::query()->pluck('id', 'name')
+                                            ->mapWithKeys(fn($id, $name) => [strtolower(trim((string) $name)) => (int) $id])
+                                            ->toArray(),
+                                        'grades' => \App\Models\MasterEmployeeGrade::query()->pluck('id', 'name')
+                                            ->mapWithKeys(fn($id, $name) => [strtolower(trim((string) $name)) => (int) $id])
+                                            ->toArray(),
+                                        'mkg' => \App\Models\MasterEmployeeServiceGrade::query()
+                                            ->pluck('id', 'service_grade')
+                                            ->mapWithKeys(fn($id, $serviceGrade) => [(string) $serviceGrade => (int) $id])
+                                            ->toArray(),
+                                        'agreements' => \App\Models\MasterEmployeeAgreement::query()->pluck('id', 'name')
+                                            ->mapWithKeys(fn($id, $name) => [strtolower(trim((string) $name)) => (int) $id])
+                                            ->toArray(),
+                                    ];
+                                });
 
-                                $mkgById = \App\Models\MasterEmployeeServiceGrade::query()
-                                    ->pluck('id')
-                                    ->flip()
-                                    ->toArray();
+                                $mkgById = Cache::remember('employee_import_mkg_by_id', now()->addMinutes(15), function () {
+                                    return \App\Models\MasterEmployeeServiceGrade::query()
+                                        ->pluck('id')
+                                        ->flip()
+                                        ->toArray();
+                                });
 
                                 $normalizeUniqueValue = function ($value, string $column): ?string {
                                     $normalizedValue = trim((string) $value);
@@ -1121,59 +1140,86 @@ class EmployeeResource extends Resource
                                     'id_number' => 'NIK (KTP)',
                                 ];
 
-                                $uniqueColumnsFromDatabase = ['pin', 'nippam', 'email', 'office_email', 'username'];
-                                $uniques = [];
+                                $uniques = [
+                                    'pin' => [],
+                                    'nippam' => [],
+                                    'email' => [],
+                                    'office_email' => [],
+                                    'username' => [],
+                                ];
+                                $activeEmployeeIdByNippam = [];
+                                $employeePinsById = [];
 
-                                foreach ($uniqueColumnsFromDatabase as $column) {
-                                    $uniques[$column] = \App\Models\Employee::withTrashed()
-                                        ->whereNotNull($column)
-                                        ->get(['id', 'name', $column, 'deleted_at'])
-                                        ->mapWithKeys(function ($employee) use ($column, $normalizeUniqueValue) {
-                                            $key = $normalizeUniqueValue($employee->{$column}, $column);
-                                            if ($key === null) {
-                                                return [];
-                                            }
+                                $employeeReferenceRows = \App\Models\Employee::withTrashed()
+                                    ->get(['id', 'name', 'pin', 'nippam', 'email', 'office_email', 'username', 'deleted_at']);
 
-                                            return [
-                                                $key => [
-                                                    'id' => $employee->id,
-                                                    'name' => $employee->name,
-                                                    'is_deleted' => $employee->deleted_at !== null,
-                                                ],
-                                            ];
-                                        })
-                                        ->toArray();
+                                foreach ($employeeReferenceRows as $employee) {
+                                    $isDeleted = $employee->deleted_at !== null;
+                                    $employeeId = (int) $employee->id;
+
+                                    $pinValue = $normalizeUniqueValue($employee->pin, 'pin');
+                                    $employeePinsById[$employeeId] = $pinValue;
+                                    if ($pinValue !== null) {
+                                        $uniques['pin'][$pinValue] = [
+                                            'id' => $employeeId,
+                                            'name' => $employee->name,
+                                            'is_deleted' => $isDeleted,
+                                        ];
+                                    }
+
+                                    $nippamValue = $normalizeUniqueValue($employee->nippam, 'nippam');
+                                    if ($nippamValue !== null) {
+                                        $uniques['nippam'][$nippamValue] = [
+                                            'id' => $employeeId,
+                                            'name' => $employee->name,
+                                            'is_deleted' => $isDeleted,
+                                        ];
+
+                                        if (!$isDeleted) {
+                                            $activeEmployeeIdByNippam[$nippamValue] = $employeeId;
+                                        }
+                                    }
+
+                                    $emailValue = $normalizeUniqueValue($employee->email, 'email');
+                                    if ($emailValue !== null) {
+                                        $uniques['email'][$emailValue] = [
+                                            'id' => $employeeId,
+                                            'name' => $employee->name,
+                                            'is_deleted' => $isDeleted,
+                                        ];
+                                    }
+
+                                    $officeEmailValue = $normalizeUniqueValue($employee->office_email, 'office_email');
+                                    if ($officeEmailValue !== null) {
+                                        $uniques['office_email'][$officeEmailValue] = [
+                                            'id' => $employeeId,
+                                            'name' => $employee->name,
+                                            'is_deleted' => $isDeleted,
+                                        ];
+                                    }
+
+                                    $usernameValue = $normalizeUniqueValue($employee->username, 'username');
+                                    if ($usernameValue !== null) {
+                                        $uniques['username'][$usernameValue] = [
+                                            'id' => $employeeId,
+                                            'name' => $employee->name,
+                                            'is_deleted' => $isDeleted,
+                                        ];
+                                    }
                                 }
 
-                                $activeEmployeeIdByNippam = \App\Models\Employee::query()
-                                    ->whereNotNull('nippam')
-                                    ->get(['id', 'nippam'])
-                                    ->mapWithKeys(function ($employee) use ($normalizeUniqueValue) {
-                                        $key = $normalizeUniqueValue($employee->nippam, 'nippam');
-                                        if ($key === null) {
-                                            return [];
-                                        }
-
-                                        return [$key => $employee->id];
-                                    })
-                                    ->toArray();
-
-                                $employeePinsById = \App\Models\Employee::withTrashed()
-                                    ->get(['id', 'pin'])
-                                    ->mapWithKeys(function ($employee) use ($normalizeUniqueValue) {
-                                        $key = $normalizeUniqueValue($employee->pin, 'pin');
-                                        return [$employee->id => $key];
-                                    })
-                                    ->toArray();
-
                                 $fileProvidedPins = [];
+                                $normalizedImportRows = [];
+
                                 foreach ($dataRows as $idx => $row) {
+                                    $actualRowInFile = $headerIndex + $idx + 2;
+
                                     if (empty($row)) {
                                         continue;
                                     }
 
-                                    $rowWithKnownHeaders = array_slice($row, 0, count($headers));
-                                    $rowData = array_combine($headers, array_pad($rowWithKnownHeaders, count($headers), ''));
+                                    $rowWithKnownHeaders = array_slice($row, 0, $headerCount);
+                                    $rowData = array_combine($headers, array_pad($rowWithKnownHeaders, $headerCount, ''));
                                     foreach ($rowData as $k => $v) {
                                         $rowData[$k] = trim((string) $v);
                                     }
@@ -1185,6 +1231,11 @@ class EmployeeResource extends Resource
                                     if (static::isEmployeeImportInstructionRow($rowData, $instructionTemplateByHeader)) {
                                         continue;
                                     }
+
+                                    $normalizedImportRows[] = [
+                                        'line_number' => $actualRowInFile,
+                                        'row' => $rowData,
+                                    ];
 
                                     $providedPin = $normalizeUniqueValue($rowData['pin'] ?? '', 'pin');
                                     if ($providedPin !== null) {
@@ -1248,26 +1299,9 @@ class EmployeeResource extends Resource
                                 ];
 
                                 // Phase 1: Validation
-                                foreach ($dataRows as $idx => $row) {
-                                    $actualRowInFile = $headerIndex + $idx + 2;
-                                    if (empty($row)) continue;
-
-                                    $rowWithKnownHeaders = array_slice($row, 0, count($headers));
-                                    $rowData = array_combine($headers, array_pad($rowWithKnownHeaders, count($headers), ''));
-
-                                    // Clean row data
-                                    foreach ($rowData as $k => $v) {
-                                        $rowData[$k] = trim((string) $v);
-                                    }
-
-                                    // Skip empty rows
-                                    if (!array_filter($rowData, fn($value) => $value !== '')) {
-                                        continue;
-                                    }
-
-                                    if (static::isEmployeeImportInstructionRow($rowData, $instructionTemplateByHeader)) {
-                                        continue;
-                                    }
+                                foreach ($normalizedImportRows as $importRow) {
+                                    $actualRowInFile = $importRow['line_number'];
+                                    $rowData = $importRow['row'];
 
                                     $rowErrors = [];
                                     if (empty($rowData['name'])) $rowErrors[] = "Nama wajib diisi";
@@ -2452,110 +2486,171 @@ class EmployeeResource extends Resource
         $stats = ['created' => 0, 'updated' => 0];
         $currentRowName = 'N/A';
         $currentRowIndex = 0;
+        $authId = auth()->id() ?? 1;
+        $now = now();
+
+        $targetUpdateIds = [];
+        foreach ($processedData as $data) {
+            $isNewRow = (bool) ($data['is_new'] ?? empty(($data['row']['id'] ?? null)));
+            if ($isNewRow) {
+                continue;
+            }
+
+            $targetEmployeeId = trim((string) ($data['row']['id'] ?? ''));
+            if ($targetEmployeeId === '' || !ctype_digit($targetEmployeeId)) {
+                continue;
+            }
+
+            $targetUpdateIds[] = (int) $targetEmployeeId;
+        }
+
+        $targetUpdateIds = array_values(array_unique($targetUpdateIds));
+        $existingEmployeeById = [];
+        if (!empty($targetUpdateIds)) {
+            $existingEmployeeById = \App\Models\Employee::query()
+                ->whereIn('id', $targetUpdateIds)
+                ->get()
+                ->keyBy('id')
+                ->all();
+        }
 
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($processedData, &$stats, &$currentRowName, &$currentRowIndex) {
-                foreach ($processedData as $data) {
-                    $rowData = $data['row'];
-                    $ids = $data['ids'];
-                    $actualRowInFile = $data['line_number'];
-                    $effectivePin = $data['effective_pin'] ?? null;
+            \Spatie\Activitylog\Facades\Activity::withoutLogs(function () use (
+                $processedData,
+                &$stats,
+                &$currentRowName,
+                &$currentRowIndex,
+                $authId,
+                $now,
+                $existingEmployeeById
+            ) {
+                \Illuminate\Support\Facades\DB::transaction(function () use (
+                    $processedData,
+                    &$stats,
+                    &$currentRowName,
+                    &$currentRowIndex,
+                    $authId,
+                    $now,
+                    $existingEmployeeById
+                ) {
+                    foreach ($processedData as $data) {
+                        $rowData = $data['row'];
+                        $ids = $data['ids'];
+                        $actualRowInFile = $data['line_number'];
+                        $effectivePin = $data['effective_pin'] ?? null;
 
-                    $currentRowName = $rowData['name'] ?? ($rowData['nippam'] ?? 'N/A');
-                    $currentRowIndex = $actualRowInFile;
+                        $currentRowName = $rowData['name'] ?? ($rowData['nippam'] ?? 'N/A');
+                        $currentRowIndex = $actualRowInFile;
 
-                    $isNew = (bool) ($data['is_new'] ?? empty($rowData['id']));
-                    if ($isNew) $stats['created']++;
-                    else $stats['updated']++;
+                        $isNew = (bool) ($data['is_new'] ?? empty($rowData['id']));
+                        if ($isNew) {
+                            $stats['created']++;
+                        } else {
+                            $stats['updated']++;
+                        }
 
-                    $clean = fn($val) => ($val === '' || $val === null) ? null : trim((string) $val);
+                        $clean = fn($val) => ($val === '' || $val === null) ? null : trim((string) $val);
 
-                    $gender = strtolower(trim($rowData['gender'] ?? ''));
-                    $gender = in_array($gender, ['male', 'female']) ? $gender : 'male';
+                        $gender = strtolower(trim($rowData['gender'] ?? ''));
+                        $gender = in_array($gender, ['male', 'female']) ? $gender : 'male';
 
-                    $marital = strtolower(trim($rowData['marital_status'] ?? ''));
-                    $marital = in_array($marital, ['single', 'married', 'divorced', 'widowed']) ? $marital : 'single';
+                        $marital = strtolower(trim($rowData['marital_status'] ?? ''));
+                        $marital = in_array($marital, ['single', 'married', 'divorced', 'widowed']) ? $marital : 'single';
 
-                    $employeeData = [
-                        'name' => $rowData['name'],
-                        'pin' => $clean($effectivePin),
-                        'gender' => $gender,
-                        'religion' => $clean($rowData['religion'] ?? null),
-                        'place_birth' => $clean($rowData['place_birth'] ?? null),
-                        'date_birth' => static::normalizeEmployeeImportDate($rowData['date_birth'] ?? ''),
-                        'marital_status' => $marital,
-                        'blood_type' => $clean($rowData['blood_type'] ?? null),
-                        'email' => $clean($rowData['email'] ?? null),
-                        'office_email' => $clean($rowData['office_email'] ?? null),
-                        'phone_number' => $clean($rowData['phone_number'] ?? null),
-                        'id_number' => $clean($rowData['id_number'] ?? null),
-                        'familycard_number' => $clean($rowData['familycard_number'] ?? null),
-                        'npwp_number' => $clean($rowData['npwp_number'] ?? null),
-                        'bank_account_number' => $clean($rowData['bank_account_number'] ?? null),
-                        'bpjs_tk_number' => $clean($rowData['bpjs_tk_number'] ?? null),
-                        'bpjs_tk_status' => $clean($rowData['bpjs_tk_status'] ?? 'Aktif'),
-                        'bpjs_kes_number' => $clean($rowData['bpjs_kes_number'] ?? null),
-                        'bpjs_kes_status' => $clean($rowData['bpjs_kes_status'] ?? 'Aktif'),
-                        'bpjs_kes_class' => $clean($rowData['bpjs_kes_class'] ?? null),
-                        'rek_dplk_pribadi' => $clean($rowData['rek_dplk_pribadi'] ?? null),
-                        'rek_dplk_bersama' => $clean($rowData['rek_dplk_bersama'] ?? null),
-                        'dapenma_number' => $clean($rowData['dapenma_number'] ?? null),
-                        'dapenma_phdp' => (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '') ? $rowData['dapenma_phdp'] : null,
-                        'dapenma_status' => $clean($rowData['dapenma_status'] ?? 'Aktif'),
-                        'address' => $clean($rowData['address'] ?? null),
-                        'departments_id' => $ids['dept_id'],
-                        'bagian_id' => $ids['bagian_id'],
-                        'cabang_id' => $ids['cabang_id'],
-                        'unit_id' => $ids['unit_id'],
-                        'sub_department_id' => $ids['sub_dept_id'],
-                        'employee_position_id' => $ids['pos_id'],
-                        'employment_status_id' => $ids['status_id'],
-                        'employee_education_id' => $ids['edu_id'],
-                        'basic_salary_id' => $ids['grade_id'],
-                        'employee_service_grade_id' => $ids['mkg_id'],
-                        'master_employee_agreement_id' => $ids['agreement_id'],
-                        'entry_date' => static::normalizeEmployeeImportDate($rowData['entry_date'] ?? ''),
-                        'probation_appointment_date' => static::normalizeEmployeeImportDate($rowData['probation_appointment_date'] ?? ''),
-                        'leave_balance' => $rowData['leave_balance'] ?? 12,
-                        'agreement_date_start' => static::normalizeEmployeeImportDate($rowData['agreement_date_start'] ?? ''),
-                        'agreement_date_end' => static::normalizeEmployeeImportDate($rowData['agreement_date_end'] ?? ''),
-                        'grade_date_start' => static::normalizeEmployeeImportDate($rowData['grade_date_start'] ?? ''),
-                        'grade_date_end' => static::normalizeEmployeeImportDate($rowData['grade_date_end'] ?? ''),
-                        'periodic_salary_date_start' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_start'] ?? ''),
-                        'periodic_salary_date_end' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_end'] ?? ''),
-                        'users_id' => auth()->id() ?? 1,
-                    ];
+                        $employeeData = [
+                            'name' => $rowData['name'],
+                            'pin' => $clean($effectivePin),
+                            'gender' => $gender,
+                            'religion' => $clean($rowData['religion'] ?? null),
+                            'place_birth' => $clean($rowData['place_birth'] ?? null),
+                            'date_birth' => static::normalizeEmployeeImportDate($rowData['date_birth'] ?? ''),
+                            'marital_status' => $marital,
+                            'blood_type' => $clean($rowData['blood_type'] ?? null),
+                            'email' => $clean($rowData['email'] ?? null),
+                            'office_email' => $clean($rowData['office_email'] ?? null),
+                            'phone_number' => $clean($rowData['phone_number'] ?? null),
+                            'id_number' => $clean($rowData['id_number'] ?? null),
+                            'familycard_number' => $clean($rowData['familycard_number'] ?? null),
+                            'npwp_number' => $clean($rowData['npwp_number'] ?? null),
+                            'bank_account_number' => $clean($rowData['bank_account_number'] ?? null),
+                            'bpjs_tk_number' => $clean($rowData['bpjs_tk_number'] ?? null),
+                            'bpjs_tk_status' => $clean($rowData['bpjs_tk_status'] ?? 'Aktif'),
+                            'bpjs_kes_number' => $clean($rowData['bpjs_kes_number'] ?? null),
+                            'bpjs_kes_status' => $clean($rowData['bpjs_kes_status'] ?? 'Aktif'),
+                            'bpjs_kes_class' => $clean($rowData['bpjs_kes_class'] ?? null),
+                            'rek_dplk_pribadi' => $clean($rowData['rek_dplk_pribadi'] ?? null),
+                            'rek_dplk_bersama' => $clean($rowData['rek_dplk_bersama'] ?? null),
+                            'dapenma_number' => $clean($rowData['dapenma_number'] ?? null),
+                            'dapenma_phdp' => (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '') ? $rowData['dapenma_phdp'] : null,
+                            'dapenma_status' => $clean($rowData['dapenma_status'] ?? 'Aktif'),
+                            'address' => $clean($rowData['address'] ?? null),
+                            'departments_id' => $ids['dept_id'],
+                            'bagian_id' => $ids['bagian_id'],
+                            'cabang_id' => $ids['cabang_id'],
+                            'unit_id' => $ids['unit_id'],
+                            'sub_department_id' => $ids['sub_dept_id'],
+                            'employee_position_id' => $ids['pos_id'],
+                            'employment_status_id' => $ids['status_id'],
+                            'employee_education_id' => $ids['edu_id'],
+                            'basic_salary_id' => $ids['grade_id'],
+                            'employee_service_grade_id' => $ids['mkg_id'],
+                            'master_employee_agreement_id' => $ids['agreement_id'],
+                            'entry_date' => static::normalizeEmployeeImportDate($rowData['entry_date'] ?? ''),
+                            'probation_appointment_date' => static::normalizeEmployeeImportDate($rowData['probation_appointment_date'] ?? ''),
+                            'leave_balance' => $rowData['leave_balance'] ?? 12,
+                            'agreement_date_start' => static::normalizeEmployeeImportDate($rowData['agreement_date_start'] ?? ''),
+                            'agreement_date_end' => static::normalizeEmployeeImportDate($rowData['agreement_date_end'] ?? ''),
+                            'grade_date_start' => static::normalizeEmployeeImportDate($rowData['grade_date_start'] ?? ''),
+                            'grade_date_end' => static::normalizeEmployeeImportDate($rowData['grade_date_end'] ?? ''),
+                            'periodic_salary_date_start' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_start'] ?? ''),
+                            'periodic_salary_date_end' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_end'] ?? ''),
+                            'users_id' => $authId,
+                        ];
 
-                    if (!empty($rowData['nippam'])) {
-                        $employeeData['nippam'] = $rowData['nippam'];
+                        if (!empty($rowData['nippam'])) {
+                            $employeeData['nippam'] = $rowData['nippam'];
+                        }
+
+                        $employee = null;
+                        $targetEmployeeId = trim((string) ($rowData['id'] ?? ''));
+                        if (
+                            !$isNew &&
+                            $targetEmployeeId !== '' &&
+                            ctype_digit($targetEmployeeId) &&
+                            isset($existingEmployeeById[(int) $targetEmployeeId])
+                        ) {
+                            $employee = $existingEmployeeById[(int) $targetEmployeeId];
+                            $employee->fill($employeeData);
+                            $employee->save();
+                        } else {
+                            $employee = \App\Models\Employee::create($employeeData);
+                        }
+
+                        if ($isNew) {
+                            $user = \App\Models\User::create([
+                                'name' => $employee->name,
+                                'email' => $employee->email ?: "pegawai_{$employee->id}@pdam.com",
+                                'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
+                                'is_verified' => true,
+                            ]);
+
+                            \App\Models\Employee::query()
+                                ->whereKey($employee->id)
+                                ->update(['users_id' => $user->id]);
+
+                            \App\Models\EmployeeAppointment::create([
+                                'employee_id' => $employee->id,
+                                'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),
+                                'appointment_date' => $employee->entry_date ?: $now,
+                                'new_employment_status_id' => $employee->employment_status_id ?: 1,
+                                'employee_grade_id' => $employee->basic_salary_id,
+                                'is_applied' => true,
+                                'applied_at' => $now,
+                                'users_id' => $authId,
+                            ]);
+                        }
                     }
-
-                    $employee = \App\Models\Employee::updateOrCreate(
-                        ['id' => $rowData['id'] ?? null],
-                        $employeeData
-                    );
-
-                    if ($isNew) {
-                        $user = \App\Models\User::create([
-                            'name' => $employee->name,
-                            'email' => $employee->email ?: "pegawai_{$employee->id}@pdam.com",
-                            'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
-                            'is_verified' => true,
-                        ]);
-                        $employee->update(['users_id' => $user->id]);
-
-                        \App\Models\EmployeeAppointment::create([
-                            'employee_id' => $employee->id,
-                            'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),
-                            'appointment_date' => $employee->entry_date ?: now(),
-                            'new_employment_status_id' => $employee->employment_status_id ?: 1,
-                            'employee_grade_id' => $employee->basic_salary_id,
-                            'is_applied' => true,
-                            'applied_at' => now(),
-                            'users_id' => auth()->id() ?? 1,
-                        ]);
-                    }
-                }
+                });
             });
 
             Notification::make()
