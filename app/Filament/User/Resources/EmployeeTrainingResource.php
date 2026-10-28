@@ -60,7 +60,8 @@ class EmployeeTrainingResource extends Resource
                             ->imageEditor()
                             ->imageResizeMode('cover')
                             ->imageResizeTargetWidth(1024)
-                            ->optimize('webp')
+                            ->imageResizeUpscale(false)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                             ->maxSize(15360),
                         Forms\Components\FileUpload::make('docs_training')
                             ->label('Dokumen Pelatihan')
@@ -100,11 +101,11 @@ class EmployeeTrainingResource extends Resource
                     Tables\Actions\EditAction::make()->label('Edit'),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
                 ])
-                ->label('Aksi')
-                ->icon('heroicon-m-ellipsis-vertical')
-                ->size('sm')
-                ->color('gray')
-                ->button(),
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('gray')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

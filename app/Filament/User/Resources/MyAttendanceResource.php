@@ -122,9 +122,12 @@ class MyAttendanceResource extends Resource
                         ->visibility('public')
                         ->disk('public')
                         ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
+                        ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
                         ->extraInputAttributes(['capture' => 'user'])
-                        ->optimize('webp')
+                        ->imageResizeMode('cover')
+                        ->imageResizeTargetWidth(800)
+                        ->imageResizeTargetHeight(800)
+                        ->imageResizeUpscale(false)
                         ->resize(50)
                         ->helperText('Gunakan kamera depan. Foto wajah harus jelas.'),
                 ]),
