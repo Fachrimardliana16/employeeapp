@@ -27,12 +27,17 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
-        return match ($panel->getId()) {
-            'admin' => $this->hasRole(['superadmin', 'admin']),
-            'employee' => $this->hasRole(['superadmin', 'admin']),
-            'user' => $this->hasRole(['superadmin', 'admin', 'user']),
-            default => false,
-        };
+        if ($this->hasRole('superadmin')) {
+            return true;
+        }
+
+        // Allow authentication from any panel login page, then redirect to the
+        // first panel the user is authorized for.
+        return $this->hasAnyPermission([
+            'access_admin_panel',
+            'access_employee_panel',
+            'access_user_panel',
+        ]);
     }
 
     /**

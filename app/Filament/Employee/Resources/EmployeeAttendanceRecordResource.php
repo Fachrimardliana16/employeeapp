@@ -91,15 +91,12 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->directory('attendance/photo_checkin')
                             ->visibility('public')
                             ->maxSize(5120)
-                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
                             ->disk('public')
                             ->extraInputAttributes([
                                 'capture' => 'user',
                             ])
-                            ->imageResizeMode('cover')
-                            ->imageResizeTargetWidth(800)
-                            ->imageResizeTargetHeight(800)
-                            ->imageResizeUpscale(false)
+                            ->optimize('webp')
                             ->resize(50)
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_in'),
@@ -117,15 +114,12 @@ class EmployeeAttendanceRecordResource extends Resource
                             ->directory('attendance/photo_checkout')
                             ->visibility('private')
                             ->maxSize(5120)
-                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
+                            ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png'])
                             ->disk('public')->visibility('public')
                             ->extraInputAttributes([
                                 'capture' => 'user',
                             ])
-                            ->imageResizeMode('cover')
-                            ->imageResizeTargetWidth(800)
-                            ->imageResizeTargetHeight(800)
-                            ->imageResizeUpscale(false)
+                            ->optimize('webp')
                             ->resize(50)
                             ->helperText('Klik untuk membuka kamera dan ambil foto selfie. Wajib diisi.')
                             ->visible(fn(Forms\Get $get) => $get('state') === 'check_out'),
@@ -185,11 +179,10 @@ class EmployeeAttendanceRecordResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('visual_proof')
                     ->label('Foto')
-                    ->getStateUsing(
-                        fn(EmployeeAttendanceRecord $record): ?string =>
+                    ->getStateUsing(fn (EmployeeAttendanceRecord $record): ?string => 
                         $record->photo_checkin ?? $record->photo_checkout ?? $record->picture
                     )
-                    ->formatStateUsing(fn($state) => $state ? '<div class="flex justify-center"><img src="' . url('image-view/' . $state) . '" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
+                    ->formatStateUsing(fn ($state) => $state ? '<div class="flex justify-center"><img src="'.url('image-view/'.$state).'" class="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"></div>' : '-')
                     ->html()
                     ->alignCenter(),
 
@@ -198,7 +191,7 @@ class EmployeeAttendanceRecordResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight(FontWeight::Bold)
-                    ->description(fn(EmployeeAttendanceRecord $record): string => "PIN: {$record->pin}"),
+                    ->description(fn (EmployeeAttendanceRecord $record): string => "PIN: {$record->pin}"),
 
                 Tables\Columns\TextColumn::make('attendance_time')
                     ->label('Waktu Kehadiran')
@@ -208,14 +201,14 @@ class EmployeeAttendanceRecordResource extends Resource
                 Tables\Columns\TextColumn::make('state')
                     ->label('Status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'in', 'check_in' => 'success',
                         'out', 'check_out' => 'warning',
                         'dl_in', 'dl_out' => 'info',
                         'ot_in', 'ot_out' => 'purple',
                         default => 'gray',
                     })
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'in', 'check_in' => 'MASUK',
                         'out', 'check_out' => 'KELUAR',
                         'dl_in' => 'DINAS LUAR (M)',
@@ -229,7 +222,7 @@ class EmployeeAttendanceRecordResource extends Resource
                 Tables\Columns\TextColumn::make('attendance_status')
                     ->label('Ketepatan')
                     ->badge()
-                    ->getStateUsing(fn($record) => $record->attendance_status ?? 'on_time')
+                    ->getStateUsing(fn ($record) => $record->attendance_status ?? 'on_time')
                     ->color(fn(string $state): string => match ($state) {
                         'late' => 'danger',
                         'early' => 'warning',
@@ -253,7 +246,7 @@ class EmployeeAttendanceRecordResource extends Resource
                     ->label('Lokasi & Jarak')
                     ->searchable()
                     ->sortable()
-                    ->description(fn(EmployeeAttendanceRecord $record): string => $record->distance_from_office ? "Jarak: {$record->distance_from_office}m" : 'Lokasi tidak terdeteksi'),
+                    ->description(fn (EmployeeAttendanceRecord $record): string => $record->distance_from_office ? "Jarak: {$record->distance_from_office}m" : 'Lokasi tidak terdeteksi'),
 
                 Tables\Columns\IconColumn::make('is_within_radius')
                     ->label('Radius')
@@ -325,12 +318,12 @@ class EmployeeAttendanceRecordResource extends Resource
                     ->action(function () {
                         $employees = \App\Models\Employee::whereNotNull('pin')->pluck('name', 'pin')->toArray();
                         $totalUpdated = 0;
-
+                        
                         foreach ($employees as $pin => $name) {
                             $count = \App\Models\EmployeeAttendanceRecord::where('pin', $pin)
-                                ->where(function ($query) {
+                                ->where(function($query) {
                                     $query->where('employee_name', 'LIKE', 'Unknown%')
-                                        ->orWhereNull('employee_name');
+                                          ->orWhereNull('employee_name');
                                 })
                                 ->update(['employee_name' => $name]);
                             $totalUpdated += $count;
@@ -406,14 +399,14 @@ class EmployeeAttendanceRecordResource extends Resource
                                 Components\TextEntry::make('state')
                                     ->label('Status Kehadiran')
                                     ->badge()
-                                    ->color(fn(string $state): string => match ($state) {
+                                    ->color(fn (string $state): string => match ($state) {
                                         'in', 'check_in' => 'success',
                                         'out', 'check_out' => 'warning',
                                         'dl_in', 'dl_out' => 'info',
                                         'ot_in', 'ot_out' => 'purple',
                                         default => 'gray',
                                     })
-                                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                                    ->formatStateUsing(fn (string $state): string => match ($state) {
                                         'in', 'check_in' => 'MASUK (CHECK-IN)',
                                         'out', 'check_out' => 'KELUAR (CHECK-OUT)',
                                         'dl_in' => 'DINAS LUAR (MASUK)',
@@ -425,7 +418,7 @@ class EmployeeAttendanceRecordResource extends Resource
                                 Components\TextEntry::make('attendance_status')
                                     ->label('Ketepatan Waktu')
                                     ->badge()
-                                    ->getStateUsing(fn($record) => $record->attendance_status ?? 'on_time')
+                                    ->getStateUsing(fn ($record) => $record->attendance_status ?? 'on_time')
                                     ->color(fn(string $state): string => match ($state) {
                                         'late' => 'danger',
                                         'early' => 'warning',
@@ -474,7 +467,7 @@ class EmployeeAttendanceRecordResource extends Resource
                                                 ->label('Jarak')
                                                 ->suffix(' meter')
                                                 ->color(fn($state) => $state <= 100 ? 'success' : 'danger'),
-
+                                            
                                             Components\TextEntry::make('check_latitude')
                                                 ->label('Latitude')
                                                 ->size('sm'),
@@ -500,7 +493,7 @@ class EmployeeAttendanceRecordResource extends Resource
                                     ->state(fn($record) => $record->photo_checkin ? url('image-view/' . $record->photo_checkin) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->photo_checkin),
-
+                                    
                                 Components\ImageEntry::make('photo_checkout')
                                     ->hiddenLabel()
                                     ->height(350)
@@ -508,7 +501,7 @@ class EmployeeAttendanceRecordResource extends Resource
                                     ->state(fn($record) => $record->photo_checkout ? url('image-view/' . $record->photo_checkout) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->photo_checkout),
-
+ 
                                 Components\ImageEntry::make('picture')
                                     ->hiddenLabel()
                                     ->height(350)
@@ -516,7 +509,7 @@ class EmployeeAttendanceRecordResource extends Resource
                                     ->state(fn($record) => $record->picture ? url('image-view/' . $record->picture) : null)
                                     ->extraImgAttributes(['class' => 'rounded-lg shadow-sm w-full object-cover'])
                                     ->visible(fn($record) => $record->picture && !$record->photo_checkin && !$record->photo_checkout),
-
+                                    
                                 Components\TextEntry::make('no_photo')
                                     ->hiddenLabel()
                                     ->default('Tidak ada foto bukti yang terekam.')
