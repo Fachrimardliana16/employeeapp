@@ -9,4 +9,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateEmployeeBusinessTravelLetter extends CreateRecord
 {
     protected static string $resource = EmployeeBusinessTravelLetterResource::class;
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        return EmployeeBusinessTravelLetterResource::recalculateFormData($data);
+    }
 }

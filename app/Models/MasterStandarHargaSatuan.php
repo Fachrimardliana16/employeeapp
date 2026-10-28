@@ -58,7 +58,18 @@ class MasterStandarHargaSatuan extends Model
      */
     public static function mapPositionToSpesifikasi(string $positionName, ?string $gradeName = null): string
     {
-        $name = strtolower($positionName);
+        $name = strtolower(trim($positionName));
+
+        if ($name === '') {
+            if ($gradeName) {
+                $firstChar = strtoupper(substr(trim($gradeName), 0, 1));
+                if ($firstChar === 'C') return 'Staf - Gol III';
+                if ($firstChar === 'B') return 'Staf - Gol II / Driver';
+                if ($firstChar === 'A') return 'Staf - Gol I / Capeg';
+            }
+
+            return 'Staf - Kontrak / Honorer';
+        }
 
         if (str_contains($name, 'direktur')) {
             return 'Direktur / Setda Ketua DPRD';
@@ -94,6 +105,6 @@ class MasterStandarHargaSatuan extends Model
             return 'Kasubag / Ka Unit / AMD'; 
         }
 
-        return $positionName;
+        return 'Staf - Kontrak / Honorer';
     }
 }

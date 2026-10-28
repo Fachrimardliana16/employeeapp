@@ -23,8 +23,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Pastikan user aktif dan terverifikasi
-        if (!$this->is_active || !$this->is_verified) {
+        if (! $this->is_active || ! $this->is_verified) {
             return false;
         }
 

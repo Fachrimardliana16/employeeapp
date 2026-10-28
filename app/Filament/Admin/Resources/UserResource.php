@@ -73,6 +73,7 @@ class UserResource extends Resource
                                     ->searchable()
                                     ->required()
                                     ->label('Role')
+                                    ->multiple()
                                     ->visible($hasRoleTables),
                             ]),
                     ]),
