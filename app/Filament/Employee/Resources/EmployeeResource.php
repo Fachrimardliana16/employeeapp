@@ -31,6 +31,11 @@ use Filament\Tables\Actions\ForceDeleteAction;
 use Filament\Tables\Actions\DeleteAction;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Cache;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date as SpreadsheetDate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class EmployeeResource extends Resource
 {
@@ -928,7 +933,7 @@ class EmployeeResource extends Resource
                                     ]),
                             ]),
                     ])
-                    ->action(function (array $data) {
+                    ->action(function (array $data, $livewire) {
                         return static::generateFilteredPDFReport(
                             $data['department_filter'] ?? null,
                             $data['position_filter'] ?? null,
@@ -968,179 +973,25 @@ class EmployeeResource extends Resource
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('download_template')
-                        ->label('Download Template Import')
+                        ->label('Download Template Excel')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('info')
-                        ->action(function () {
-                            $headers = [
-                                'id',
-                                'nippam',
-                                'pin',
-                                'name',
-                                'gender',
-                                'place_birth',
-                                'date_birth',
-                                'religion',
-                                'marital_status',
-                                'blood_type',
-                                'email',
-                                'office_email',
-                                'phone_number',
-                                'id_number',
-                                'familycard_number',
-                                'npwp_number',
-                                'bank_account_number',
-                                'bpjs_tk_number',
-                                'bpjs_tk_status',
-                                'bpjs_kes_number',
-                                'bpjs_kes_status',
-                                'bpjs_kes_class',
-                                'rek_dplk_pribadi',
-                                'rek_dplk_bersama',
-                                'dapenma_number',
-                                'dapenma_phdp',
-                                'dapenma_status',
-                                'address',
-                                'work_unit_type',
-                                'work_unit_name',
-                                'sub_department_name',
-                                'position_name',
-                                'employment_status_name',
-                                'education_name',
-                                'grade_name',
-                                'mkg_years',
-                                'agreement_type_name',
-                                'entry_date',
-                                'probation_appointment_date',
-                                'leave_balance',
-                                'agreement_date_start',
-                                'agreement_date_end',
-                                'grade_date_start',
-                                'grade_date_end',
-                                'periodic_salary_date_start',
-                                'periodic_salary_date_end'
-                            ];
+                        ->action(fn() => static::downloadEmployeeImportTemplateExcel())
+                        ->tooltip('Template Excel dengan tab Data Import, Referensi, dan Contoh Pengisian'),
 
-                            $callback = function () use ($headers) {
-                                $file = fopen('php://output', 'w');
-                                fputcsv($file, $headers);
-
-                                // Instruction Row
-                                fputcsv($file, [
-                                    'KOSONGKAN untuk Pegawai Baru/ISI untuk Update',
-                                    'NIPPAM (Otomatis jika kosong)',
-                                    'PIN Absensi (Wajib untuk mesin)',
-                                    'Wajib',
-                                    'male/female',
-                                    'Wajib',
-                                    'dd-mm-yyyy',
-                                    'Agama',
-                                    'single/married/divorced/widowed',
-                                    'A/B/O/AB',
-                                    'Email Pribadi',
-                                    'Email Kantor',
-                                    'No HP',
-                                    'NIK (16 Digit)',
-                                    'No KK (16 Digit)',
-                                    'NPWP',
-                                    'No Rekening',
-                                    'No BPJS TK',
-                                    'Aktif/Tidak',
-                                    'No BPJS Kes',
-                                    'Aktif/Tidak',
-                                    'Kelas 1/2/3',
-                                    'Rek DPLK Pribadi',
-                                    'Rek DPLK Bersama',
-                                    'No Dapenma',
-                                    'PHDP (Angka)',
-                                    'Aktif/Tidak',
-                                    'Alamat Lengkap',
-                                    'bagian/cabang/unit',
-                                    'Nama Unit (Bagian/Cabang/Unit)',
-                                    'Sub Departemen',
-                                    'Jabatan',
-                                    'Status Pegawai',
-                                    'Pendidikan',
-                                    'Golongan',
-                                    'Masa Kerja Golongan (Tahun)',
-                                    'Jenis SK',
-                                    'Tgl Masuk',
-                                    'Tgl Pengangkatan',
-                                    'Sisa Cuti',
-                                    'Tgl Kontrak Mulai',
-                                    'Tgl Kontrak Selesai',
-                                    'Tgl Golongan Mulai',
-                                    'Tgl Golongan Selesai',
-                                    'Tgl Gaji Berkala Mulai',
-                                    'Tgl Gaji Berkala Selesai'
-                                ]);
-
-                                // Get some real data for example
-                                $edu = \App\Models\MasterEmployeeEducation::first()?->name ?? 'S1';
-                                $pos = \App\Models\MasterEmployeePosition::first()?->name ?? 'Staff';
-                                $grade = \App\Models\MasterEmployeeGrade::first()?->name ?? 'A1';
-                                $status = \App\Models\MasterEmployeeStatusEmployment::first()?->name ?? 'Pegawai Tetap';
-                                $dept = \App\Models\MasterDepartment::first();
-
-                                fputcsv($file, [
-                                    '',
-                                    '123456789',
-                                    '1001',
-                                    'Budi Santoso',
-                                    'male',
-                                    'Jakarta',
-                                    '30-01-1990',
-                                    'Islam',
-                                    'single',
-                                    'O',
-                                    'budi@example.com',
-                                    'budi.pdam@example.com',
-                                    '08123456789',
-                                    '1234567890123456',
-                                    '1234567890123456',
-                                    '12.345.678.9-012.000',
-                                    '1234567890',
-                                    '00012345678',
-                                    'Aktif',
-                                    '0001234567890',
-                                    'Aktif',
-                                    'Kelas 1',
-                                    '1234567890',
-                                    '1234567890',
-                                    '12345',
-                                    '5000000',
-                                    'Aktif',
-                                    'Jl. Contoh No. 123',
-                                    $dept?->type ?? 'bagian',
-                                    $dept?->name ?? 'Bagian Umum',
-                                    'Sub Bagian Umum',
-                                    $pos,
-                                    $status,
-                                    $edu,
-                                    $grade,
-                                    '0',
-                                    'PKWTT',
-                                    '01-01-2024',
-                                    '01-07-2024',
-                                    '12',
-                                    '01-01-2024',
-                                    '31-12-2024',
-                                    '01-01-2024',
-                                    '01-01-2026',
-                                    '01-01-2024',
-                                    '01-01-2026'
-                                ]);
-                                fclose($file);
-                            };
-
-                            return response()->streamDownload($callback, 'template_manajemen_pegawai.csv');
-                        })
-                        ->tooltip('Download file CSV sebagai contoh/template untuk Import data Pegawai'),
+                    Tables\Actions\Action::make('download_template_csv')
+                        ->label('Download Template CSV')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('gray')
+                        ->action(fn() => static::downloadEmployeeImportTemplateCsv())
+                        ->tooltip('Template CSV untuk kebutuhan import format CSV'),
 
                     Tables\Actions\Action::make('import_pegawai')
-                        ->label('Import / Sync CSV')
+                        ->label('Import / Sync Data')
                         ->icon('heroicon-o-arrow-up-tray')
                         ->color('success')
+                        ->modalSubmitActionLabel('Generate Preview')
+                        ->modalWidth('2xl')
                         ->form(function () {
                             // Dynamically fetch options for help text (cached 1 jam)
                             $grades = \Illuminate\Support\Facades\Cache::remember('import_grades_hint', now()->addHour(), fn() =>
@@ -1151,374 +1002,520 @@ class EmployeeResource extends Resource
                             );
 
                             return [
-                                Forms\Components\FileUpload::make('csv_file')
-                                    ->label('File CSV Pegawai')
+                                Forms\Components\FileUpload::make('import_file')
+                                    ->label('File Pegawai (CSV / XLS / XLSX)')
                                     ->helperText(new \Illuminate\Support\HtmlString("
                                         <strong>Panduan Singkat:</strong><br>
                                         - Untuk EDIT: Isi kolom <code>id</code>. Untuk BARU: Kosongkan <code>id</code>.<br>
+                                        - Gunakan tab <strong>Data Import</strong> dari Template Excel saat mengisi data.<br>
+                                        - Tab <strong>Referensi</strong> dan <strong>Contoh Pengisian</strong> disediakan agar tidak salah format.<br>
                                         - Data Master (Pendidikan, Jabatan, dll) bisa diisi <strong>Nama</strong> atau <strong>Angka ID</strong>.<br>
                                         - Contoh ID Golongan: <code>{$grades}</code><br>
                                         - Contoh ID Pendidikan: <code>{$edus}</code><br>
-                                        - Tanggal wajib format <code>dd-mm-yyyy</code> (contoh: 31-01-1990).
+                                        - Tanggal wajib format <code>dd-mm-yyyy</code> (contoh: 31-01-1990).<br>
+                                        - Jika kolom <code>pin</code> kosong, sistem akan generate otomatis dalam rentang <strong>1-999</strong>.<br>
+                                        - Import tahap ini hanya menampilkan <strong>Preview</strong>; setelah preview muncul, klik <strong>Submit Import</strong> di popup.
                                     "))
                                     ->required()
-                                    ->acceptedFileTypes(['text/csv', 'application/csv']),
+                                    ->acceptedFileTypes([
+                                        'text/csv',
+                                        'application/csv',
+                                        'text/plain',
+                                        'application/vnd.ms-excel',
+                                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                    ]),
                             ];
                         })
-                        ->action(function (array $data) {
+                        ->action(function (array $data, $livewire) {
                             set_time_limit(300); // 5 minutes
                             ini_set('memory_limit', '512M');
 
-                            $path = \Illuminate\Support\Facades\Storage::disk('public')->path($data['csv_file']);
+                            $disk = \Illuminate\Support\Facades\Storage::disk('public');
+                            $storedPath = $data['import_file'];
+                            $path = $disk->path($storedPath);
 
-                            // Detect Delimiter (Comma or Semicolon)
-                            $fileHandle = fopen($path, 'r');
-                            $firstLine = fgets($fileHandle);
-                            fclose($fileHandle);
-                            $delimiter = (strpos($firstLine, ';') !== false && strpos($firstLine, ',') === false) ? ';' : ',';
-
-                            $file = fopen($path, 'r');
-                            $rows = [];
-                            $tempRows = [];
-
-                            while (($row = fgetcsv($file, 0, $delimiter)) !== false) {
-                                $tempRows[] = $row;
-                            }
-                            fclose($file);
-
-                            // 1. Find the Header Row (Look for 'id', 'nippam', 'name')
-                            $headerIndex = -1;
-                            foreach ($tempRows as $idx => $row) {
-                                // Strip BOM and non-breaking spaces
-                                $rowNormalized = array_map(function ($v) {
-                                    $v = str_replace("\xEF\xBB\xBF", '', $v);
-                                    return strtolower(trim($v));
-                                }, $row);
-
-                                if (in_array('id', $rowNormalized) || in_array('nippam', $rowNormalized) || in_array('name', $rowNormalized)) {
-                                    $headerIndex = $idx;
-                                    $headers = $rowNormalized;
-                                    break;
-                                }
-                            }
-
-                            if ($headerIndex === -1) {
-                                Notification::make()->title('File Tidak Valid')->body('Baris header (id, nippam, name) tidak ditemukan.')->danger()->send();
-                                return;
-                            }
-
-                            $dataRows = array_slice($tempRows, $headerIndex + 1);
-
-                            // Pre-load necessary masters for performance
-                            $masterLookups = [
-                                'units' => \App\Models\MasterDepartment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                'sub_depts' => \App\Models\MasterSubDepartment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                'positions' => \App\Models\MasterEmployeePosition::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                'status' => \App\Models\MasterEmployeeStatusEmployment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                'education' => \App\Models\MasterEmployeeEducation::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                'grades' => \App\Models\MasterEmployeeGrade::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                                'mkg' => \App\Models\MasterEmployeeServiceGrade::query()
-                                    ->get()
-                                    ->mapWithKeys(fn($m) => [(string) $m->service_grade => $m->id])
-                                    ->toArray(),
-                                'agreements' => \App\Models\MasterEmployeeAgreement::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
-                            ];
-
-                            $mkgById = \App\Models\MasterEmployeeServiceGrade::query()
-                                ->pluck('id')
-                                ->flip()
-                                ->toArray();
-
-                            // Unique checks preparation
-                            $uniques = [
-                                'pin' => \App\Models\Employee::whereNotNull('pin')->pluck('id', 'pin')->toArray(),
-                                'nippam' => \App\Models\Employee::whereNotNull('nippam')->pluck('id', 'nippam')->toArray(),
-                            ];
-
-                            $errors = [];
-                            $warnings = [];
-                            $processedData = [];
-
-                            // Phase 1: Validation
-                            foreach ($dataRows as $idx => $row) {
-                                $actualRowInFile = $headerIndex + $idx + 2;
-                                if (count($row) < 3) continue; // Skip empty rows
-
-                                $rowData = array_combine(array_slice($headers, 0, count($row)), $row);
-
-                                // Clean row data
-                                foreach ($rowData as $k => $v) $rowData[$k] = trim($v);
-
-                                $rowErrors = [];
-                                if (empty($rowData['name'])) $rowErrors[] = "Nama wajib diisi";
-
-                                // Smart Lookup Helper
-                                $smartLookup = function ($key, $name, $label) use ($masterLookups) {
-                                    if (empty($name)) return null;
-                                    $search = strtolower(trim($name));
-                                    if (isset($masterLookups[$key][$search])) return $masterLookups[$key][$search];
-                                    if (is_numeric($name)) return (int)$name;
-                                    return null;
-                                };
-
-                                // Specialized Unit Lookup
-                                $unitName = $rowData['work_unit_name'] ?? '';
-                                $unitType = strtolower($rowData['work_unit_type'] ?? ''); // bagian/cabang/unit
-                                $deptId = $bagianId = $cabangId = $unitId = null;
-
-                                if (!empty($unitName)) {
-                                    $unitKey = strtolower(trim($unitName));
-                                    if (isset($masterLookups['units'][$unitKey])) {
-                                        $deptId = $masterLookups['units'][$unitKey];
-                                    } elseif (is_numeric($unitName)) {
-                                        $deptId = (int)$unitName;
-                                    }
-
-                                    if (!$deptId) {
-                                        $rowErrors[] = "Unit Kerja '{$unitName}' ({$unitType}) tidak ditemukan";
-                                    } else {
-                                        if ($unitType === 'bagian') $bagianId = $deptId;
-                                        elseif ($unitType === 'cabang') $cabangId = $deptId;
-                                        elseif ($unitType === 'unit') $unitId = $deptId;
-                                    }
-                                }
-
-                                $subDeptId = $smartLookup('sub_depts', $rowData['sub_department_name'] ?? '', 'Sub Departemen');
-                                $posId = $smartLookup('positions', $rowData['position_name'] ?? '', 'Jabatan');
-                                $statusId = $smartLookup('status', $rowData['employment_status_name'] ?? '', 'Status');
-                                $eduId = $smartLookup('education', $rowData['education_name'] ?? '', 'Pendidikan');
-                                $gradeId = $smartLookup('grades', $rowData['grade_name'] ?? '', 'Golongan');
-                                $agreementId = $smartLookup('agreements', $rowData['agreement_type_name'] ?? '', 'Perjanjian');
-
-                                // Uniqueness Validation
-                                $checkUnique = function ($column, $value, $label) use ($rowData, &$rowErrors, $uniques) {
-                                    if (empty($value)) return;
-                                    if (isset($uniques[$column])) {
-                                        if (isset($uniques[$column][$value]) && $uniques[$column][$value] != ($rowData['id'] ?? null)) {
-                                            $rowErrors[] = "{$label} '{$value}' sudah terdaftar";
-                                        }
-                                        return;
-                                    }
-                                };
-
-                                $checkUnique('pin', $rowData['pin'] ?? '', 'PIN Absensi');
-                                $checkUnique('nippam', $rowData['nippam'] ?? '', 'NIPPAM');
-
-                                // MKG Lookup
-                                $mkgValue = trim($rowData['mkg_years'] ?? '');
-                                $mkgId = null;
-                                if ($mkgValue !== '') {
-                                    if (isset($masterLookups['mkg'][(string) $mkgValue])) {
-                                        $mkgId = $masterLookups['mkg'][$mkgValue];
-                                    } elseif (is_numeric($mkgValue) && isset($mkgById[(int) $mkgValue])) {
-                                        // Allow direct FK input if CSV already provides relation ID.
-                                        $mkgId = (int) $mkgValue;
-                                    } else {
-                                        $displayName = ($rowData['name'] ?? null) ?: ($rowData['nippam'] ?? 'N/A');
-                                        $warnings[] = "Baris {$actualRowInFile} ({$displayName}): MKG '{$mkgValue}' tidak ditemukan, diset kosong.";
-                                    }
-                                }
-
-                                if (!empty($rowErrors)) {
-                                    $displayName = ($rowData['name'] ?? null) ?: ($rowData['nippam'] ?? 'N/A');
-                                    $errors[] = "<strong>Baris {$actualRowInFile} ({$displayName}):</strong> " . implode(', ', $rowErrors);
-                                }
-
-                                $processedData[] = [
-                                    'row' => $rowData,
-                                    'line_number' => $actualRowInFile,
-                                    'ids' => [
-                                        'dept_id' => $deptId,
-                                        'bagian_id' => $bagianId,
-                                        'cabang_id' => $cabangId,
-                                        'unit_id' => $unitId,
-                                        'sub_dept_id' => $subDeptId,
-                                        'pos_id' => $posId,
-                                        'status_id' => $statusId,
-                                        'edu_id' => $eduId,
-                                        'grade_id' => $gradeId,
-                                        'mkg_id' => $mkgId,
-                                        'agreement_id' => $agreementId,
-                                    ]
-                                ];
-                            }
-
-                            if (!empty($errors)) {
-                                $totalErrors = count($errors);
-                                $errorDisplay = array_slice($errors, 0, 15);
-                                $footer = $totalErrors > 15 ? "<br><br><strong>...dan " . ($totalErrors - 15) . " baris lainnya juga bermasalah.</strong>" : "";
-
-                                Notification::make()
-                                    ->title('Import Dibatalkan: Ditemukan ' . $totalErrors . ' Kesalahan Data')
-                                    ->body(new \Illuminate\Support\HtmlString("Sistem menolak seluruh file agar data tetap aman. Mohon perbaiki sampel berikut:<br><br>" . implode('<br>', $errorDisplay) . $footer))
-                                    ->danger()->persistent()->send();
-                                return;
-                            }
-
-                            $stats = ['created' => 0, 'updated' => 0];
-                            $currentRowName = 'N/A';
-                            $currentRowIndex = 0;
-
-                            // Phase 2: Processing (Transactional)
                             try {
-                                \Illuminate\Support\Facades\DB::transaction(function () use ($processedData, &$stats, &$currentRowName, &$currentRowIndex, $headers) {
-                                    foreach ($processedData as $data) {
-                                        $rowData = $data['row'];
-                                        $ids = $data['ids'];
-                                        $actualRowInFile = $data['line_number'];
+                                try {
+                                    $tempRows = static::readEmployeeImportRows($path);
+                                } catch (\Throwable $e) {
+                                    Notification::make()
+                                        ->title('File Tidak Valid')
+                                        ->body($e->getMessage())
+                                        ->danger()
+                                        ->send();
+                                    return;
+                                }
 
-                                        $currentRowName = $rowData['name'] ?? ($rowData['nippam'] ?? 'N/A');
-                                        $currentRowIndex = $actualRowInFile;
+                                if (empty($tempRows)) {
+                                    Notification::make()
+                                        ->title('File Tidak Valid')
+                                        ->body('File tidak memiliki data untuk diproses.')
+                                        ->danger()
+                                        ->send();
+                                    return;
+                                }
 
-                                        $convertDate = function ($dateStr) {
-                                            if (empty($dateStr)) return null;
-                                            $dateStr = trim($dateStr);
-                                            $formats = ['d-m-Y', 'd/m/Y', 'd.m.Y', 'Y-m-d'];
-                                            foreach ($formats as $format) {
-                                                try {
-                                                    $d = \Carbon\Carbon::createFromFormat($format, $dateStr);
-                                                    if ($d) return $d->format('Y-m-d');
-                                                } catch (\Exception $e) {
-                                                }
+                                // 1. Find the Header Row (Look for 'id', 'nippam', 'name')
+                                $headerIndex = -1;
+                                foreach ($tempRows as $idx => $row) {
+                                    // Strip BOM and non-breaking spaces
+                                    $rowNormalized = array_map(function ($v) {
+                                        $v = str_replace("\xEF\xBB\xBF", '', (string) $v);
+                                        return strtolower(trim($v));
+                                    }, $row);
+
+                                    if (in_array('id', $rowNormalized, true) || in_array('nippam', $rowNormalized, true) || in_array('name', $rowNormalized, true)) {
+                                        $headerIndex = $idx;
+                                        $headers = $rowNormalized;
+                                        break;
+                                    }
+                                }
+
+                                if ($headerIndex === -1) {
+                                    Notification::make()->title('File Tidak Valid')->body('Baris header (id, nippam, name) tidak ditemukan.')->danger()->send();
+                                    return;
+                                }
+
+                                $dataRows = array_slice($tempRows, $headerIndex + 1);
+                                $instructionTemplateByHeader = static::buildEmployeeImportInstructionMap($headers);
+
+                                // Pre-load necessary masters for performance
+                                $masterLookups = [
+                                    'units' => \App\Models\MasterDepartment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
+                                    'sub_depts' => \App\Models\MasterSubDepartment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
+                                    'positions' => \App\Models\MasterEmployeePosition::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
+                                    'status' => \App\Models\MasterEmployeeStatusEmployment::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
+                                    'education' => \App\Models\MasterEmployeeEducation::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
+                                    'grades' => \App\Models\MasterEmployeeGrade::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
+                                    'mkg' => \App\Models\MasterEmployeeServiceGrade::query()
+                                        ->get()
+                                        ->mapWithKeys(fn($m) => [(string) $m->service_grade => $m->id])
+                                        ->toArray(),
+                                    'agreements' => \App\Models\MasterEmployeeAgreement::all()->mapWithKeys(fn($m) => [strtolower($m->name) => $m->id])->toArray(),
+                                ];
+
+                                $mkgById = \App\Models\MasterEmployeeServiceGrade::query()
+                                    ->pluck('id')
+                                    ->flip()
+                                    ->toArray();
+
+                                $normalizeUniqueValue = function ($value, string $column): ?string {
+                                    $normalizedValue = trim((string) $value);
+                                    if ($normalizedValue === '') {
+                                        return null;
+                                    }
+
+                                    if (in_array($column, ['email', 'office_email', 'username'], true)) {
+                                        return strtolower($normalizedValue);
+                                    }
+
+                                    return $normalizedValue;
+                                };
+
+                                $uniqueLabels = [
+                                    'pin' => 'PIN Absensi',
+                                    'nippam' => 'NIPPAM',
+                                    'email' => 'Email',
+                                    'office_email' => 'Email Kantor',
+                                    'username' => 'Username',
+                                    'id_number' => 'NIK (KTP)',
+                                ];
+
+                                $uniqueColumnsFromDatabase = ['pin', 'nippam', 'email', 'office_email', 'username'];
+                                $uniques = [];
+
+                                foreach ($uniqueColumnsFromDatabase as $column) {
+                                    $uniques[$column] = \App\Models\Employee::withTrashed()
+                                        ->whereNotNull($column)
+                                        ->get(['id', 'name', $column, 'deleted_at'])
+                                        ->mapWithKeys(function ($employee) use ($column, $normalizeUniqueValue) {
+                                            $key = $normalizeUniqueValue($employee->{$column}, $column);
+                                            if ($key === null) {
+                                                return [];
                                             }
-                                            return null;
-                                        };
 
-                                        $isNew = empty($rowData['id']);
-                                        if ($isNew) $stats['created']++;
-                                        else $stats['updated']++;
+                                            return [
+                                                $key => [
+                                                    'id' => $employee->id,
+                                                    'name' => $employee->name,
+                                                    'is_deleted' => $employee->deleted_at !== null,
+                                                ],
+                                            ];
+                                        })
+                                        ->toArray();
+                                }
 
-                                        $clean = fn($val) => ($val === '' || $val === null) ? null : trim($val);
-
-                                        $gender = strtolower(trim($rowData['gender'] ?? ''));
-                                        $gender = in_array($gender, ['male', 'female']) ? $gender : 'male';
-
-                                        $marital = strtolower(trim($rowData['marital_status'] ?? ''));
-                                        $marital = in_array($marital, ['single', 'married', 'divorced', 'widowed']) ? $marital : 'single';
-
-                                        $employeeData = [
-                                            'name' => $rowData['name'],
-                                            'pin' => $clean($rowData['pin'] ?? null),
-                                            'gender' => $gender,
-                                            'religion' => $clean($rowData['religion'] ?? null),
-                                            'place_birth' => $clean($rowData['place_birth'] ?? null),
-                                            'date_birth' => $convertDate($rowData['date_birth'] ?? ''),
-                                            'marital_status' => $marital,
-                                            'blood_type' => $clean($rowData['blood_type'] ?? null),
-                                            'email' => $clean($rowData['email'] ?? null),
-                                            'office_email' => $clean($rowData['office_email'] ?? null),
-                                            'phone_number' => $clean($rowData['phone_number'] ?? null),
-                                            'id_number' => $clean($rowData['id_number'] ?? null),
-                                            'familycard_number' => $clean($rowData['familycard_number'] ?? null),
-                                            'npwp_number' => $clean($rowData['npwp_number'] ?? null),
-                                            'bank_account_number' => $clean($rowData['bank_account_number'] ?? null),
-                                            'bpjs_tk_number' => $clean($rowData['bpjs_tk_number'] ?? null),
-                                            'bpjs_tk_status' => $clean($rowData['bpjs_tk_status'] ?? 'Aktif'),
-                                            'bpjs_kes_number' => $clean($rowData['bpjs_kes_number'] ?? null),
-                                            'bpjs_kes_status' => $clean($rowData['bpjs_kes_status'] ?? 'Aktif'),
-                                            'bpjs_kes_class' => $clean($rowData['bpjs_kes_class'] ?? null),
-                                            'rek_dplk_pribadi' => $clean($rowData['rek_dplk_pribadi'] ?? null),
-                                            'rek_dplk_bersama' => $clean($rowData['rek_dplk_bersama'] ?? null),
-                                            'dapenma_number' => $clean($rowData['dapenma_number'] ?? null),
-                                            'dapenma_phdp' => (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '') ? $rowData['dapenma_phdp'] : null,
-                                            'dapenma_status' => $clean($rowData['dapenma_status'] ?? 'Aktif'),
-                                            'address' => $clean($rowData['address'] ?? null),
-                                            'departments_id' => $ids['dept_id'],
-                                            'bagian_id' => $ids['bagian_id'],
-                                            'cabang_id' => $ids['cabang_id'],
-                                            'unit_id' => $ids['unit_id'],
-                                            'sub_department_id' => $ids['sub_dept_id'],
-                                            'employee_position_id' => $ids['pos_id'],
-                                            'employment_status_id' => $ids['status_id'],
-                                            'employee_education_id' => $ids['edu_id'],
-                                            'basic_salary_id' => $ids['grade_id'],
-                                            'employee_service_grade_id' => $ids['mkg_id'],
-                                            'master_employee_agreement_id' => $ids['agreement_id'],
-                                            'entry_date' => $convertDate($rowData['entry_date'] ?? ''),
-                                            'probation_appointment_date' => $convertDate($rowData['probation_appointment_date'] ?? ''),
-                                            'leave_balance' => $rowData['leave_balance'] ?? 12,
-                                            'agreement_date_start' => $convertDate($rowData['agreement_date_start'] ?? ''),
-                                            'agreement_date_end' => $convertDate($rowData['agreement_date_end'] ?? ''),
-                                            'grade_date_start' => $convertDate($rowData['grade_date_start'] ?? ''),
-                                            'grade_date_end' => $convertDate($rowData['grade_date_end'] ?? ''),
-                                            'periodic_salary_date_start' => $convertDate($rowData['periodic_salary_date_start'] ?? ''),
-                                            'periodic_salary_date_end' => $convertDate($rowData['periodic_salary_date_end'] ?? ''),
-                                            'users_id' => auth()->id() ?? 1,
-                                        ];
-
-                                        if (!empty($rowData['nippam'])) {
-                                            $employeeData['nippam'] = $rowData['nippam'];
+                                $activeEmployeeIdByNippam = \App\Models\Employee::query()
+                                    ->whereNotNull('nippam')
+                                    ->get(['id', 'nippam'])
+                                    ->mapWithKeys(function ($employee) use ($normalizeUniqueValue) {
+                                        $key = $normalizeUniqueValue($employee->nippam, 'nippam');
+                                        if ($key === null) {
+                                            return [];
                                         }
 
-                                        $employee = \App\Models\Employee::updateOrCreate(
-                                            ['id' => $rowData['id'] ?? null],
-                                            $employeeData
-                                        );
+                                        return [$key => $employee->id];
+                                    })
+                                    ->toArray();
 
-                                        if ($isNew) {
-                                            // 1. Create User
-                                            $user = \App\Models\User::create([
-                                                'name' => $employee->name,
-                                                'email' => $employee->email ?: "pegawai_{$employee->id}@pdam.com",
-                                                'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
-                                                'is_verified' => true,
-                                            ]);
-                                            $employee->update(['users_id' => $user->id]);
+                                $employeePinsById = \App\Models\Employee::withTrashed()
+                                    ->get(['id', 'pin'])
+                                    ->mapWithKeys(function ($employee) use ($normalizeUniqueValue) {
+                                        $key = $normalizeUniqueValue($employee->pin, 'pin');
+                                        return [$employee->id => $key];
+                                    })
+                                    ->toArray();
 
-                                            // 2. Create Initial Appointment
-                                            \App\Models\EmployeeAppointment::create([
-                                                'employee_id' => $employee->id,
-                                                'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),
-                                                'appointment_date' => $employee->entry_date ?: now(),
-                                                'new_employment_status_id' => $employee->employment_status_id ?: 1,
-                                                'employee_grade_id' => $employee->basic_salary_id,
-                                                'is_applied' => true,
-                                                'applied_at' => now(),
-                                                'users_id' => auth()->id() ?? 1,
-                                            ]);
+                                $fileProvidedPins = [];
+                                foreach ($dataRows as $idx => $row) {
+                                    if (empty($row)) {
+                                        continue;
+                                    }
+
+                                    $rowWithKnownHeaders = array_slice($row, 0, count($headers));
+                                    $rowData = array_combine($headers, array_pad($rowWithKnownHeaders, count($headers), ''));
+                                    foreach ($rowData as $k => $v) {
+                                        $rowData[$k] = trim((string) $v);
+                                    }
+
+                                    if (!array_filter($rowData, fn($value) => $value !== '')) {
+                                        continue;
+                                    }
+
+                                    if (static::isEmployeeImportInstructionRow($rowData, $instructionTemplateByHeader)) {
+                                        continue;
+                                    }
+
+                                    $providedPin = $normalizeUniqueValue($rowData['pin'] ?? '', 'pin');
+                                    if ($providedPin !== null) {
+                                        $fileProvidedPins[$providedPin] = true;
+                                    }
+                                }
+
+                                $reservedNumericPins = [];
+
+                                foreach (array_keys($uniques['pin']) as $existingPin) {
+                                    if (!ctype_digit((string) $existingPin)) {
+                                        continue;
+                                    }
+
+                                    $numericPin = (int) $existingPin;
+                                    if ($numericPin < 1 || $numericPin > 999) {
+                                        continue;
+                                    }
+                                    $reservedNumericPins[$numericPin] = true;
+                                }
+
+                                foreach (array_keys($fileProvidedPins) as $providedPin) {
+                                    if (!ctype_digit((string) $providedPin)) {
+                                        continue;
+                                    }
+
+                                    $numericPin = (int) $providedPin;
+                                    if ($numericPin < 1 || $numericPin > 999) {
+                                        continue;
+                                    }
+                                    $reservedNumericPins[$numericPin] = true;
+                                }
+
+                                $nextAutoGeneratedPin = 1;
+                                $generateAutoPin = function () use (&$reservedNumericPins, &$nextAutoGeneratedPin): ?string {
+                                    while ($nextAutoGeneratedPin <= 999 && isset($reservedNumericPins[$nextAutoGeneratedPin])) {
+                                        $nextAutoGeneratedPin++;
+                                    }
+
+                                    if ($nextAutoGeneratedPin > 999) {
+                                        return null;
+                                    }
+
+                                    $generatedPin = (string) $nextAutoGeneratedPin;
+                                    $reservedNumericPins[$nextAutoGeneratedPin] = true;
+                                    $nextAutoGeneratedPin++;
+
+                                    return $generatedPin;
+                                };
+
+                                $errors = [];
+                                $warnings = [];
+                                $processedData = [];
+                                $batchUniques = [
+                                    'pin' => [],
+                                    'nippam' => [],
+                                    'email' => [],
+                                    'office_email' => [],
+                                    'username' => [],
+                                    'id_number' => [],
+                                ];
+
+                                // Phase 1: Validation
+                                foreach ($dataRows as $idx => $row) {
+                                    $actualRowInFile = $headerIndex + $idx + 2;
+                                    if (empty($row)) continue;
+
+                                    $rowWithKnownHeaders = array_slice($row, 0, count($headers));
+                                    $rowData = array_combine($headers, array_pad($rowWithKnownHeaders, count($headers), ''));
+
+                                    // Clean row data
+                                    foreach ($rowData as $k => $v) {
+                                        $rowData[$k] = trim((string) $v);
+                                    }
+
+                                    // Skip empty rows
+                                    if (!array_filter($rowData, fn($value) => $value !== '')) {
+                                        continue;
+                                    }
+
+                                    if (static::isEmployeeImportInstructionRow($rowData, $instructionTemplateByHeader)) {
+                                        continue;
+                                    }
+
+                                    $rowErrors = [];
+                                    if (empty($rowData['name'])) $rowErrors[] = "Nama wajib diisi";
+
+                                    $resolvedEmployeeId = null;
+                                    $rowIdValue = trim((string) ($rowData['id'] ?? ''));
+                                    if ($rowIdValue !== '') {
+                                        if (!ctype_digit($rowIdValue)) {
+                                            $rowErrors[] = "ID '{$rowIdValue}' tidak valid (harus angka).";
+                                        } else {
+                                            $resolvedEmployeeId = (int) $rowIdValue;
+                                        }
+                                    } else {
+                                        $nippamForFallbackUpdate = $normalizeUniqueValue($rowData['nippam'] ?? '', 'nippam');
+                                        if ($nippamForFallbackUpdate !== null && isset($activeEmployeeIdByNippam[$nippamForFallbackUpdate])) {
+                                            $resolvedEmployeeId = (int) $activeEmployeeIdByNippam[$nippamForFallbackUpdate];
+                                            $rowData['id'] = (string) $resolvedEmployeeId;
                                         }
                                     }
-                                });
 
-                                Notification::make()
-                                    ->title('Proses Berhasil')
-                                    ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
-                                    ->success()->send();
+                                    $isNewRow = empty($rowData['id']);
+                                    $existingEmployeePin = $resolvedEmployeeId !== null
+                                        ? ($employeePinsById[$resolvedEmployeeId] ?? null)
+                                        : null;
 
-                                if (!empty($warnings)) {
-                                    $warningPreview = implode('<br>', array_slice($warnings, 0, 10));
-                                    $warningFooter = count($warnings) > 10
-                                        ? '<br><br><strong>...dan ' . (count($warnings) - 10) . ' baris lainnya.</strong>'
-                                        : '';
+                                    // Smart Lookup Helper
+                                    $smartLookup = function ($key, $name) use ($masterLookups) {
+                                        if (empty($name)) return null;
+                                        $search = strtolower(trim($name));
+                                        if (isset($masterLookups[$key][$search])) return $masterLookups[$key][$search];
+                                        if (is_numeric($name)) return (int) $name;
+                                        return null;
+                                    };
+
+                                    // Specialized Unit Lookup
+                                    $unitName = $rowData['work_unit_name'] ?? '';
+                                    $unitType = strtolower($rowData['work_unit_type'] ?? ''); // bagian/cabang/unit
+                                    $deptId = $bagianId = $cabangId = $unitId = null;
+
+                                    if (!empty($unitName)) {
+                                        $unitKey = strtolower(trim($unitName));
+                                        if (isset($masterLookups['units'][$unitKey])) {
+                                            $deptId = $masterLookups['units'][$unitKey];
+                                        } elseif (is_numeric($unitName)) {
+                                            $deptId = (int) $unitName;
+                                        }
+
+                                        if (!$deptId) {
+                                            $rowErrors[] = "Unit Kerja '{$unitName}' ({$unitType}) tidak ditemukan";
+                                        } else {
+                                            if ($unitType === 'bagian') $bagianId = $deptId;
+                                            elseif ($unitType === 'cabang') $cabangId = $deptId;
+                                            elseif ($unitType === 'unit') $unitId = $deptId;
+                                        }
+                                    }
+
+                                    $subDeptId = $smartLookup('sub_depts', $rowData['sub_department_name'] ?? '');
+                                    $posId = $smartLookup('positions', $rowData['position_name'] ?? '');
+                                    $statusId = $smartLookup('status', $rowData['employment_status_name'] ?? '');
+                                    $eduId = $smartLookup('education', $rowData['education_name'] ?? '');
+                                    $gradeId = $smartLookup('grades', $rowData['grade_name'] ?? '');
+                                    $agreementId = $smartLookup('agreements', $rowData['agreement_type_name'] ?? '');
+
+                                    // Uniqueness Validation
+                                    $checkUnique = function (string $column, $value, string $source = 'input') use (
+                                        &$rowErrors,
+                                        &$batchUniques,
+                                        $uniques,
+                                        $uniqueLabels,
+                                        $normalizeUniqueValue,
+                                        $resolvedEmployeeId,
+                                        $actualRowInFile
+                                    ) {
+                                        $normalizedValue = $normalizeUniqueValue($value, $column);
+                                        if ($normalizedValue === null) {
+                                            return;
+                                        }
+
+                                        $label = $uniqueLabels[$column] ?? strtoupper($column);
+
+                                        if (isset($uniques[$column][$normalizedValue])) {
+                                            $existingRecord = $uniques[$column][$normalizedValue];
+                                            if ((int) $existingRecord['id'] !== (int) ($resolvedEmployeeId ?? 0)) {
+                                                $archivedSuffix = $existingRecord['is_deleted'] ? ' (arsip)' : '';
+                                                $rowErrors[] = "{$label} '{$normalizedValue}' sudah digunakan oleh '{$existingRecord['name']}' (ID {$existingRecord['id']}){$archivedSuffix}";
+                                                return;
+                                            }
+                                        }
+
+                                        if (isset($batchUniques[$column][$normalizedValue])) {
+                                            $previousEntry = $batchUniques[$column][$normalizedValue];
+                                            if ((int) ($previousEntry['target_employee_id'] ?? 0) !== (int) ($resolvedEmployeeId ?? 0)) {
+                                                $sourceSuffix = ($column === 'pin' && (($previousEntry['source'] ?? 'input') === 'generated' || $source === 'generated'))
+                                                    ? ' (termasuk PIN otomatis)'
+                                                    : '';
+                                                $rowErrors[] = "{$label} '{$normalizedValue}' duplikat di file import (baris {$previousEntry['line']} dan {$actualRowInFile}){$sourceSuffix}";
+                                                return;
+                                            }
+                                        }
+
+                                        $batchUniques[$column][$normalizedValue] = [
+                                            'line' => $actualRowInFile,
+                                            'target_employee_id' => $resolvedEmployeeId,
+                                            'source' => $source,
+                                        ];
+                                    };
+
+                                    $providedPin = $normalizeUniqueValue($rowData['pin'] ?? '', 'pin');
+                                    $effectivePin = $providedPin;
+                                    $pinSource = 'input';
+
+                                    if ($effectivePin === null) {
+                                        if ($existingEmployeePin !== null) {
+                                            $effectivePin = $existingEmployeePin;
+                                            $pinSource = 'existing';
+                                        } else {
+                                            $effectivePin = $generateAutoPin();
+                                            if ($effectivePin === null) {
+                                                $rowErrors[] = 'PIN otomatis tidak tersedia. Rentang PIN 1-999 sudah penuh.';
+                                            } else {
+                                                $pinSource = 'generated';
+                                            }
+                                        }
+                                    }
+
+                                    if ($effectivePin !== null) {
+                                        $checkUnique('pin', $effectivePin, $pinSource);
+                                    }
+
+                                    $checkUnique('nippam', $rowData['nippam'] ?? '');
+                                    $checkUnique('email', $rowData['email'] ?? '');
+                                    $checkUnique('office_email', $rowData['office_email'] ?? '');
+                                    $checkUnique('username', $rowData['username'] ?? '');
+                                    $checkUnique('id_number', $rowData['id_number'] ?? '');
+
+                                    // MKG Lookup
+                                    $mkgValue = trim($rowData['mkg_years'] ?? '');
+                                    $mkgId = null;
+                                    if ($mkgValue !== '') {
+                                        if (isset($masterLookups['mkg'][(string) $mkgValue])) {
+                                            $mkgId = $masterLookups['mkg'][$mkgValue];
+                                        } elseif (is_numeric($mkgValue) && isset($mkgById[(int) $mkgValue])) {
+                                            // Allow direct FK input if CSV/XLS/XLSX already provides relation ID.
+                                            $mkgId = (int) $mkgValue;
+                                        } else {
+                                            $displayName = ($rowData['name'] ?? null) ?: ($rowData['nippam'] ?? 'N/A');
+                                            $warnings[] = "Baris {$actualRowInFile} ({$displayName}): MKG '{$mkgValue}' tidak ditemukan, diset kosong.";
+                                        }
+                                    }
+
+                                    if (!empty($rowErrors)) {
+                                        $displayName = ($rowData['name'] ?? null) ?: ($rowData['nippam'] ?? 'N/A');
+                                        $errors[] = "<strong>Baris {$actualRowInFile} ({$displayName}):</strong> " . implode(', ', $rowErrors);
+                                    }
+
+                                    $processedData[] = [
+                                        'row' => $rowData,
+                                        'line_number' => $actualRowInFile,
+                                        'is_new' => $isNewRow,
+                                        'effective_pin' => $effectivePin,
+                                        'pin_source' => $pinSource,
+                                        'ids' => [
+                                            'dept_id' => $deptId,
+                                            'bagian_id' => $bagianId,
+                                            'cabang_id' => $cabangId,
+                                            'unit_id' => $unitId,
+                                            'sub_dept_id' => $subDeptId,
+                                            'pos_id' => $posId,
+                                            'status_id' => $statusId,
+                                            'edu_id' => $eduId,
+                                            'grade_id' => $gradeId,
+                                            'mkg_id' => $mkgId,
+                                            'agreement_id' => $agreementId,
+                                        ]
+                                    ];
+                                }
+
+                                if (!empty($errors)) {
+                                    $totalErrors = count($errors);
+                                    $errorDisplay = array_slice($errors, 0, 15);
+                                    $footer = $totalErrors > 15 ? "<br><br><strong>...dan " . ($totalErrors - 15) . " baris lainnya juga bermasalah.</strong>" : "";
 
                                     Notification::make()
-                                        ->title('Import selesai dengan catatan MKG')
-                                        ->body(new \Illuminate\Support\HtmlString($warningPreview . $warningFooter))
-                                        ->warning()
-                                        ->persistent()
-                                        ->send();
-                                }
-                            } catch (\Exception $e) {
-                                $errorMessage = $e->getMessage();
-                                $friendlyMessage = "Terjadi kesalahan sistem saat menyimpan data.";
-
-                                if (str_contains($errorMessage, 'Duplicate entry')) {
-                                    $friendlyMessage = "Data ini sudah terdaftar (Duplikasi NIPPAM/PIN/NIK).";
-                                } elseif (str_contains($errorMessage, 'Data truncated')) {
-                                    $friendlyMessage = "Format data tidak sesuai dengan batasan sistem (Data terlalu panjang atau pilihan tidak valid).";
+                                        ->title('Import Dibatalkan: Ditemukan ' . $totalErrors . ' Kesalahan Data')
+                                        ->body(new \Illuminate\Support\HtmlString("Sistem menolak seluruh file agar data tetap aman. Mohon perbaiki sampel berikut:<br><br>" . implode('<br>', $errorDisplay) . $footer))
+                                        ->danger()->persistent()->send();
+                                    return;
                                 }
 
-                                \Illuminate\Support\Facades\Log::error("Import Error: {$errorMessage} | Row: {$currentRowIndex} | Name: {$currentRowName}");
+                                $previewPayload = [
+                                    'processed_data' => $processedData,
+                                    'warnings' => $warnings,
+                                    'generated_at' => now()->toIso8601String(),
+                                    'generated_by' => auth()->id(),
+                                ];
+
+                                \Illuminate\Support\Facades\Cache::put(
+                                    static::getEmployeeImportPreviewCacheKey(),
+                                    $previewPayload,
+                                    now()->addMinutes(60)
+                                );
 
                                 Notification::make()
-                                    ->title('Proses Gagal')
-                                    ->body(new \Illuminate\Support\HtmlString("
-                                    Terjadi kesalahan pada data <strong>{$currentRowName}</strong> (Baris {$currentRowIndex}).<br><br>
-                                    <strong>Pesan:</strong> {$friendlyMessage}
-                                "))
-                                    ->danger()
+                                    ->title('Preview Import Siap')
+                                    ->body('Periksa seluruh data di popup preview, lalu klik Submit Import jika sudah sesuai.')
+                                    ->success()
                                     ->persistent()
                                     ->send();
+
+                                $livewire->replaceMountedTableAction('preview_import_pegawai');
+                            } finally {
+                                if ($disk->exists($storedPath)) {
+                                    $disk->delete($storedPath);
+                                }
+                            }
+                        }),
+                    Tables\Actions\Action::make('preview_import_pegawai')
+                        ->label('Preview & Submit Import')
+                        ->icon('heroicon-o-eye')
+                        ->color('warning')
+                        ->hidden()
+                        ->disabled(fn(): bool => empty(static::getEmployeeImportPreviewPayload()['processed_data'] ?? []))
+                        ->modalHeading('Preview Import Pegawai')
+                        ->modalDescription('Periksa data hasil import sebelum menyimpan ke database.')
+                        ->modalWidth('7xl')
+                        ->modalSubmitActionLabel('Submit Import')
+                        ->modalCancelActionLabel('Tutup')
+                        ->modalContent(fn() => view('filament.employee.partials.import-preview-content', static::getEmployeeImportPreviewViewData()))
+                        ->action(function () {
+                            $previewPayload = static::getEmployeeImportPreviewPayload();
+                            $processedData = $previewPayload['processed_data'] ?? [];
+
+                            if (empty($processedData)) {
+                                Notification::make()
+                                    ->title('Preview Tidak Ditemukan')
+                                    ->body('Belum ada data preview. Jalankan Import / Sync Data terlebih dahulu.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $isSuccess = static::runEmployeeImportCommit(
+                                $processedData,
+                                $previewPayload['warnings'] ?? []
+                            );
+
+                            if ($isSuccess) {
+                                Cache::forget(static::getEmployeeImportPreviewCacheKey());
                             }
                         }),
                 ])
@@ -2063,6 +2060,827 @@ class EmployeeResource extends Resource
                         ])->columnSpan(2),
                     ]),
             ]);
+    }
+
+    private static function getEmployeeImportHeaders(): array
+    {
+        return [
+            'id',
+            'nippam',
+            'pin',
+            'name',
+            'gender',
+            'place_birth',
+            'date_birth',
+            'religion',
+            'marital_status',
+            'blood_type',
+            'email',
+            'office_email',
+            'phone_number',
+            'id_number',
+            'familycard_number',
+            'npwp_number',
+            'bank_account_number',
+            'bpjs_tk_number',
+            'bpjs_tk_status',
+            'bpjs_kes_number',
+            'bpjs_kes_status',
+            'bpjs_kes_class',
+            'rek_dplk_pribadi',
+            'rek_dplk_bersama',
+            'dapenma_number',
+            'dapenma_phdp',
+            'dapenma_status',
+            'address',
+            'work_unit_type',
+            'work_unit_name',
+            'sub_department_name',
+            'position_name',
+            'employment_status_name',
+            'education_name',
+            'grade_name',
+            'mkg_years',
+            'agreement_type_name',
+            'entry_date',
+            'probation_appointment_date',
+            'leave_balance',
+            'agreement_date_start',
+            'agreement_date_end',
+            'grade_date_start',
+            'grade_date_end',
+            'periodic_salary_date_start',
+            'periodic_salary_date_end',
+        ];
+    }
+
+    public static function getEmployeeImportColumnLabels(): array
+    {
+        return [
+            'id' => 'ID Pegawai',
+            'nippam' => 'NIPPAM',
+            'pin' => 'PIN Absensi',
+            'name' => 'Nama Pegawai',
+            'gender' => 'Jenis Kelamin',
+            'place_birth' => 'Tempat Lahir',
+            'date_birth' => 'Tanggal Lahir',
+            'religion' => 'Agama',
+            'marital_status' => 'Status Perkawinan',
+            'blood_type' => 'Golongan Darah',
+            'email' => 'Email Pribadi',
+            'office_email' => 'Email Kantor',
+            'phone_number' => 'No. HP',
+            'id_number' => 'NIK (KTP)',
+            'familycard_number' => 'No. Kartu Keluarga',
+            'npwp_number' => 'NPWP',
+            'bank_account_number' => 'No. Rekening',
+            'bpjs_tk_number' => 'No. BPJS TK',
+            'bpjs_tk_status' => 'Status BPJS TK',
+            'bpjs_kes_number' => 'No. BPJS Kesehatan',
+            'bpjs_kes_status' => 'Status BPJS Kesehatan',
+            'bpjs_kes_class' => 'Kelas BPJS Kesehatan',
+            'rek_dplk_pribadi' => 'Rek DPLK Pribadi',
+            'rek_dplk_bersama' => 'Rek DPLK Bersama',
+            'dapenma_number' => 'No. Dapenma',
+            'dapenma_phdp' => 'PHDP Dapenma',
+            'dapenma_status' => 'Status Dapenma',
+            'address' => 'Alamat',
+            'work_unit_type' => 'Tipe Unit Kerja',
+            'work_unit_name' => 'Nama Unit Kerja',
+            'sub_department_name' => 'Sub Departemen',
+            'position_name' => 'Jabatan',
+            'employment_status_name' => 'Status Kepegawaian',
+            'education_name' => 'Pendidikan',
+            'grade_name' => 'Golongan',
+            'mkg_years' => 'MKG (Tahun)',
+            'agreement_type_name' => 'Jenis Perjanjian',
+            'entry_date' => 'Tanggal Masuk',
+            'probation_appointment_date' => 'TMT Calon Pegawai',
+            'leave_balance' => 'Saldo Cuti',
+            'agreement_date_start' => 'Mulai Perjanjian',
+            'agreement_date_end' => 'Akhir Perjanjian',
+            'grade_date_start' => 'Mulai Golongan',
+            'grade_date_end' => 'Akhir Golongan',
+            'periodic_salary_date_start' => 'Mulai Gaji Berkala',
+            'periodic_salary_date_end' => 'Akhir Gaji Berkala',
+        ];
+    }
+
+    public static function getEmployeeImportDateColumns(): array
+    {
+        return [
+            'date_birth',
+            'entry_date',
+            'probation_appointment_date',
+            'agreement_date_start',
+            'agreement_date_end',
+            'grade_date_start',
+            'grade_date_end',
+            'periodic_salary_date_start',
+            'periodic_salary_date_end',
+        ];
+    }
+
+    public static function formatEmployeeImportPreviewValue(string $column, mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        $valueString = trim((string) $value);
+        if ($valueString === '') {
+            return '';
+        }
+
+        if (in_array($column, static::getEmployeeImportDateColumns(), true)) {
+            $normalizedDate = static::normalizeEmployeeImportDate($value);
+            if ($normalizedDate !== null) {
+                return \Carbon\Carbon::parse($normalizedDate)->format('d-m-Y');
+            }
+        }
+
+        return $valueString;
+    }
+
+    private static function getEmployeeImportInstructionRow(): array
+    {
+        return [
+            'KOSONGKAN untuk pegawai baru / ISI ID untuk update',
+            'Opsional (otomatis jika kosong)',
+            'Opsional, angka 1-999 (auto-generate jika kosong)',
+            'Wajib',
+            'male / female',
+            'Disarankan diisi',
+            'dd-mm-yyyy',
+            'Opsional',
+            'single / married / divorced / widowed',
+            'Opsional (A/B/O/AB)',
+            'Email valid',
+            'Email kantor valid',
+            'No HP / Telp',
+            '16 digit',
+            '16 digit',
+            'Format: 12.345.678.9-012.345',
+            'Angka / teks rekening',
+            'Angka',
+            'Aktif / Non-Aktif',
+            'Angka',
+            'Aktif / Non-Aktif',
+            'Kelas 1 / Kelas 2 / Kelas 3',
+            'Angka',
+            'Angka',
+            'Opsional',
+            'Angka',
+            'Aktif / Non-Aktif',
+            'Alamat lengkap',
+            'bagian / cabang / unit',
+            'Nama unit atau ID master unit',
+            'Nama atau ID',
+            'Nama atau ID',
+            'Nama atau ID',
+            'Nama atau ID',
+            'Nama atau ID',
+            'MKG (tahun) atau ID',
+            'Nama atau ID',
+            'dd-mm-yyyy',
+            'dd-mm-yyyy',
+            'Angka, default 12',
+            'dd-mm-yyyy',
+            'dd-mm-yyyy',
+            'dd-mm-yyyy',
+            'dd-mm-yyyy',
+            'dd-mm-yyyy',
+            'dd-mm-yyyy',
+        ];
+    }
+
+    private static function buildEmployeeImportInstructionMap(array $headers): array
+    {
+        $instructionRow = static::getEmployeeImportInstructionRow();
+        $instructionByHeader = [];
+
+        foreach ($headers as $index => $header) {
+            $headerKey = strtolower(trim((string) $header));
+            if ($headerKey === '') {
+                continue;
+            }
+
+            $instructionByHeader[$headerKey] = static::normalizeEmployeeImportCellValue($instructionRow[$index] ?? '');
+        }
+
+        return $instructionByHeader;
+    }
+
+    private static function isEmployeeImportInstructionRow(array $rowData, array $instructionByHeader): bool
+    {
+        if (empty($instructionByHeader)) {
+            return false;
+        }
+
+        $idCell = static::normalizeEmployeeImportCellValue($rowData['id'] ?? '');
+        $nameCell = static::normalizeEmployeeImportCellValue($rowData['name'] ?? '');
+
+        if (
+            $idCell !== '' &&
+            str_contains($idCell, 'kosongkan') &&
+            (str_contains($idCell, 'pegawai baru') || str_contains($idCell, 'untuk update')) &&
+            $nameCell === 'wajib'
+        ) {
+            return true;
+        }
+
+        $comparableFieldCount = 0;
+        $matchedFieldCount = 0;
+
+        foreach ($instructionByHeader as $header => $instructionValue) {
+            if ($instructionValue === '') {
+                continue;
+            }
+
+            $comparableFieldCount++;
+            $rowValue = static::normalizeEmployeeImportCellValue($rowData[$header] ?? '');
+
+            if ($rowValue === $instructionValue) {
+                $matchedFieldCount++;
+            }
+        }
+
+        if ($comparableFieldCount === 0) {
+            return false;
+        }
+
+        $matchRatio = $matchedFieldCount / $comparableFieldCount;
+
+        return $matchRatio >= 0.8;
+    }
+
+    private static function normalizeEmployeeImportCellValue($value): string
+    {
+        $normalized = (string) $value;
+        $normalized = str_replace("\xEF\xBB\xBF", '', $normalized);
+        $normalized = str_replace("\xC2\xA0", ' ', $normalized);
+        $normalized = trim($normalized);
+        $normalized = preg_replace('/\s+/u', ' ', $normalized) ?? $normalized;
+
+        return strtolower($normalized);
+    }
+
+    private static function buildEmployeeImportDuplicateMessage(string $errorMessage): string
+    {
+        if (!preg_match("/Duplicate entry '(.+?)' for key '([^']+)'/i", $errorMessage, $matches)) {
+            return "Data ini sudah terdaftar (duplikasi nilai unik).";
+        }
+
+        $duplicateValue = $matches[1];
+        $constraintKey = $matches[2];
+        $lowerConstraintKey = strtolower($constraintKey);
+
+        $columnLabels = [
+            'pin' => 'PIN Absensi',
+            'nippam' => 'NIPPAM',
+            'office_email' => 'Email Kantor',
+            'email' => 'Email',
+            'username' => 'Username',
+            'id_number' => 'NIK (KTP)',
+        ];
+
+        foreach ($columnLabels as $columnKey => $columnLabel) {
+            if (str_contains($lowerConstraintKey, $columnKey)) {
+                return "Duplikasi {$columnLabel}: '{$duplicateValue}' sudah digunakan pegawai lain.";
+            }
+        }
+
+        return "Data duplikat terdeteksi pada constraint '{$constraintKey}' dengan nilai '{$duplicateValue}'.";
+    }
+
+    public static function getEmployeeImportPreviewCacheKey(?int $userId = null): string
+    {
+        $resolvedUserId = $userId ?? (auth()->id() ?? 0);
+        return "employee_import_preview_payload_user_{$resolvedUserId}";
+    }
+
+    public static function getEmployeeImportPreviewPayload(?int $userId = null): array
+    {
+        return Cache::get(static::getEmployeeImportPreviewCacheKey($userId), []);
+    }
+
+    public static function getEmployeeImportPreviewViewData(?int $userId = null): array
+    {
+        $previewPayload = static::getEmployeeImportPreviewPayload($userId);
+        $processedData = $previewPayload['processed_data'] ?? [];
+        $warnings = $previewPayload['warnings'] ?? [];
+
+        $headers = [];
+        if (!empty($processedData)) {
+            $headers = array_keys($processedData[0]['row'] ?? []);
+        }
+
+        $generatedAt = $previewPayload['generated_at'] ?? null;
+        $generatedAtLabel = null;
+        if (is_string($generatedAt) && trim($generatedAt) !== '') {
+            try {
+                $generatedAtLabel = \Carbon\Carbon::parse($generatedAt)
+                    ->setTimezone('Asia/Jakarta')
+                    ->format('d-m-Y H:i:s');
+            } catch (\Throwable $e) {
+                $generatedAtLabel = $generatedAt;
+            }
+        }
+
+        return [
+            'processedData' => $processedData,
+            'warnings' => $warnings,
+            'headers' => $headers,
+            'columnLabels' => static::getEmployeeImportColumnLabels(),
+            'summary' => [
+                'total_rows' => count($processedData),
+                'created' => count(array_filter($processedData, fn($item) => (bool) ($item['is_new'] ?? false))),
+                'updated' => count(array_filter($processedData, fn($item) => !(bool) ($item['is_new'] ?? false))),
+                'auto_pin' => count(array_filter($processedData, fn($item) => ($item['pin_source'] ?? 'input') === 'generated')),
+            ],
+            'generatedAt' => $generatedAt,
+            'generatedAtLabel' => $generatedAtLabel,
+        ];
+    }
+
+    private static function normalizeEmployeeImportDate(mixed $dateValue): ?string
+    {
+        if ($dateValue === null || $dateValue === '') {
+            return null;
+        }
+
+        if (is_numeric($dateValue)) {
+            try {
+                return SpreadsheetDate::excelToDateTimeObject((float) $dateValue)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+
+        $dateString = trim((string) $dateValue);
+        if ($dateString === '') {
+            return null;
+        }
+
+        $formats = ['d-m-Y', 'd/m/Y', 'd.m.Y', 'Y-m-d'];
+        foreach ($formats as $format) {
+            try {
+                $parsedDate = \Carbon\Carbon::createFromFormat($format, $dateString);
+                if ($parsedDate !== false) {
+                    return $parsedDate->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+            }
+        }
+
+        return null;
+    }
+
+    public static function runEmployeeImportCommit(array $processedData, array $warnings): bool
+    {
+        if (empty($processedData)) {
+            Notification::make()
+                ->title('Preview Kosong')
+                ->body('Tidak ada data preview yang bisa disimpan.')
+                ->warning()
+                ->persistent()
+                ->send();
+            return false;
+        }
+
+        $stats = ['created' => 0, 'updated' => 0];
+        $currentRowName = 'N/A';
+        $currentRowIndex = 0;
+
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($processedData, &$stats, &$currentRowName, &$currentRowIndex) {
+                foreach ($processedData as $data) {
+                    $rowData = $data['row'];
+                    $ids = $data['ids'];
+                    $actualRowInFile = $data['line_number'];
+                    $effectivePin = $data['effective_pin'] ?? null;
+
+                    $currentRowName = $rowData['name'] ?? ($rowData['nippam'] ?? 'N/A');
+                    $currentRowIndex = $actualRowInFile;
+
+                    $isNew = (bool) ($data['is_new'] ?? empty($rowData['id']));
+                    if ($isNew) $stats['created']++;
+                    else $stats['updated']++;
+
+                    $clean = fn($val) => ($val === '' || $val === null) ? null : trim((string) $val);
+
+                    $gender = strtolower(trim($rowData['gender'] ?? ''));
+                    $gender = in_array($gender, ['male', 'female']) ? $gender : 'male';
+
+                    $marital = strtolower(trim($rowData['marital_status'] ?? ''));
+                    $marital = in_array($marital, ['single', 'married', 'divorced', 'widowed']) ? $marital : 'single';
+
+                    $employeeData = [
+                        'name' => $rowData['name'],
+                        'pin' => $clean($effectivePin),
+                        'gender' => $gender,
+                        'religion' => $clean($rowData['religion'] ?? null),
+                        'place_birth' => $clean($rowData['place_birth'] ?? null),
+                        'date_birth' => static::normalizeEmployeeImportDate($rowData['date_birth'] ?? ''),
+                        'marital_status' => $marital,
+                        'blood_type' => $clean($rowData['blood_type'] ?? null),
+                        'email' => $clean($rowData['email'] ?? null),
+                        'office_email' => $clean($rowData['office_email'] ?? null),
+                        'phone_number' => $clean($rowData['phone_number'] ?? null),
+                        'id_number' => $clean($rowData['id_number'] ?? null),
+                        'familycard_number' => $clean($rowData['familycard_number'] ?? null),
+                        'npwp_number' => $clean($rowData['npwp_number'] ?? null),
+                        'bank_account_number' => $clean($rowData['bank_account_number'] ?? null),
+                        'bpjs_tk_number' => $clean($rowData['bpjs_tk_number'] ?? null),
+                        'bpjs_tk_status' => $clean($rowData['bpjs_tk_status'] ?? 'Aktif'),
+                        'bpjs_kes_number' => $clean($rowData['bpjs_kes_number'] ?? null),
+                        'bpjs_kes_status' => $clean($rowData['bpjs_kes_status'] ?? 'Aktif'),
+                        'bpjs_kes_class' => $clean($rowData['bpjs_kes_class'] ?? null),
+                        'rek_dplk_pribadi' => $clean($rowData['rek_dplk_pribadi'] ?? null),
+                        'rek_dplk_bersama' => $clean($rowData['rek_dplk_bersama'] ?? null),
+                        'dapenma_number' => $clean($rowData['dapenma_number'] ?? null),
+                        'dapenma_phdp' => (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '') ? $rowData['dapenma_phdp'] : null,
+                        'dapenma_status' => $clean($rowData['dapenma_status'] ?? 'Aktif'),
+                        'address' => $clean($rowData['address'] ?? null),
+                        'departments_id' => $ids['dept_id'],
+                        'bagian_id' => $ids['bagian_id'],
+                        'cabang_id' => $ids['cabang_id'],
+                        'unit_id' => $ids['unit_id'],
+                        'sub_department_id' => $ids['sub_dept_id'],
+                        'employee_position_id' => $ids['pos_id'],
+                        'employment_status_id' => $ids['status_id'],
+                        'employee_education_id' => $ids['edu_id'],
+                        'basic_salary_id' => $ids['grade_id'],
+                        'employee_service_grade_id' => $ids['mkg_id'],
+                        'master_employee_agreement_id' => $ids['agreement_id'],
+                        'entry_date' => static::normalizeEmployeeImportDate($rowData['entry_date'] ?? ''),
+                        'probation_appointment_date' => static::normalizeEmployeeImportDate($rowData['probation_appointment_date'] ?? ''),
+                        'leave_balance' => $rowData['leave_balance'] ?? 12,
+                        'agreement_date_start' => static::normalizeEmployeeImportDate($rowData['agreement_date_start'] ?? ''),
+                        'agreement_date_end' => static::normalizeEmployeeImportDate($rowData['agreement_date_end'] ?? ''),
+                        'grade_date_start' => static::normalizeEmployeeImportDate($rowData['grade_date_start'] ?? ''),
+                        'grade_date_end' => static::normalizeEmployeeImportDate($rowData['grade_date_end'] ?? ''),
+                        'periodic_salary_date_start' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_start'] ?? ''),
+                        'periodic_salary_date_end' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_end'] ?? ''),
+                        'users_id' => auth()->id() ?? 1,
+                    ];
+
+                    if (!empty($rowData['nippam'])) {
+                        $employeeData['nippam'] = $rowData['nippam'];
+                    }
+
+                    $employee = \App\Models\Employee::updateOrCreate(
+                        ['id' => $rowData['id'] ?? null],
+                        $employeeData
+                    );
+
+                    if ($isNew) {
+                        $user = \App\Models\User::create([
+                            'name' => $employee->name,
+                            'email' => $employee->email ?: "pegawai_{$employee->id}@pdam.com",
+                            'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
+                            'is_verified' => true,
+                        ]);
+                        $employee->update(['users_id' => $user->id]);
+
+                        \App\Models\EmployeeAppointment::create([
+                            'employee_id' => $employee->id,
+                            'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),
+                            'appointment_date' => $employee->entry_date ?: now(),
+                            'new_employment_status_id' => $employee->employment_status_id ?: 1,
+                            'employee_grade_id' => $employee->basic_salary_id,
+                            'is_applied' => true,
+                            'applied_at' => now(),
+                            'users_id' => auth()->id() ?? 1,
+                        ]);
+                    }
+                }
+            });
+
+            Notification::make()
+                ->title('Proses Berhasil')
+                ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
+                ->success()->send();
+
+            if (!empty($warnings)) {
+                $warningPreview = implode('<br>', array_slice($warnings, 0, 10));
+                $warningFooter = count($warnings) > 10
+                    ? '<br><br><strong>...dan ' . (count($warnings) - 10) . ' baris lainnya.</strong>'
+                    : '';
+
+                Notification::make()
+                    ->title('Import selesai dengan catatan MKG')
+                    ->body(new \Illuminate\Support\HtmlString($warningPreview . $warningFooter))
+                    ->warning()
+                    ->persistent()
+                    ->send();
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            $errorMessage = $e->getMessage();
+            $friendlyMessage = "Terjadi kesalahan sistem saat menyimpan data.";
+
+            if (str_contains($errorMessage, 'Duplicate entry')) {
+                $friendlyMessage = static::buildEmployeeImportDuplicateMessage($errorMessage);
+            } elseif (str_contains($errorMessage, 'Data truncated')) {
+                $friendlyMessage = "Format data tidak sesuai dengan batasan sistem (Data terlalu panjang atau pilihan tidak valid).";
+            }
+
+            \Illuminate\Support\Facades\Log::error("Import Error: {$errorMessage} | Row: {$currentRowIndex} | Name: {$currentRowName}");
+
+            Notification::make()
+                ->title('Proses Gagal')
+                ->body(new \Illuminate\Support\HtmlString("
+                    Terjadi kesalahan pada data <strong>{$currentRowName}</strong> (Baris {$currentRowIndex}).<br><br>
+                    <strong>Pesan:</strong> {$friendlyMessage}
+                "))
+                ->danger()
+                ->persistent()
+                ->send();
+
+            return false;
+        }
+    }
+
+    private static function getEmployeeImportSampleRow(): array
+    {
+        $edu = \App\Models\MasterEmployeeEducation::query()->orderBy('name')->first()?->name ?? 'S1';
+        $pos = \App\Models\MasterEmployeePosition::query()->orderBy('name')->first()?->name ?? 'Staff';
+        $grade = \App\Models\MasterEmployeeGrade::query()->orderBy('name')->first()?->name ?? 'A1';
+        $status = \App\Models\MasterEmployeeStatusEmployment::query()->orderBy('name')->first()?->name ?? 'Pegawai Tetap';
+        $dept = \App\Models\MasterDepartment::query()->orderBy('name')->first();
+        $agreement = \App\Models\MasterEmployeeAgreement::query()->orderBy('name')->first()?->name ?? 'PKWTT';
+        $mkg = (string) (\App\Models\MasterEmployeeServiceGrade::query()->orderBy('service_grade')->value('service_grade') ?? '0');
+
+        return [
+            '',
+            '123456789',
+            '101',
+            'Budi Santoso',
+            'male',
+            'Jakarta',
+            '30-01-1990',
+            'Islam',
+            'single',
+            'O',
+            'budi@example.com',
+            'budi.pdam@example.com',
+            '08123456789',
+            '1234567890123456',
+            '1234567890123456',
+            '12.345.678.9-012.000',
+            '1234567890',
+            '00012345678',
+            'Aktif',
+            '0001234567890',
+            'Aktif',
+            'Kelas 1',
+            '1234567890',
+            '1234567890',
+            '12345',
+            '5000000',
+            'Aktif',
+            'Jl. Contoh No. 123',
+            $dept?->type ?? 'bagian',
+            $dept?->name ?? 'Bagian Umum',
+            'Sub Bagian Umum',
+            $pos,
+            $status,
+            $edu,
+            $grade,
+            $mkg,
+            $agreement,
+            '01-01-2024',
+            '01-07-2024',
+            '12',
+            '01-01-2024',
+            '31-12-2024',
+            '01-01-2024',
+            '01-01-2026',
+            '01-01-2024',
+            '01-01-2026',
+        ];
+    }
+
+    private static function getEmployeeImportReferenceRows(): array
+    {
+        return [
+            ['id', 'Opsional', 'Isi jika update pegawai lama, kosongkan untuk pegawai baru', 'Jika ID kosong tetapi NIPPAM cocok, data akan di-update otomatis berdasarkan NIPPAM'],
+            ['name', 'Wajib', 'Nama lengkap pegawai', 'Jika kosong import ditolak'],
+            ['pin', 'Opsional', 'Harus unik, angka 1-999', 'Jika kosong akan auto-generate dalam rentang 1-999'],
+            ['nippam', 'Opsional', 'Harus unik jika diisi', 'Boleh kosong untuk auto-generate sistem; dipakai sebagai fallback update saat ID kosong'],
+            ['gender', 'Disarankan', 'male / female', 'Jika tidak valid, default: male'],
+            ['marital_status', 'Disarankan', 'single / married / divorced / widowed', 'Jika tidak valid, default: single'],
+            ['date_birth dan kolom tanggal lain', 'Opsional', 'Format tanggal: dd-mm-yyyy', 'Juga menerima d/m/Y, d.m.Y, Y-m-d'],
+            ['id_number', 'Opsional', '16 digit', 'Nomor KTP'],
+            ['familycard_number', 'Opsional', '16 digit', 'Nomor Kartu Keluarga'],
+            ['npwp_number', 'Opsional', 'Format: XX.XXX.XXX.X-XXX.XXX', 'Contoh: 12.345.678.9-012.345'],
+            ['bpjs_tk_status / bpjs_kes_status / dapenma_status', 'Opsional', 'Aktif / Non-Aktif', 'Perhatikan ejaan'],
+            ['bpjs_kes_class', 'Opsional', 'Kelas 1 / Kelas 2 / Kelas 3', 'Perhatikan spasi'],
+            ['work_unit_type', 'Opsional', 'bagian / cabang / unit', 'Wajib konsisten jika work_unit_name diisi'],
+            ['work_unit_name', 'Opsional', 'Nama unit kerja atau ID MasterDepartment', 'Jika tidak ditemukan import ditolak'],
+            ['sub_department_name', 'Opsional', 'Nama sub-departemen atau ID', 'Mengacu ke master sub-departemen'],
+            ['position_name', 'Opsional', 'Nama jabatan atau ID', 'Mengacu ke master jabatan'],
+            ['employment_status_name', 'Opsional', 'Nama status pegawai atau ID', 'Mengacu ke master status'],
+            ['education_name', 'Opsional', 'Nama pendidikan atau ID', 'Mengacu ke master pendidikan'],
+            ['grade_name', 'Opsional', 'Nama golongan atau ID', 'Mengacu ke master golongan'],
+            ['mkg_years', 'Opsional', 'MKG (service_grade) atau ID', 'Jika tidak ditemukan, diabaikan + warning'],
+            ['agreement_type_name', 'Opsional', 'Nama jenis SK/perjanjian atau ID', 'Mengacu ke master agreement'],
+            ['leave_balance', 'Opsional', 'Angka', 'Default: 12 jika kosong'],
+        ];
+    }
+
+    private static function readEmployeeImportRows(string $path): array
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        if ($extension === 'csv') {
+            $fileHandle = fopen($path, 'r');
+            if ($fileHandle === false) {
+                throw new \RuntimeException('Gagal membaca file CSV yang diunggah.');
+            }
+
+            $firstLine = fgets($fileHandle);
+            rewind($fileHandle);
+            $delimiter = (strpos((string) $firstLine, ';') !== false && strpos((string) $firstLine, ',') === false) ? ';' : ',';
+
+            $rows = [];
+            while (($row = fgetcsv($fileHandle, 0, $delimiter)) !== false) {
+                $rows[] = $row;
+            }
+            fclose($fileHandle);
+
+            return $rows;
+        }
+
+        if (!in_array($extension, ['xls', 'xlsx'], true)) {
+            throw new \RuntimeException('Format file tidak didukung. Gunakan CSV, XLS, atau XLSX.');
+        }
+
+        $spreadsheet = IOFactory::load($path);
+        $sheet = $spreadsheet->getSheetByName('Data Import') ?? $spreadsheet->getSheet(0);
+        $rows = $sheet->toArray('', true, false, false);
+        $spreadsheet->disconnectWorksheets();
+
+        return $rows;
+    }
+
+    private static function downloadEmployeeImportTemplateCsv()
+    {
+        $headers = static::getEmployeeImportHeaders();
+        $instructions = static::getEmployeeImportInstructionRow();
+        $sample = static::getEmployeeImportSampleRow();
+
+        $callback = function () use ($headers, $instructions, $sample) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $headers);
+            fputcsv($file, $instructions);
+            fputcsv($file, $sample);
+            fclose($file);
+        };
+
+        return response()->streamDownload($callback, 'template_manajemen_pegawai.csv');
+    }
+
+    private static function downloadEmployeeImportTemplateExcel()
+    {
+        $headers = static::getEmployeeImportHeaders();
+        $instructions = static::getEmployeeImportInstructionRow();
+        $sample = static::getEmployeeImportSampleRow();
+        $referenceRows = static::getEmployeeImportReferenceRows();
+
+        $spreadsheet = new Spreadsheet();
+        $dataSheet = $spreadsheet->getActiveSheet();
+        $dataSheet->setTitle('Data Import');
+        $dataSheet->fromArray($headers, null, 'A1');
+        $dataSheet->fromArray($instructions, null, 'A2');
+        $dataSheet->fromArray($sample, null, 'A3');
+
+        $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+        $dataSheet->getStyle("A1:{$lastColumn}1")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $dataSheet->getStyle("A1:{$lastColumn}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF2563EB');
+        $dataSheet->getStyle("A2:{$lastColumn}2")->getFont()->getColor()->setARGB('FF92400E');
+        $dataSheet->getStyle("A2:{$lastColumn}2")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFFEF3C7');
+        $dataSheet->getStyle("A2:{$lastColumn}2")->getAlignment()->setWrapText(true);
+        $dataSheet->freezePane('A2');
+        $dataSheet->setAutoFilter("A1:{$lastColumn}1");
+
+        for ($i = 1; $i <= count($headers); $i++) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
+            $dataSheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $referenceSheet = $spreadsheet->createSheet();
+        $referenceSheet->setTitle('Referensi');
+        $referenceSheet->fromArray(['Kolom', 'Status', 'Aturan', 'Catatan'], null, 'A1');
+        $referenceSheet->fromArray($referenceRows, null, 'A2');
+        $referenceSheet->getStyle('A1:D1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $referenceSheet->getStyle('A1:D1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF0F766E');
+        $referenceSheet->getStyle('A1:D200')->getAlignment()->setWrapText(true);
+
+        $rowPointer = count($referenceRows) + 4;
+        $referenceSheet->setCellValue("A{$rowPointer}", 'Referensi Data Master (bisa isi Nama atau ID)');
+        $referenceSheet->getStyle("A{$rowPointer}")->getFont()->setBold(true);
+        $rowPointer += 1;
+
+        $appendMasterTable = function (string $title, array $headerRow, array $rows) use ($referenceSheet, &$rowPointer) {
+            $referenceSheet->setCellValue("A{$rowPointer}", $title);
+            $referenceSheet->getStyle("A{$rowPointer}")->getFont()->setBold(true);
+            $rowPointer++;
+
+            $referenceSheet->fromArray($headerRow, null, "A{$rowPointer}");
+            $referenceSheet->getStyle("A{$rowPointer}:C{$rowPointer}")->getFont()->setBold(true);
+            $rowPointer++;
+
+            if (empty($rows)) {
+                $referenceSheet->setCellValue("A{$rowPointer}", '-');
+                $rowPointer += 2;
+                return;
+            }
+
+            foreach ($rows as $row) {
+                $referenceSheet->fromArray($row, null, "A{$rowPointer}");
+                $rowPointer++;
+            }
+
+            $rowPointer++;
+        };
+
+        $appendMasterTable(
+            'Master Unit Kerja',
+            ['ID', 'Nama Unit', 'Tipe'],
+            \App\Models\MasterDepartment::query()->orderBy('name')->get()->map(fn($m) => [$m->id, $m->name, $m->type])->toArray()
+        );
+        $appendMasterTable(
+            'Master Sub Departemen',
+            ['ID', 'Nama Sub Departemen', ''],
+            \App\Models\MasterSubDepartment::query()->orderBy('name')->get()->map(fn($m) => [$m->id, $m->name, ''])->toArray()
+        );
+        $appendMasterTable(
+            'Master Jabatan',
+            ['ID', 'Nama Jabatan', ''],
+            \App\Models\MasterEmployeePosition::query()->orderBy('name')->get()->map(fn($m) => [$m->id, $m->name, ''])->toArray()
+        );
+        $appendMasterTable(
+            'Master Status Pegawai',
+            ['ID', 'Status', ''],
+            \App\Models\MasterEmployeeStatusEmployment::query()->orderBy('name')->get()->map(fn($m) => [$m->id, $m->name, ''])->toArray()
+        );
+        $appendMasterTable(
+            'Master Pendidikan',
+            ['ID', 'Pendidikan', ''],
+            \App\Models\MasterEmployeeEducation::query()->orderBy('name')->get()->map(fn($m) => [$m->id, $m->name, ''])->toArray()
+        );
+        $appendMasterTable(
+            'Master Golongan',
+            ['ID', 'Golongan', ''],
+            \App\Models\MasterEmployeeGrade::query()->orderBy('name')->get()->map(fn($m) => [$m->id, $m->name, ''])->toArray()
+        );
+        $appendMasterTable(
+            'Master MKG',
+            ['ID', 'Service Grade', 'Deskripsi'],
+            \App\Models\MasterEmployeeServiceGrade::query()->orderBy('service_grade')->get()->map(fn($m) => [$m->id, $m->service_grade, $m->desc])->toArray()
+        );
+        $appendMasterTable(
+            'Master Jenis SK/Perjanjian',
+            ['ID', 'Jenis SK', ''],
+            \App\Models\MasterEmployeeAgreement::query()->orderBy('name')->get()->map(fn($m) => [$m->id, $m->name, ''])->toArray()
+        );
+
+        foreach (range('A', 'D') as $column) {
+            $referenceSheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $exampleSheet = $spreadsheet->createSheet();
+        $exampleSheet->setTitle('Contoh Pengisian');
+        $exampleSheet->fromArray($headers, null, 'A1');
+        $exampleSheet->fromArray($sample, null, 'A2');
+
+        $updateSample = $sample;
+        $updateSample[0] = '1';
+        $updateSample[3] = 'Budi Santoso Update';
+        $updateSample[10] = 'budi.update@example.com';
+        $exampleSheet->fromArray($updateSample, null, 'A3');
+        $exampleSheet->setCellValue('A5', 'Catatan: Baris 2 contoh data pegawai BARU (id kosong). Baris 3 contoh UPDATE (id diisi).');
+
+        $exampleSheet->getStyle("A1:{$lastColumn}1")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $exampleSheet->getStyle("A1:{$lastColumn}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF7C3AED');
+        $exampleSheet->freezePane('A2');
+        for ($i = 1; $i <= count($headers); $i++) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
+            $exampleSheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, 'template_manajemen_pegawai.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public static function getRelations(): array

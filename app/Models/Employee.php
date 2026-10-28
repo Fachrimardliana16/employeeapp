@@ -212,14 +212,15 @@ class Employee extends Model
     public static function generatePin(): string
     {
         return Cache::lock('employee:pin', 5)->block(5, function () {
-            $lastPin = (int) static::query()
+            $lastPin = (int) static::withTrashed()
                 ->whereNotNull('pin')
-                ->where('pin', 'REGEXP', '^[0-9]+$')
-                ->max('pin');
+                ->whereRaw("pin REGEXP '^[0-9]+$'")
+                ->selectRaw('COALESCE(MAX(CAST(pin AS UNSIGNED)), 0) as max_pin')
+                ->value('max_pin');
 
             $nextPin = $lastPin > 0 ? $lastPin + 1 : 1001;
 
-            while (static::query()->where('pin', (string) $nextPin)->exists()) {
+            while (static::withTrashed()->where('pin', (string) $nextPin)->exists()) {
                 $nextPin++;
             }
 
