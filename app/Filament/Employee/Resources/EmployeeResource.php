@@ -1488,8 +1488,9 @@ class EmployeeResource extends Resource
                         ->label('Preview & Submit Import')
                         ->icon('heroicon-o-eye')
                         ->color('warning')
-                        ->hidden()
-                        ->disabled(fn(): bool => empty(static::getEmployeeImportPreviewPayload()['processed_data'] ?? []))
+                        ->extraAttributes([
+                            'style' => 'display: none !important;',
+                        ])
                         ->modalHeading('Preview Import Pegawai')
                         ->modalDescription('Periksa data hasil import sebelum menyimpan ke database.')
                         ->modalWidth('7xl')
