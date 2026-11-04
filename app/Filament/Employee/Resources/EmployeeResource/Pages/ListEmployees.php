@@ -4,6 +4,7 @@ namespace App\Filament\Employee\Resources\EmployeeResource\Pages;
 
 use App\Filament\Employee\Resources\EmployeeResource;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 
 use Filament\Resources\Components\Tab;
@@ -16,6 +17,29 @@ use Illuminate\Support\Facades\Cache;
 class ListEmployees extends ListRecords
 {
     protected static string $resource = EmployeeResource::class;
+
+    public function mount(): void
+    {
+        parent::mount();
+        $this->notifyEmployeeImportExecutionStatus();
+    }
+
+    public function hydrate(): void
+    {
+        $this->notifyEmployeeImportExecutionStatus();
+    }
+
+    protected function getTablePollingInterval(): ?string
+    {
+        $userId = auth()->id();
+        if (!$userId) {
+            return null;
+        }
+
+        $executionStatus = EmployeeResource::getEmployeeImportExecutionPayload($userId)['status'] ?? null;
+
+        return in_array($executionStatus, ['queued', 'processing'], true) ? '5s' : null;
+    }
 
     protected function getTableRecordsPerPageSelectOptions(): array
     {
@@ -68,5 +92,46 @@ class ListEmployees extends ListRecords
         }
 
         return $tabs;
+    }
+
+    private function notifyEmployeeImportExecutionStatus(): void
+    {
+        $userId = auth()->id();
+        if (!$userId) {
+            return;
+        }
+
+        $executionPayload = EmployeeResource::getEmployeeImportExecutionPayload($userId);
+        $executionStatus = $executionPayload['status'] ?? null;
+        if (!in_array($executionStatus, ['completed', 'failed'], true)) {
+            return;
+        }
+
+        if (!empty($executionPayload['ui_notified_at'])) {
+            return;
+        }
+
+        if ($executionStatus === 'completed') {
+            Notification::make()
+                ->title('Import Pegawai Selesai')
+                ->body(sprintf(
+                    'Import selesai diproses. %d data baru, %d data diperbarui.',
+                    (int) ($executionPayload['created'] ?? 0),
+                    (int) ($executionPayload['updated'] ?? 0)
+                ))
+                ->success()
+                ->persistent()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Import Pegawai Gagal')
+                ->body((string) ($executionPayload['error_message'] ?? 'Terjadi kesalahan saat proses import.'))
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+
+        $executionPayload['ui_notified_at'] = now()->toIso8601String();
+        EmployeeResource::setEmployeeImportExecutionPayload($executionPayload, $userId);
     }
 }
