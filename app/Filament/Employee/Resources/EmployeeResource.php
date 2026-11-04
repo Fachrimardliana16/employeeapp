@@ -1014,7 +1014,8 @@ class EmployeeResource extends Resource
                                         - Contoh ID Pendidikan: <code>{$edus}</code><br>
                                         - Tanggal wajib format <code>dd-mm-yyyy</code> (contoh: 31-01-1990).<br>
                                         - Jika kolom <code>pin</code> kosong, sistem akan generate otomatis dalam rentang <strong>1-999</strong>.<br>
-                                        - Import tahap ini hanya menampilkan <strong>Preview</strong>; setelah preview muncul, klik <strong>Submit Import</strong> di popup.
+                                        - Import tahap ini hanya menampilkan <strong>Preview</strong>; setelah preview muncul, klik <strong>Submit Import</strong> di popup.<br>
+                                        - Saat <strong>Submit Import</strong>, data akan diproses lewat <strong>queue background</strong> agar tidak timeout di browser.
                                     "))
                                     ->required()
                                     ->acceptedFileTypes([
@@ -1503,6 +1504,7 @@ class EmployeeResource extends Resource
                                     $previewPayload,
                                     now()->addMinutes(60)
                                 );
+                                \Illuminate\Support\Facades\Cache::forget(static::getEmployeeImportExecutionCacheKey());
 
                                 Notification::make()
                                     ->title('Preview Import Siap')
@@ -1526,9 +1528,9 @@ class EmployeeResource extends Resource
                             'style' => 'display: none !important;',
                         ])
                         ->modalHeading('Preview Import Pegawai')
-                        ->modalDescription('Periksa data hasil import sebelum menyimpan ke database.')
+                        ->modalDescription('Periksa data hasil import sebelum menyimpan ke database. Saat submit, proses berjalan di background.')
                         ->modalWidth('7xl')
-                        ->modalSubmitActionLabel('Submit Import')
+                        ->modalSubmitActionLabel('Submit Import (Background)')
                         ->modalCancelActionLabel('Tutup')
                         ->modalContent(fn() => view('filament.employee.partials.import-preview-content', static::getEmployeeImportPreviewViewData()))
                         ->action(function () {
@@ -1544,14 +1546,41 @@ class EmployeeResource extends Resource
                                 return;
                             }
 
-                            $isSuccess = static::runEmployeeImportCommit(
-                                $processedData,
-                                $previewPayload['warnings'] ?? []
+                            $executionPayload = static::getEmployeeImportExecutionPayload();
+                            $executionStatus = $executionPayload['status'] ?? null;
+
+                            if (in_array($executionStatus, ['queued', 'processing'], true)) {
+                                Notification::make()
+                                    ->title('Import Sedang Berjalan')
+                                    ->body('Import sebelumnya masih diproses. Mohon tunggu hingga selesai.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $totalRows = count($processedData);
+                            static::setEmployeeImportExecutionPayload([
+                                'status' => 'queued',
+                                'queued_at' => now()->toIso8601String(),
+                                'total_rows' => $totalRows,
+                                'processed_rows' => 0,
+                                'created' => 0,
+                                'updated' => 0,
+                                'warning_count' => count($previewPayload['warnings'] ?? []),
+                            ]);
+
+                            \App\Jobs\ProcessEmployeeImportJob::dispatch(
+                                auth()->id() ?? 0,
+                                0,
+                                25
                             );
 
-                            if ($isSuccess) {
-                                Cache::forget(static::getEmployeeImportPreviewCacheKey());
-                            }
+                            Notification::make()
+                                ->title('Import Dimasukkan ke Antrian')
+                                ->body("{$totalRows} baris data sedang diproses di background. Notifikasi akan muncul saat proses selesai.")
+                                ->success()
+                                ->persistent()
+                                ->send();
                         }),
                 ])
                     ->label('Manajemen Data')
@@ -2399,9 +2428,30 @@ class EmployeeResource extends Resource
         return Cache::get(static::getEmployeeImportPreviewCacheKey($userId), []);
     }
 
+    public static function getEmployeeImportExecutionCacheKey(?int $userId = null): string
+    {
+        $resolvedUserId = $userId ?? (auth()->id() ?? 0);
+        return "employee_import_execution_payload_user_{$resolvedUserId}";
+    }
+
+    public static function getEmployeeImportExecutionPayload(?int $userId = null): array
+    {
+        return Cache::get(static::getEmployeeImportExecutionCacheKey($userId), []);
+    }
+
+    public static function setEmployeeImportExecutionPayload(array $payload, ?int $userId = null): void
+    {
+        Cache::put(
+            static::getEmployeeImportExecutionCacheKey($userId),
+            $payload,
+            now()->addHours(6)
+        );
+    }
+
     public static function getEmployeeImportPreviewViewData(?int $userId = null): array
     {
         $previewPayload = static::getEmployeeImportPreviewPayload($userId);
+        $executionPayload = static::getEmployeeImportExecutionPayload($userId);
         $processedData = $previewPayload['processed_data'] ?? [];
         $warnings = $previewPayload['warnings'] ?? [];
 
@@ -2427,6 +2477,7 @@ class EmployeeResource extends Resource
             'warnings' => $warnings,
             'headers' => $headers,
             'columnLabels' => static::getEmployeeImportColumnLabels(),
+            'execution' => $executionPayload,
             'summary' => [
                 'total_rows' => count($processedData),
                 'created' => count(array_filter($processedData, fn($item) => (bool) ($item['is_new'] ?? false))),
@@ -2471,23 +2522,37 @@ class EmployeeResource extends Resource
         return null;
     }
 
-    public static function runEmployeeImportCommit(array $processedData, array $warnings): bool
+    public static function runEmployeeImportCommit(array $processedData, array $warnings, array $options = [], ?array &$meta = null): bool
     {
+        $suppressNotifications = (bool) ($options['suppress_notifications'] ?? false);
+
         if (empty($processedData)) {
-            Notification::make()
-                ->title('Preview Kosong')
-                ->body('Tidak ada data preview yang bisa disimpan.')
-                ->warning()
-                ->persistent()
-                ->send();
+            if (!$suppressNotifications) {
+                Notification::make()
+                    ->title('Preview Kosong')
+                    ->body('Tidak ada data preview yang bisa disimpan.')
+                    ->warning()
+                    ->persistent()
+                    ->send();
+            }
+
+            $meta = [
+                'success' => false,
+                'error' => 'Tidak ada data preview yang bisa disimpan.',
+                'stats' => ['created' => 0, 'updated' => 0],
+            ];
             return false;
         }
 
         $stats = ['created' => 0, 'updated' => 0];
         $currentRowName = 'N/A';
         $currentRowIndex = 0;
-        $authId = auth()->id() ?? 1;
+        $authId = (int) ($options['user_id'] ?? (auth()->id() ?? 1));
+        if ($authId <= 0) {
+            $authId = (int) (auth()->id() ?? 1);
+        }
         $now = now();
+        $defaultUserPassword = \Illuminate\Support\Facades\Hash::make('pdam891706');
 
         $targetUpdateIds = [];
         foreach ($processedData as $data) {
@@ -2522,7 +2587,8 @@ class EmployeeResource extends Resource
                 &$currentRowIndex,
                 $authId,
                 $now,
-                $existingEmployeeById
+                $existingEmployeeById,
+                $defaultUserPassword
             ) {
                 \Illuminate\Support\Facades\DB::transaction(function () use (
                     $processedData,
@@ -2531,7 +2597,8 @@ class EmployeeResource extends Resource
                     &$currentRowIndex,
                     $authId,
                     $now,
-                    $existingEmployeeById
+                    $existingEmployeeById,
+                    $defaultUserPassword
                 ) {
                     foreach ($processedData as $data) {
                         $rowData = $data['row'];
@@ -2630,7 +2697,7 @@ class EmployeeResource extends Resource
                             $user = \App\Models\User::create([
                                 'name' => $employee->name,
                                 'email' => $employee->email ?: "pegawai_{$employee->id}@pdam.com",
-                                'password' => \Illuminate\Support\Facades\Hash::make('pdam891706'),
+                                'password' => $defaultUserPassword,
                                 'is_verified' => true,
                             ]);
 
@@ -2653,12 +2720,14 @@ class EmployeeResource extends Resource
                 });
             });
 
-            Notification::make()
-                ->title('Proses Berhasil')
-                ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
-                ->success()->send();
+            if (!$suppressNotifications) {
+                Notification::make()
+                    ->title('Proses Berhasil')
+                    ->body("Berhasil: {$stats['created']} pegawai baru, {$stats['updated']} pegawai diperbarui.")
+                    ->success()->send();
+            }
 
-            if (!empty($warnings)) {
+            if (!empty($warnings) && !$suppressNotifications) {
                 $warningPreview = implode('<br>', array_slice($warnings, 0, 10));
                 $warningFooter = count($warnings) > 10
                     ? '<br><br><strong>...dan ' . (count($warnings) - 10) . ' baris lainnya.</strong>'
@@ -2672,6 +2741,13 @@ class EmployeeResource extends Resource
                     ->send();
             }
 
+            $meta = [
+                'success' => true,
+                'stats' => $stats,
+                'error' => null,
+                'row_index' => null,
+                'row_name' => null,
+            ];
             return true;
         } catch (\Exception $e) {
             $errorMessage = $e->getMessage();
@@ -2685,16 +2761,25 @@ class EmployeeResource extends Resource
 
             \Illuminate\Support\Facades\Log::error("Import Error: {$errorMessage} | Row: {$currentRowIndex} | Name: {$currentRowName}");
 
-            Notification::make()
-                ->title('Proses Gagal')
-                ->body(new \Illuminate\Support\HtmlString("
-                    Terjadi kesalahan pada data <strong>{$currentRowName}</strong> (Baris {$currentRowIndex}).<br><br>
-                    <strong>Pesan:</strong> {$friendlyMessage}
-                "))
-                ->danger()
-                ->persistent()
-                ->send();
+            if (!$suppressNotifications) {
+                Notification::make()
+                    ->title('Proses Gagal')
+                    ->body(new \Illuminate\Support\HtmlString("
+                        Terjadi kesalahan pada data <strong>{$currentRowName}</strong> (Baris {$currentRowIndex}).<br><br>
+                        <strong>Pesan:</strong> {$friendlyMessage}
+                    "))
+                    ->danger()
+                    ->persistent()
+                    ->send();
+            }
 
+            $meta = [
+                'success' => false,
+                'stats' => $stats,
+                'error' => $friendlyMessage,
+                'row_index' => $currentRowIndex,
+                'row_name' => $currentRowName,
+            ];
             return false;
         }
     }
@@ -2814,8 +2899,29 @@ class EmployeeResource extends Resource
             throw new \RuntimeException('Format file tidak didukung. Gunakan CSV, XLS, atau XLSX.');
         }
 
-        $spreadsheet = IOFactory::load($path);
-        $sheet = $spreadsheet->getSheetByName('Data Import') ?? $spreadsheet->getSheet(0);
+        $readerType = $extension === 'xls' ? 'Xls' : 'Xlsx';
+        $reader = IOFactory::createReader($readerType);
+        $reader->setReadDataOnly(true);
+
+        if (method_exists($reader, 'setReadEmptyCells')) {
+            $reader->setReadEmptyCells(false);
+        }
+
+        if ($extension === 'xlsx' && method_exists($reader, 'setIgnoreRowsWithNoCells')) {
+            $reader->setIgnoreRowsWithNoCells(true);
+        }
+
+        $reader->setLoadSheetsOnly('Data Import');
+        $spreadsheet = $reader->load($path);
+
+        $sheet = $spreadsheet->getSheetByName('Data Import');
+        if ($sheet === null) {
+            $spreadsheet->disconnectWorksheets();
+            $reader->setLoadAllSheets();
+            $spreadsheet = $reader->load($path);
+            $sheet = $spreadsheet->getSheet(0);
+        }
+
         $rows = $sheet->toArray('', true, false, false);
         $spreadsheet->disconnectWorksheets();
 

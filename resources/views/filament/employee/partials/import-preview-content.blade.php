@@ -7,6 +7,34 @@
         Belum ada preview yang aktif. Jalankan aksi <strong>Import / Sync Data</strong> terlebih dahulu.
     </div>
 @else
+    @php
+        $executionStatus = $execution['status'] ?? null;
+        $executionProcessed = (int) ($execution['processed_rows'] ?? 0);
+        $executionTotal = (int) ($execution['total_rows'] ?? $summary['total_rows']);
+    @endphp
+
+    @if (in_array($executionStatus, ['queued', 'processing', 'completed', 'failed'], true))
+        <div style="padding:12px 14px; border-radius:12px; margin-bottom:12px; font-size:13px;
+            @if ($executionStatus === 'completed')
+                border:1px solid #86efac; background:#f0fdf4; color:#166534;
+            @elseif ($executionStatus === 'failed')
+                border:1px solid #fecaca; background:#fef2f2; color:#991b1b;
+            @else
+                border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af;
+            @endif
+        ">
+            @if ($executionStatus === 'queued')
+                <strong>Status:</strong> Menunggu antrean queue. Progres: {{ $executionProcessed }} / {{ $executionTotal }} baris.
+            @elseif ($executionStatus === 'processing')
+                <strong>Status:</strong> Sedang diproses di background. Progres: {{ $executionProcessed }} / {{ $executionTotal }} baris.
+            @elseif ($executionStatus === 'completed')
+                <strong>Status:</strong> Selesai. Hasil: {{ $execution['created'] ?? 0 }} data baru, {{ $execution['updated'] ?? 0 }} data diperbarui.
+            @elseif ($executionStatus === 'failed')
+                <strong>Status:</strong> Gagal diproses. {{ $execution['error_message'] ?? 'Terjadi kesalahan saat import.' }}
+            @endif
+        </div>
+    @endif
+
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:12px;">
         <div style="padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; background:#ffffff;">
             <div style="font-size:11px; color:#6b7280;">Total Baris Valid</div>
