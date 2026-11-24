@@ -36,9 +36,14 @@ class ListEmployees extends ListRecords
             return null;
         }
 
-        $executionStatus = EmployeeResource::getEmployeeImportExecutionPayload($userId)['status'] ?? null;
+        $executionPayload = EmployeeResource::getEmployeeImportExecutionPayload($userId);
+        $executionStatus = $executionPayload['status'] ?? null;
+        $accountProvisionStatus = $executionPayload['account_provision_status'] ?? null;
 
-        return in_array($executionStatus, ['queued', 'processing'], true) ? '5s' : null;
+        return (in_array($executionStatus, ['queued', 'processing'], true)
+            || in_array($accountProvisionStatus, ['queued', 'processing'], true))
+            ? '5s'
+            : null;
     }
 
     protected function getTableRecordsPerPageSelectOptions(): array
@@ -103,35 +108,58 @@ class ListEmployees extends ListRecords
 
         $executionPayload = EmployeeResource::getEmployeeImportExecutionPayload($userId);
         $executionStatus = $executionPayload['status'] ?? null;
-        if (!in_array($executionStatus, ['completed', 'failed'], true)) {
+        if (in_array($executionStatus, ['completed', 'failed'], true) && empty($executionPayload['ui_notified_at'])) {
+            if ($executionStatus === 'completed') {
+                Notification::make()
+                    ->title('Import Pegawai Selesai')
+                    ->body(sprintf(
+                        'Import selesai diproses. %d data baru, %d data diperbarui. Gunakan aksi "Buat Akun User dari Import Terakhir" jika ingin membuat akun login.',
+                        (int) ($executionPayload['created'] ?? 0),
+                        (int) ($executionPayload['updated'] ?? 0)
+                    ))
+                    ->success()
+                    ->persistent()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Import Pegawai Gagal')
+                    ->body((string) ($executionPayload['error_message'] ?? 'Terjadi kesalahan saat proses import.'))
+                    ->danger()
+                    ->persistent()
+                    ->send();
+            }
+
+            $executionPayload['ui_notified_at'] = now()->toIso8601String();
+            EmployeeResource::setEmployeeImportExecutionPayload($executionPayload, $userId);
+        }
+
+        $accountProvisionStatus = $executionPayload['account_provision_status'] ?? null;
+        if (!in_array($accountProvisionStatus, ['completed', 'failed'], true) || !empty($executionPayload['account_ui_notified_at'])) {
             return;
         }
 
-        if (!empty($executionPayload['ui_notified_at'])) {
-            return;
-        }
-
-        if ($executionStatus === 'completed') {
+        if ($accountProvisionStatus === 'completed') {
             Notification::make()
-                ->title('Import Pegawai Selesai')
+                ->title('Pembuatan Akun Pegawai Selesai')
                 ->body(sprintf(
-                    'Import selesai diproses. %d data baru, %d data diperbarui.',
-                    (int) ($executionPayload['created'] ?? 0),
-                    (int) ($executionPayload['updated'] ?? 0)
+                    'Pembuatan akun selesai: %d berhasil, %d dilewati, %d gagal.',
+                    (int) ($executionPayload['account_provision_created'] ?? 0),
+                    (int) ($executionPayload['account_provision_skipped'] ?? 0),
+                    (int) ($executionPayload['account_provision_failed'] ?? 0)
                 ))
                 ->success()
                 ->persistent()
                 ->send();
         } else {
             Notification::make()
-                ->title('Import Pegawai Gagal')
-                ->body((string) ($executionPayload['error_message'] ?? 'Terjadi kesalahan saat proses import.'))
+                ->title('Pembuatan Akun Pegawai Gagal')
+                ->body((string) ($executionPayload['account_provision_error_message'] ?? 'Terjadi kesalahan saat proses pembuatan akun.'))
                 ->danger()
                 ->persistent()
                 ->send();
         }
 
-        $executionPayload['ui_notified_at'] = now()->toIso8601String();
+        $executionPayload['account_ui_notified_at'] = now()->toIso8601String();
         EmployeeResource::setEmployeeImportExecutionPayload($executionPayload, $userId);
     }
 }

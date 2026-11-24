@@ -3,7 +3,7 @@
 @endphp
 
 @if (empty($processedData))
-    <div style="padding:12px 14px; border-radius:12px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; font-size:13px;">
+    <div class="rounded-xl border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700 dark:border-danger-600 dark:bg-danger-900/20 dark:text-danger-200">
         Belum ada preview yang aktif. Jalankan aksi <strong>Import / Sync Data</strong> terlebih dahulu.
     </div>
 @else
@@ -14,15 +14,15 @@
     @endphp
 
     @if (in_array($executionStatus, ['queued', 'processing', 'completed', 'failed'], true))
-        <div style="padding:12px 14px; border-radius:12px; margin-bottom:12px; font-size:13px;
-            @if ($executionStatus === 'completed')
-                border:1px solid #86efac; background:#f0fdf4; color:#166534;
-            @elseif ($executionStatus === 'failed')
-                border:1px solid #fecaca; background:#fef2f2; color:#991b1b;
-            @else
-                border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af;
-            @endif
-        ">
+        @php
+            $executionClasses = match ($executionStatus) {
+                'completed' => 'border-success-300 bg-success-50 text-success-700 dark:border-success-600 dark:bg-success-900/20 dark:text-success-200',
+                'failed' => 'border-danger-300 bg-danger-50 text-danger-700 dark:border-danger-600 dark:bg-danger-900/20 dark:text-danger-200',
+                default => 'border-info-300 bg-info-50 text-info-700 dark:border-info-600 dark:bg-info-900/20 dark:text-info-200',
+            };
+        @endphp
+
+        <div class="mb-3 rounded-xl border px-4 py-3 text-sm {{ $executionClasses }}">
             @if ($executionStatus === 'queued')
                 <strong>Status:</strong> Menunggu antrean queue. Progres: {{ $executionProcessed }} / {{ $executionTotal }} baris.
             @elseif ($executionStatus === 'processing')
@@ -35,56 +35,93 @@
         </div>
     @endif
 
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:12px;">
-        <div style="padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; background:#ffffff;">
-            <div style="font-size:11px; color:#6b7280;">Total Baris Valid</div>
-            <div style="font-size:18px; font-weight:700; color:#111827;">{{ $summary['total_rows'] }}</div>
+    @php
+        $accountProvisionStatus = $execution['account_provision_status'] ?? null;
+        $accountProvisionProcessed = (int) ($execution['account_provision_processed'] ?? 0);
+        $accountProvisionTotal = (int) ($execution['account_provision_total'] ?? 0);
+    @endphp
+
+    @if (in_array($accountProvisionStatus, ['queued', 'processing', 'completed', 'failed'], true))
+        @php
+            $accountProvisionClasses = match ($accountProvisionStatus) {
+                'completed' => 'border-success-300 bg-success-50 text-success-700 dark:border-success-600 dark:bg-success-900/20 dark:text-success-200',
+                'failed' => 'border-danger-300 bg-danger-50 text-danger-700 dark:border-danger-600 dark:bg-danger-900/20 dark:text-danger-200',
+                default => 'border-info-300 bg-info-50 text-info-700 dark:border-info-600 dark:bg-info-900/20 dark:text-info-200',
+            };
+        @endphp
+
+        <div class="mb-3 rounded-xl border px-4 py-3 text-sm {{ $accountProvisionClasses }}">
+            @if ($accountProvisionStatus === 'queued')
+                <strong>Akun User:</strong> Menunggu antrean. Progres: {{ $accountProvisionProcessed }} / {{ $accountProvisionTotal }} pegawai.
+            @elseif ($accountProvisionStatus === 'processing')
+                <strong>Akun User:</strong> Sedang dibuat di background. Progres: {{ $accountProvisionProcessed }} / {{ $accountProvisionTotal }} pegawai.
+            @elseif ($accountProvisionStatus === 'completed')
+                <strong>Akun User:</strong> Selesai. Berhasil {{ $execution['account_provision_created'] ?? 0 }}, dilewati {{ $execution['account_provision_skipped'] ?? 0 }}, gagal {{ $execution['account_provision_failed'] ?? 0 }}.
+            @elseif ($accountProvisionStatus === 'failed')
+                <strong>Akun User:</strong> Gagal diproses. {{ $execution['account_provision_error_message'] ?? 'Terjadi kesalahan saat pembuatan akun.' }}
+            @endif
         </div>
-        <div style="padding:10px 12px; border-radius:12px; border:1px solid #a7f3d0; background:#ecfdf5;">
-            <div style="font-size:11px; color:#047857;">Rencana Buat Baru</div>
-            <div style="font-size:18px; font-weight:700; color:#065f46;">{{ $summary['created'] }}</div>
+    @endif
+
+    <div class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-xl border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
+            <div class="text-xs text-gray-500 dark:text-gray-400">Total Baris Valid</div>
+            <div class="text-xl font-semibold text-gray-900 dark:text-white">{{ $summary['total_rows'] }}</div>
         </div>
-        <div style="padding:10px 12px; border-radius:12px; border:1px solid #bae6fd; background:#f0f9ff;">
-            <div style="font-size:11px; color:#0369a1;">Rencana Update</div>
-            <div style="font-size:18px; font-weight:700; color:#0c4a6e;">{{ $summary['updated'] }}</div>
+
+        @if (($execution['status'] ?? null) === 'completed')
+            <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                Pegawai baru yang belum dibuatkan akun user:
+                <strong>{{ (int) ($execution['pending_account_provision_count'] ?? 0) }}</strong>
+            </div>
+        @endif
+        <div class="rounded-xl border border-success-300 bg-success-50 px-3 py-2 dark:border-success-700 dark:bg-success-900/20">
+            <div class="text-xs text-success-700 dark:text-success-300">Rencana Buat Baru</div>
+            <div class="text-xl font-semibold text-success-800 dark:text-success-200">{{ $summary['created'] }}</div>
         </div>
-        <div style="padding:10px 12px; border-radius:12px; border:1px solid #fde68a; background:#fffbeb;">
-            <div style="font-size:11px; color:#b45309;">PIN Otomatis</div>
-            <div style="font-size:18px; font-weight:700; color:#92400e;">{{ $summary['auto_pin'] }}</div>
+        <div class="rounded-xl border border-info-300 bg-info-50 px-3 py-2 dark:border-info-700 dark:bg-info-900/20">
+            <div class="text-xs text-info-700 dark:text-info-300">Rencana Update</div>
+            <div class="text-xl font-semibold text-info-800 dark:text-info-200">{{ $summary['updated'] }}</div>
+        </div>
+        <div class="rounded-xl border border-warning-300 bg-warning-50 px-3 py-2 dark:border-warning-700 dark:bg-warning-900/20">
+            <div class="text-xs text-warning-700 dark:text-warning-300">PIN Otomatis</div>
+            <div class="text-xl font-semibold text-warning-800 dark:text-warning-200">{{ $summary['auto_pin'] }}</div>
         </div>
     </div>
 
     @if ($generatedAtLabel)
-        <div style="font-size:12px; color:#6b7280; margin-bottom:10px;">
+        <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">
             Preview digenerate pada: <strong>{{ $generatedAtLabel }}</strong>
         </div>
     @endif
 
     @if (!empty($warnings))
-        <div style="padding:12px 14px; border-radius:12px; border:1px solid #fdba74; background:#fff7ed; color:#9a3412; margin-bottom:12px; font-size:13px;">
-            <div style="font-weight:700; margin-bottom:6px;">Warning</div>
-            <ul style="margin:0; padding-left:18px;">
+        <div class="mb-3 rounded-xl border border-warning-300 bg-warning-50 px-4 py-3 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-900/20 dark:text-warning-200">
+            <div class="mb-1 font-semibold">Warning</div>
+            <ul class="list-disc space-y-1 pl-5">
                 @foreach ($warnings as $warning)
-                    <li style="margin:4px 0;">{{ $warning }}</li>
+                    <li>{{ $warning }}</li>
                 @endforeach
             </ul>
         </div>
     @endif
 
-    <div style="border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
-        <div style="max-height:58vh; overflow:auto;">
-            <table style="width:100%; min-width:1500px; border-collapse:collapse; font-size:12px;">
-                <thead style="position:sticky; top:0; z-index:1; background:#f9fafb;">
+    <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+        <div class="max-h-[58vh] overflow-auto">
+            <table class="w-full min-w-[1500px] border-collapse text-xs">
+                <thead class="sticky top-0 z-[1] bg-gray-50 dark:bg-gray-800">
                     <tr>
-                        <th style="border:1px solid #e5e7eb; padding:7px 8px; text-align:left;">Baris</th>
-                        <th style="border:1px solid #e5e7eb; padding:7px 8px; text-align:left;">Aksi</th>
-                        <th style="border:1px solid #e5e7eb; padding:7px 8px; text-align:left;">ID Target</th>
-                        <th style="border:1px solid #e5e7eb; padding:7px 8px; text-align:left;">PIN Efektif</th>
-                        <th style="border:1px solid #e5e7eb; padding:7px 8px; text-align:left;">Sumber PIN</th>
+                        <th class="border border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">Baris</th>
+                        <th class="border border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">Aksi</th>
+                        <th class="border border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">ID Target</th>
+                        <th class="border border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">PIN Efektif</th>
+                        <th class="border border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">Sumber PIN</th>
                         @foreach ($headers as $header)
-                            <th style="border:1px solid #e5e7eb; padding:7px 8px; text-align:left; white-space:nowrap;">
-                                <div style="font-weight:700; color:#374151;">{{ $columnLabels[$header] ?? ucfirst(str_replace('_', ' ', $header)) }}</div>
-                                <div style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:11px; color:#6b7280;">{{ $header }}</div>
+                            <th class="border border-gray-200 px-2 py-2 text-left align-top whitespace-nowrap dark:border-gray-700">
+                                <div class="font-semibold text-gray-700 dark:text-gray-200">
+                                    {{ $columnLabels[$header] ?? ucfirst(str_replace('_', ' ', $header)) }}
+                                </div>
+                                <div class="font-mono text-[11px] text-gray-500 dark:text-gray-400">{{ $header }}</div>
                             </th>
                         @endforeach
                     </tr>
@@ -96,14 +133,14 @@
                             $pinSource = $item['pin_source'] ?? 'input';
                             $pinSourceLabel = $pinSource === 'generated' ? 'otomatis' : ($pinSource === 'existing' ? 'data lama' : 'file');
                         @endphp
-                        <tr>
-                            <td style="border:1px solid #e5e7eb; padding:7px 8px; vertical-align:top;">{{ $item['line_number'] ?? '-' }}</td>
-                            <td style="border:1px solid #e5e7eb; padding:7px 8px; vertical-align:top;">{{ ($item['is_new'] ?? false) ? 'Buat Baru' : 'Update' }}</td>
-                            <td style="border:1px solid #e5e7eb; padding:7px 8px; vertical-align:top;">{{ $row['id'] ?? '-' }}</td>
-                            <td style="border:1px solid #e5e7eb; padding:7px 8px; vertical-align:top;">{{ $item['effective_pin'] ?? '-' }}</td>
-                            <td style="border:1px solid #e5e7eb; padding:7px 8px; vertical-align:top;">{{ $pinSourceLabel }}</td>
+                        <tr class="bg-white odd:bg-white even:bg-gray-50 dark:bg-gray-900 dark:odd:bg-gray-900 dark:even:bg-gray-800/40">
+                            <td class="border border-gray-200 px-2 py-2 align-top text-gray-700 dark:border-gray-700 dark:text-gray-200">{{ $item['line_number'] ?? '-' }}</td>
+                            <td class="border border-gray-200 px-2 py-2 align-top text-gray-700 dark:border-gray-700 dark:text-gray-200">{{ ($item['is_new'] ?? false) ? 'Buat Baru' : 'Update' }}</td>
+                            <td class="border border-gray-200 px-2 py-2 align-top text-gray-700 dark:border-gray-700 dark:text-gray-200">{{ $row['id'] ?? '-' }}</td>
+                            <td class="border border-gray-200 px-2 py-2 align-top text-gray-700 dark:border-gray-700 dark:text-gray-200">{{ $item['effective_pin'] ?? '-' }}</td>
+                            <td class="border border-gray-200 px-2 py-2 align-top text-gray-700 dark:border-gray-700 dark:text-gray-200">{{ $pinSourceLabel }}</td>
                             @foreach ($headers as $header)
-                                <td style="border:1px solid #e5e7eb; padding:7px 8px; vertical-align:top; white-space:nowrap;">
+                                <td class="border border-gray-200 px-2 py-2 align-top whitespace-nowrap text-gray-700 dark:border-gray-700 dark:text-gray-200">
                                     {{ EmployeeResource::formatEmployeeImportPreviewValue($header, $row[$header] ?? '') }}
                                 </td>
                             @endforeach

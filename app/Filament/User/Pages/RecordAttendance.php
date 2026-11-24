@@ -86,18 +86,7 @@ class RecordAttendance extends Page
     {
         $attendanceData = $this->form->getState();
         $user     = Auth::user();
-        $employee = Employee::where('users_id', $user->id)->first();
-
-        if (!$employee) {
-            $employee = Employee::where(function ($query) use ($user) {
-                $query->where('email', $user->email)
-                    ->orWhere('office_email', $user->email)
-                    ->orWhere('username', $user->username);
-            })->first();
-            if ($employee && empty($employee->users_id)) {
-                $employee->update(['users_id' => $user->id]);
-            }
-        }
+        $employee = $user ? Employee::resolveForUser($user) : null;
 
         if (!$employee) {
             Notification::make()->title('Gagal')->body('Data pegawai tidak ditemukan.')->danger()->send();

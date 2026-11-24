@@ -3,7 +3,9 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Employee;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -82,8 +84,20 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Get the employee profile associated with the user.
      */
-    public function employee(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function employee(): HasOne
     {
-        return $this->hasOne(Employee::class, 'users_id');
+        return $this->hasOne(Employee::class, 'account_user_id');
+    }
+
+    public function getEmployeeAttribute(): ?Employee
+    {
+        if ($this->relationLoaded('employee')) {
+            return $this->getRelation('employee');
+        }
+
+        $employee = Employee::resolveForUser($this);
+        $this->setRelation('employee', $employee);
+
+        return $employee;
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Traits\HasUserTracking;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -73,6 +75,7 @@ class Employee extends Model
         'employee_service_grade_id',
         'non_permanent_salary_id',
         'users_id',
+        'account_user_id',
         'next_kgb_date',
         'next_promotion_date',
     ];
@@ -232,6 +235,42 @@ class Employee extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'users_id');
+    }
+
+    public function accountUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'account_user_id');
+    }
+
+    public function scopeForAccountUser(Builder $query, int $userId): Builder
+    {
+        return $query->where(function (Builder $employeeQuery) use ($userId) {
+            $employeeQuery
+                ->where('account_user_id', $userId)
+                ->orWhere(function (Builder $fallbackQuery) use ($userId) {
+                    $fallbackQuery
+                        ->whereNull('account_user_id')
+                        ->where('users_id', $userId);
+                });
+        });
+    }
+
+    public static function resolveForUser(User $user): ?self
+    {
+        $query = static::query()->forAccountUser((int) $user->id);
+
+        $userEmail = trim((string) ($user->email ?? ''));
+        if ($userEmail !== '') {
+            $query->orWhere('email', $userEmail)
+                ->orWhere('office_email', $userEmail);
+        }
+
+        $username = trim((string) ($user->username ?? ''));
+        if ($username !== '') {
+            $query->orWhere('username', $username);
+        }
+
+        return $query->first();
     }
 
     public function employmentStatus(): BelongsTo

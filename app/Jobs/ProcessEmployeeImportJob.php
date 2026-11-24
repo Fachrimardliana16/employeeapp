@@ -56,11 +56,19 @@ class ProcessEmployeeImportJob implements ShouldQueue
                 'created' => (int) ($executionPayload['created'] ?? 0),
                 'updated' => (int) ($executionPayload['updated'] ?? 0),
                 'warning_count' => count($warnings),
+                'created_employee_ids' => $executionPayload['created_employee_ids'] ?? [],
+                'pending_account_provision_count' => (int) ($executionPayload['pending_account_provision_count'] ?? 0),
+                'account_provision_status' => $executionPayload['account_provision_status'] ?? null,
             ], $this->userId);
         }
 
         $chunk = array_slice($processedData, $this->offset, $this->chunkSize);
         if (empty($chunk)) {
+            $createdEmployeeIds = array_values(array_unique(array_map(
+                static fn($value) => (int) $value,
+                (array) ($executionPayload['created_employee_ids'] ?? [])
+            )));
+
             EmployeeResource::setEmployeeImportExecutionPayload([
                 'status' => 'completed',
                 'queued_at' => $executionPayload['queued_at'] ?? null,
@@ -71,6 +79,9 @@ class ProcessEmployeeImportJob implements ShouldQueue
                 'created' => (int) ($executionPayload['created'] ?? 0),
                 'updated' => (int) ($executionPayload['updated'] ?? 0),
                 'warning_count' => count($warnings),
+                'created_employee_ids' => $createdEmployeeIds,
+                'pending_account_provision_count' => count($createdEmployeeIds),
+                'account_provision_status' => null,
             ], $this->userId);
 
             Cache::forget(EmployeeResource::getEmployeeImportPreviewCacheKey($this->userId));
@@ -105,6 +116,19 @@ class ProcessEmployeeImportJob implements ShouldQueue
         $created = (int) ($executionPayload['created'] ?? 0) + (int) ($meta['stats']['created'] ?? 0);
         $updated = (int) ($executionPayload['updated'] ?? 0) + (int) ($meta['stats']['updated'] ?? 0);
 
+        $existingCreatedEmployeeIds = array_values(array_unique(array_map(
+            static fn($value) => (int) $value,
+            (array) ($executionPayload['created_employee_ids'] ?? [])
+        )));
+        $chunkCreatedEmployeeIds = array_values(array_unique(array_map(
+            static fn($value) => (int) $value,
+            (array) ($meta['stats']['created_employee_ids'] ?? [])
+        )));
+        $createdEmployeeIds = array_values(array_unique(array_merge(
+            $existingCreatedEmployeeIds,
+            $chunkCreatedEmployeeIds
+        )));
+
         $statusPayload = [
             'status' => $processedRows >= $totalRows ? 'completed' : 'processing',
             'queued_at' => $executionPayload['queued_at'] ?? null,
@@ -115,6 +139,9 @@ class ProcessEmployeeImportJob implements ShouldQueue
             'created' => $created,
             'updated' => $updated,
             'warning_count' => count($warnings),
+            'created_employee_ids' => $createdEmployeeIds,
+            'pending_account_provision_count' => count($createdEmployeeIds),
+            'account_provision_status' => $executionPayload['account_provision_status'] ?? null,
         ];
 
         EmployeeResource::setEmployeeImportExecutionPayload($statusPayload, $this->userId);
@@ -123,7 +150,7 @@ class ProcessEmployeeImportJob implements ShouldQueue
             Cache::forget(EmployeeResource::getEmployeeImportPreviewCacheKey($this->userId));
             $this->notifyUser(
                 'Import Pegawai Selesai',
-                "Import selesai diproses. {$created} pegawai baru, {$updated} pegawai diperbarui."
+                "Import selesai diproses. {$created} pegawai baru, {$updated} pegawai diperbarui. Lanjutkan dengan langkah pembuatan akun user bila diperlukan."
             );
             return;
         }

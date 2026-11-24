@@ -14,11 +14,10 @@ class MobileDashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $employee = Employee::with(['position', 'employmentStatus', 'department'])
-            ->where('users_id', $user->id)
-            ->orWhere('email', $user->email)
-            ->orWhere('office_email', $user->email)
-            ->first();
+        $employeeId = $user ? Employee::resolveForUser($user)?->id : null;
+        $employee = $employeeId
+            ? Employee::with(['position', 'employmentStatus', 'department'])->find($employeeId)
+            : null;
 
         $stats = $this->getMonthlyStats($employee);
         $recentAttendance = $this->getRecentAttendance($employee);

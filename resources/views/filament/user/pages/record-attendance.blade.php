@@ -1,9 +1,6 @@
 @php
     $user = auth()->user();
-    $employee = \App\Models\Employee::where('users_id', $user->id)
-        ->orWhere('email', $user->email)
-        ->orWhere('office_email', $user->email)
-        ->first();
+    $employee = $user ? \App\Models\Employee::resolveForUser($user) : null;
     $officeLocations = $employee
         ? \App\Models\MasterOfficeLocation::where('is_active', true)
             ->where(function($q) use ($employee) {
@@ -255,10 +252,7 @@
 
                     @php
                         $user = auth()->user();
-                        $employee = \App\Models\Employee::where('users_id', $user->id)
-                            ->orWhere('email', $user->email)
-                            ->orWhere('office_email', $user->email)
-                            ->first();
+                        $employee = $user ? \App\Models\Employee::resolveForUser($user) : null;
                         $todayAttendance = $employee
                             ? \App\Models\EmployeeAttendanceRecord::where('pin', $employee->pin ?? $employee->id)
                                 ->whereDate('attendance_time', today())

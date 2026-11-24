@@ -7,6 +7,7 @@ use App\Models\AttendanceMachineLog;
 use App\Models\AttendanceMachineCommand;
 use App\Models\AttendanceMachineCommunication;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 
 class AdmsController extends Controller
@@ -105,6 +106,44 @@ class AdmsController extends Controller
         // $options[] = "CLEAR ATTLOG"; // NEVER!
 
         return implode("\n", $options);
+    }
+
+    /**
+     * Retry DB operation on deadlock/serialization failure with small backoff.
+     */
+    private function withDeadlockRetry(callable $callback, int $maxAttempts = 3)
+    {
+        $attempt = 1;
+
+        while (true) {
+            try {
+                return $callback();
+            } catch (QueryException $e) {
+                $sqlState = (string) ($e->errorInfo[0] ?? $e->getCode());
+                $driverErrorCode = (int) ($e->errorInfo[1] ?? 0);
+                $message = strtolower($e->getMessage());
+
+                $isDeadlock = $sqlState === '40001'
+                    || $driverErrorCode === 1213
+                    || str_contains($message, 'deadlock found')
+                    || str_contains($message, 'serialization failure');
+
+                if (!$isDeadlock || $attempt >= $maxAttempts) {
+                    throw $e;
+                }
+
+                Log::warning('ADMS deadlock detected, retrying DB operation', [
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxAttempts,
+                    'sql_state' => $sqlState,
+                    'driver_error_code' => $driverErrorCode,
+                    'error' => $e->getMessage(),
+                ]);
+
+                usleep(50000 * $attempt); // 50ms, 100ms, ...
+                $attempt++;
+            }
+        }
     }
 
     /**
@@ -248,14 +287,27 @@ class AdmsController extends Controller
             // Check for pending commands and timeout stale ones
             if ($machine) {
                 // --- Timeout Detection: mark 'sent' commands older than 2 min as 'failed' ---
-                AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                    ->where('status', 'sent')
-                    ->where('sent_at', '<', now()->subMinutes(2))
-                    ->update([
-                        'status' => 'failed',
-                        'completed_at' => now(),
-                        'response_payload' => 'TIMEOUT: Mesin tidak merespons dalam 2 menit. Kemungkinan mesin tidak mendukung perintah ini.',
-                    ]);
+                $staleCommandIds = $this->withDeadlockRetry(function () use ($machine) {
+                    return AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
+                        ->where('status', 'sent')
+                        ->where('sent_at', '<', now()->subMinutes(2))
+                        ->orderBy('id')
+                        ->limit(25)
+                        ->pluck('id');
+                });
+
+                if ($staleCommandIds->isNotEmpty()) {
+                    $completedAt = now();
+                    $this->withDeadlockRetry(function () use ($staleCommandIds, $completedAt) {
+                        return AttendanceMachineCommand::whereIn('id', $staleCommandIds)
+                            ->where('status', 'sent')
+                            ->update([
+                                'status' => 'failed',
+                                'completed_at' => $completedAt,
+                                'response_payload' => 'TIMEOUT: Mesin tidak merespons dalam 2 menit. Kemungkinan mesin tidak mendukung perintah ini.',
+                            ]);
+                    });
+                }
 
                 $pendingCommand = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
                     ->where('status', 'pending')
@@ -263,10 +315,20 @@ class AdmsController extends Controller
                     ->first();
 
                 if ($pendingCommand) {
-                    $pendingCommand->update([
-                        'status' => 'sent',
-                        'sent_at' => now(),
-                    ]);
+                    $markedAsSent = $this->withDeadlockRetry(function () use ($pendingCommand) {
+                        return AttendanceMachineCommand::whereKey($pendingCommand->id)
+                            ->where('status', 'pending')
+                            ->update([
+                                'status' => 'sent',
+                                'sent_at' => now(),
+                            ]);
+                    });
+
+                    if ($markedAsSent === 0) {
+                        $response = "OK";
+                        $this->logCommunication($sn, 'getrequest', $request, $response, 200, null, $machine);
+                        return response($response);
+                    }
 
                     // Return command in ZKTeco format: C:ID:COMMAND
                     $response = "C:{$pendingCommand->id}:{$pendingCommand->command}";
@@ -368,18 +430,24 @@ class AdmsController extends Controller
             if ($id) {
                 $command = AttendanceMachineCommand::find($id);
                 if ($command) {
-                    $command->update([
-                        'status' => 'completed',
-                        'completed_at' => now(),
-                        'response_payload' => $content,
-                    ]);
+                    $markedCompleted = $this->withDeadlockRetry(function () use ($command, $content) {
+                        return AttendanceMachineCommand::whereKey($command->id)
+                            ->where('status', '!=', 'completed')
+                            ->update([
+                                'status' => 'completed',
+                                'completed_at' => now(),
+                                'response_payload' => $content,
+                            ]);
+                    });
 
-                    Log::info("ADMS Command Completed", [
-                        'SN' => $sn,
-                        'command_id' => $id,
-                        'command' => $command->command,
-                        'response_length' => strlen($content),
-                    ]);
+                    if ($markedCompleted > 0) {
+                        Log::info("ADMS Command Completed", [
+                            'SN' => $sn,
+                            'command_id' => $id,
+                            'command' => $command->command,
+                            'response_length' => strlen($content),
+                        ]);
+                    }
 
                     // If this was an INFO command, parse the machine's datetime for sync verification
                     if (str_contains($command->command, 'INFO')) {
