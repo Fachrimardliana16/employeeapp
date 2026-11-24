@@ -1015,7 +1015,8 @@ class EmployeeResource extends Resource
                                         - Tanggal wajib format <code>dd-mm-yyyy</code> (contoh: 31-01-1990).<br>
                                         - Jika kolom <code>pin</code> kosong, sistem akan generate otomatis dalam rentang <strong>1-999</strong>.<br>
                                         - Import tahap ini hanya menampilkan <strong>Preview</strong>; setelah preview muncul, klik <strong>Submit Import</strong> di popup.<br>
-                                        - Saat <strong>Submit Import</strong>, data akan diproses lewat <strong>queue background</strong> agar tidak timeout di browser.
+                                        - Saat <strong>Submit Import</strong>, data akan diproses lewat <strong>queue background</strong> agar tidak timeout di browser.<br>
+                                        - Setelah import selesai, pembuatan akun user pegawai dilakukan di langkah terpisah (opsional).
                                     "))
                                     ->required()
                                     ->acceptedFileTypes([
@@ -1147,12 +1148,19 @@ class EmployeeResource extends Resource
                                     'email' => [],
                                     'office_email' => [],
                                     'username' => [],
+                                    'id_number' => [],
                                 ];
-                                $activeEmployeeIdByNippam = [];
+                                $activeEmployeeIdsByIdentifier = [
+                                    'nippam' => [],
+                                    'pin' => [],
+                                    'email' => [],
+                                    'office_email' => [],
+                                    'username' => [],
+                                ];
                                 $employeePinsById = [];
 
                                 $employeeReferenceRows = \App\Models\Employee::withTrashed()
-                                    ->get(['id', 'name', 'pin', 'nippam', 'email', 'office_email', 'username', 'deleted_at']);
+                                    ->get(['id', 'name', 'pin', 'nippam', 'email', 'office_email', 'username', 'id_number', 'deleted_at']);
 
                                 foreach ($employeeReferenceRows as $employee) {
                                     $isDeleted = $employee->deleted_at !== null;
@@ -1166,6 +1174,10 @@ class EmployeeResource extends Resource
                                             'name' => $employee->name,
                                             'is_deleted' => $isDeleted,
                                         ];
+
+                                        if (!$isDeleted) {
+                                            $activeEmployeeIdsByIdentifier['pin'][$pinValue] = $employeeId;
+                                        }
                                     }
 
                                     $nippamValue = $normalizeUniqueValue($employee->nippam, 'nippam');
@@ -1177,7 +1189,7 @@ class EmployeeResource extends Resource
                                         ];
 
                                         if (!$isDeleted) {
-                                            $activeEmployeeIdByNippam[$nippamValue] = $employeeId;
+                                            $activeEmployeeIdsByIdentifier['nippam'][$nippamValue] = $employeeId;
                                         }
                                     }
 
@@ -1188,6 +1200,10 @@ class EmployeeResource extends Resource
                                             'name' => $employee->name,
                                             'is_deleted' => $isDeleted,
                                         ];
+
+                                        if (!$isDeleted) {
+                                            $activeEmployeeIdsByIdentifier['email'][$emailValue] = $employeeId;
+                                        }
                                     }
 
                                     $officeEmailValue = $normalizeUniqueValue($employee->office_email, 'office_email');
@@ -1197,11 +1213,28 @@ class EmployeeResource extends Resource
                                             'name' => $employee->name,
                                             'is_deleted' => $isDeleted,
                                         ];
+
+                                        if (!$isDeleted) {
+                                            $activeEmployeeIdsByIdentifier['office_email'][$officeEmailValue] = $employeeId;
+                                        }
                                     }
 
                                     $usernameValue = $normalizeUniqueValue($employee->username, 'username');
                                     if ($usernameValue !== null) {
                                         $uniques['username'][$usernameValue] = [
+                                            'id' => $employeeId,
+                                            'name' => $employee->name,
+                                            'is_deleted' => $isDeleted,
+                                        ];
+
+                                        if (!$isDeleted) {
+                                            $activeEmployeeIdsByIdentifier['username'][$usernameValue] = $employeeId;
+                                        }
+                                    }
+
+                                    $idNumberValue = $normalizeUniqueValue($employee->id_number, 'id_number');
+                                    if ($idNumberValue !== null) {
+                                        $uniques['id_number'][$idNumberValue] = [
                                             'id' => $employeeId,
                                             'name' => $employee->name,
                                             'is_deleted' => $isDeleted,
@@ -1316,11 +1349,40 @@ class EmployeeResource extends Resource
                                             $resolvedEmployeeId = (int) $rowIdValue;
                                         }
                                     } else {
-                                        $nippamForFallbackUpdate = $normalizeUniqueValue($rowData['nippam'] ?? '', 'nippam');
-                                        if ($nippamForFallbackUpdate !== null && isset($activeEmployeeIdByNippam[$nippamForFallbackUpdate])) {
-                                            $resolvedEmployeeId = (int) $activeEmployeeIdByNippam[$nippamForFallbackUpdate];
+                                        $matchedEmployeeIds = [];
+                                        foreach (['nippam', 'pin', 'email', 'office_email', 'username'] as $identifierColumn) {
+                                            $identifierValue = $normalizeUniqueValue($rowData[$identifierColumn] ?? '', $identifierColumn);
+                                            if ($identifierValue === null) {
+                                                continue;
+                                            }
+
+                                            if (!isset($activeEmployeeIdsByIdentifier[$identifierColumn][$identifierValue])) {
+                                                continue;
+                                            }
+
+                                            $matchedEmployeeIds[] = (int) $activeEmployeeIdsByIdentifier[$identifierColumn][$identifierValue];
+                                        }
+
+                                        $matchedEmployeeIds = array_values(array_unique($matchedEmployeeIds));
+                                        if (count($matchedEmployeeIds) > 1) {
+                                            $rowErrors[] = "Data identitas (NIPPAM/PIN/Email/Username) mengarah ke lebih dari satu pegawai. Gunakan kolom ID untuk memastikan update tepat sasaran.";
+                                        } elseif (count($matchedEmployeeIds) === 1) {
+                                            $resolvedEmployeeId = $matchedEmployeeIds[0];
                                             $rowData['id'] = (string) $resolvedEmployeeId;
                                         }
+                                    }
+
+                                    if (
+                                        $resolvedEmployeeId === null &&
+                                        $rowIdValue === '' &&
+                                        trim((string) ($rowData['nippam'] ?? '')) === '' &&
+                                        trim((string) ($rowData['pin'] ?? '')) === '' &&
+                                        trim((string) ($rowData['email'] ?? '')) === '' &&
+                                        trim((string) ($rowData['office_email'] ?? '')) === '' &&
+                                        trim((string) ($rowData['username'] ?? '')) === ''
+                                    ) {
+                                        $displayName = ($rowData['name'] ?? null) ?: 'N/A';
+                                        $warnings[] = "Baris {$actualRowInFile} ({$displayName}) tidak memiliki ID/NIPPAM/PIN/Email/Username, sehingga diproses sebagai data pegawai baru.";
                                     }
 
                                     $isNewRow = empty($rowData['id']);
@@ -1453,6 +1515,15 @@ class EmployeeResource extends Resource
                                         }
                                     }
 
+                                    $leaveBalanceRaw = trim((string) ($rowData['leave_balance'] ?? ''));
+                                    if ($leaveBalanceRaw === '') {
+                                        $rowData['leave_balance'] = 12;
+                                    } elseif (!preg_match('/^\d+$/', $leaveBalanceRaw)) {
+                                        $rowErrors[] = "Saldo Cuti '{$leaveBalanceRaw}' tidak valid (harus angka bulat 0 atau lebih)";
+                                    } else {
+                                        $rowData['leave_balance'] = (int) $leaveBalanceRaw;
+                                    }
+
                                     if (!empty($rowErrors)) {
                                         $displayName = ($rowData['name'] ?? null) ?: ($rowData['nippam'] ?? 'N/A');
                                         $errors[] = "<strong>Baris {$actualRowInFile} ({$displayName}):</strong> " . implode(', ', $rowErrors);
@@ -1567,6 +1638,17 @@ class EmployeeResource extends Resource
                                 'created' => 0,
                                 'updated' => 0,
                                 'warning_count' => count($previewPayload['warnings'] ?? []),
+                                'created_employee_ids' => [],
+                                'pending_account_provision_count' => 0,
+                                'account_provision_status' => null,
+                                'account_provision_total' => 0,
+                                'account_provision_processed' => 0,
+                                'account_provision_created' => 0,
+                                'account_provision_skipped' => 0,
+                                'account_provision_failed' => 0,
+                                'account_provision_error_message' => null,
+                                'account_ui_notified_at' => null,
+                                'ui_notified_at' => null,
                             ]);
 
                             \App\Jobs\ProcessEmployeeImportJob::dispatch(
@@ -1581,6 +1663,89 @@ class EmployeeResource extends Resource
                                 ->success()
                                 ->persistent()
                                 ->send();
+                        }),
+                    Tables\Actions\Action::make('provision_import_accounts')
+                        ->label(fn() => 'Buat Akun User dari Import Terakhir (' . (int) (static::getEmployeeImportExecutionPayload()['pending_account_provision_count'] ?? 0) . ')')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('primary')
+                        ->requiresConfirmation()
+                        ->modalHeading('Buat Akun User Pegawai')
+                        ->modalDescription('Akun akan dibuat hanya untuk pegawai baru dari import terakhir yang belum memiliki akun user.')
+                        ->modalSubmitActionLabel('Mulai Buat Akun')
+                        ->action(function () {
+                            $executionPayload = static::getEmployeeImportExecutionPayload();
+                            $executionStatus = $executionPayload['status'] ?? null;
+
+                            if ($executionStatus !== 'completed') {
+                                Notification::make()
+                                    ->title('Import Belum Selesai')
+                                    ->body('Selesaikan proses import terlebih dahulu sebelum membuat akun user.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $accountProvisionStatus = $executionPayload['account_provision_status'] ?? null;
+                            if (in_array($accountProvisionStatus, ['queued', 'processing'], true)) {
+                                Notification::make()
+                                    ->title('Pembuatan Akun Sedang Berjalan')
+                                    ->body('Proses pembuatan akun sebelumnya masih berjalan.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $employeeIds = array_values(array_unique(array_filter(
+                                array_map(static fn($value) => (int) $value, (array) ($executionPayload['created_employee_ids'] ?? [])),
+                                static fn(int $value) => $value > 0
+                            )));
+
+                            if (empty($employeeIds)) {
+                                Notification::make()
+                                    ->title('Tidak Ada Pegawai Baru')
+                                    ->body('Import terakhir tidak menghasilkan pegawai baru yang perlu dibuatkan akun.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            static::setEmployeeImportExecutionPayload(array_merge($executionPayload, [
+                                'account_provision_status' => 'queued',
+                                'account_provision_queued_at' => now()->toIso8601String(),
+                                'account_provision_started_at' => null,
+                                'account_provision_finished_at' => null,
+                                'account_provision_failed_at' => null,
+                                'account_provision_total' => count($employeeIds),
+                                'account_provision_processed' => 0,
+                                'account_provision_created' => 0,
+                                'account_provision_skipped' => 0,
+                                'account_provision_failed' => 0,
+                                'account_provision_error_message' => null,
+                                'pending_account_provision_count' => count($employeeIds),
+                                'account_ui_notified_at' => null,
+                            ]));
+
+                            \App\Jobs\ProcessEmployeeAccountProvisionJob::dispatch(
+                                auth()->id() ?? 0,
+                                $employeeIds,
+                                0,
+                                25
+                            );
+
+                            Notification::make()
+                                ->title('Pembuatan Akun Dimasukkan ke Antrian')
+                                ->body('Akun user sedang dibuat di background. Notifikasi akan muncul saat proses selesai.')
+                                ->success()
+                                ->persistent()
+                                ->send();
+                        })
+                        ->visible(function (): bool {
+                            $executionPayload = static::getEmployeeImportExecutionPayload();
+                            $accountProvisionStatus = $executionPayload['account_provision_status'] ?? null;
+
+                            return ($executionPayload['status'] ?? null) === 'completed'
+                                && ((int) ($executionPayload['pending_account_provision_count'] ?? 0) > 0)
+                                && !in_array($accountProvisionStatus, ['queued', 'processing'], true);
                         }),
                 ])
                     ->label('Manajemen Data')
@@ -2522,6 +2687,24 @@ class EmployeeResource extends Resource
         return null;
     }
 
+    private static function normalizeEmployeeImportLeaveBalance(mixed $leaveBalanceValue): int
+    {
+        if ($leaveBalanceValue === null || $leaveBalanceValue === '') {
+            return 12;
+        }
+
+        $leaveBalanceString = trim((string) $leaveBalanceValue);
+        if ($leaveBalanceString === '') {
+            return 12;
+        }
+
+        if (!preg_match('/^\d+$/', $leaveBalanceString)) {
+            return 12;
+        }
+
+        return (int) $leaveBalanceString;
+    }
+
     public static function runEmployeeImportCommit(array $processedData, array $warnings, array $options = [], ?array &$meta = null): bool
     {
         $suppressNotifications = (bool) ($options['suppress_notifications'] ?? false);
@@ -2539,12 +2722,12 @@ class EmployeeResource extends Resource
             $meta = [
                 'success' => false,
                 'error' => 'Tidak ada data preview yang bisa disimpan.',
-                'stats' => ['created' => 0, 'updated' => 0],
+                'stats' => ['created' => 0, 'updated' => 0, 'created_employee_ids' => []],
             ];
             return false;
         }
 
-        $stats = ['created' => 0, 'updated' => 0];
+        $stats = ['created' => 0, 'updated' => 0, 'created_employee_ids' => []];
         $currentRowName = 'N/A';
         $currentRowIndex = 0;
         $authId = (int) ($options['user_id'] ?? (auth()->id() ?? 1));
@@ -2552,7 +2735,6 @@ class EmployeeResource extends Resource
             $authId = (int) (auth()->id() ?? 1);
         }
         $now = now();
-        $defaultUserPassword = \Illuminate\Support\Facades\Hash::make('pdam891706');
 
         $targetUpdateIds = [];
         foreach ($processedData as $data) {
@@ -2587,8 +2769,7 @@ class EmployeeResource extends Resource
                 &$currentRowIndex,
                 $authId,
                 $now,
-                $existingEmployeeById,
-                $defaultUserPassword
+                $existingEmployeeById
             ) {
                 \Illuminate\Support\Facades\DB::transaction(function () use (
                     $processedData,
@@ -2597,8 +2778,7 @@ class EmployeeResource extends Resource
                     &$currentRowIndex,
                     $authId,
                     $now,
-                    $existingEmployeeById,
-                    $defaultUserPassword
+                    $existingEmployeeById
                 ) {
                     foreach ($processedData as $data) {
                         $rowData = $data['row'];
@@ -2617,6 +2797,7 @@ class EmployeeResource extends Resource
                         }
 
                         $clean = fn($val) => ($val === '' || $val === null) ? null : trim((string) $val);
+                        $hasImportValue = fn(string $key): bool => trim((string) ($rowData[$key] ?? '')) !== '';
 
                         $gender = strtolower(trim($rowData['gender'] ?? ''));
                         $gender = in_array($gender, ['male', 'female']) ? $gender : 'male';
@@ -2626,55 +2807,119 @@ class EmployeeResource extends Resource
 
                         $employeeData = [
                             'name' => $rowData['name'],
-                            'pin' => $clean($effectivePin),
-                            'gender' => $gender,
-                            'religion' => $clean($rowData['religion'] ?? null),
-                            'place_birth' => $clean($rowData['place_birth'] ?? null),
-                            'date_birth' => static::normalizeEmployeeImportDate($rowData['date_birth'] ?? ''),
-                            'marital_status' => $marital,
-                            'blood_type' => $clean($rowData['blood_type'] ?? null),
-                            'email' => $clean($rowData['email'] ?? null),
-                            'office_email' => $clean($rowData['office_email'] ?? null),
-                            'phone_number' => $clean($rowData['phone_number'] ?? null),
-                            'id_number' => $clean($rowData['id_number'] ?? null),
-                            'familycard_number' => $clean($rowData['familycard_number'] ?? null),
-                            'npwp_number' => $clean($rowData['npwp_number'] ?? null),
-                            'bank_account_number' => $clean($rowData['bank_account_number'] ?? null),
-                            'bpjs_tk_number' => $clean($rowData['bpjs_tk_number'] ?? null),
-                            'bpjs_tk_status' => $clean($rowData['bpjs_tk_status'] ?? 'Aktif'),
-                            'bpjs_kes_number' => $clean($rowData['bpjs_kes_number'] ?? null),
-                            'bpjs_kes_status' => $clean($rowData['bpjs_kes_status'] ?? 'Aktif'),
-                            'bpjs_kes_class' => $clean($rowData['bpjs_kes_class'] ?? null),
-                            'rek_dplk_pribadi' => $clean($rowData['rek_dplk_pribadi'] ?? null),
-                            'rek_dplk_bersama' => $clean($rowData['rek_dplk_bersama'] ?? null),
-                            'dapenma_number' => $clean($rowData['dapenma_number'] ?? null),
-                            'dapenma_phdp' => (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '') ? $rowData['dapenma_phdp'] : null,
-                            'dapenma_status' => $clean($rowData['dapenma_status'] ?? 'Aktif'),
-                            'address' => $clean($rowData['address'] ?? null),
-                            'departments_id' => $ids['dept_id'],
-                            'bagian_id' => $ids['bagian_id'],
-                            'cabang_id' => $ids['cabang_id'],
-                            'unit_id' => $ids['unit_id'],
-                            'sub_department_id' => $ids['sub_dept_id'],
-                            'employee_position_id' => $ids['pos_id'],
-                            'employment_status_id' => $ids['status_id'],
-                            'employee_education_id' => $ids['edu_id'],
-                            'basic_salary_id' => $ids['grade_id'],
-                            'employee_service_grade_id' => $ids['mkg_id'],
-                            'master_employee_agreement_id' => $ids['agreement_id'],
-                            'entry_date' => static::normalizeEmployeeImportDate($rowData['entry_date'] ?? ''),
-                            'probation_appointment_date' => static::normalizeEmployeeImportDate($rowData['probation_appointment_date'] ?? ''),
-                            'leave_balance' => $rowData['leave_balance'] ?? 12,
-                            'agreement_date_start' => static::normalizeEmployeeImportDate($rowData['agreement_date_start'] ?? ''),
-                            'agreement_date_end' => static::normalizeEmployeeImportDate($rowData['agreement_date_end'] ?? ''),
-                            'grade_date_start' => static::normalizeEmployeeImportDate($rowData['grade_date_start'] ?? ''),
-                            'grade_date_end' => static::normalizeEmployeeImportDate($rowData['grade_date_end'] ?? ''),
-                            'periodic_salary_date_start' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_start'] ?? ''),
-                            'periodic_salary_date_end' => static::normalizeEmployeeImportDate($rowData['periodic_salary_date_end'] ?? ''),
                             'users_id' => $authId,
                         ];
 
-                        if (!empty($rowData['nippam'])) {
+                        if ($isNew || $hasImportValue('pin')) {
+                            $employeeData['pin'] = $clean($effectivePin);
+                        }
+
+                        if ($isNew || $hasImportValue('gender')) {
+                            $employeeData['gender'] = $gender;
+                        }
+
+                        if ($isNew || $hasImportValue('marital_status')) {
+                            $employeeData['marital_status'] = $marital;
+                        }
+
+                        foreach ([
+                            'religion',
+                            'place_birth',
+                            'blood_type',
+                            'email',
+                            'office_email',
+                            'phone_number',
+                            'id_number',
+                            'familycard_number',
+                            'npwp_number',
+                            'bank_account_number',
+                            'bpjs_tk_number',
+                            'bpjs_kes_number',
+                            'bpjs_kes_class',
+                            'rek_dplk_pribadi',
+                            'rek_dplk_bersama',
+                            'dapenma_number',
+                            'address',
+                        ] as $column) {
+                            if ($isNew || $hasImportValue($column)) {
+                                $employeeData[$column] = $clean($rowData[$column] ?? null);
+                            }
+                        }
+
+                        if ($isNew || $hasImportValue('bpjs_tk_status')) {
+                            $employeeData['bpjs_tk_status'] = $clean($rowData['bpjs_tk_status'] ?? 'Aktif');
+                        }
+
+                        if ($isNew || $hasImportValue('bpjs_kes_status')) {
+                            $employeeData['bpjs_kes_status'] = $clean($rowData['bpjs_kes_status'] ?? 'Aktif');
+                        }
+
+                        if ($isNew || $hasImportValue('dapenma_status')) {
+                            $employeeData['dapenma_status'] = $clean($rowData['dapenma_status'] ?? 'Aktif');
+                        }
+
+                        if ($isNew || $hasImportValue('dapenma_phdp')) {
+                            $employeeData['dapenma_phdp'] = (isset($rowData['dapenma_phdp']) && $rowData['dapenma_phdp'] !== '')
+                                ? $rowData['dapenma_phdp']
+                                : null;
+                        }
+
+                        if ($isNew || $hasImportValue('work_unit_name')) {
+                            $employeeData['departments_id'] = $ids['dept_id'];
+                            $employeeData['bagian_id'] = $ids['bagian_id'];
+                            $employeeData['cabang_id'] = $ids['cabang_id'];
+                            $employeeData['unit_id'] = $ids['unit_id'];
+                        }
+
+                        if ($isNew || $hasImportValue('sub_department_name')) {
+                            $employeeData['sub_department_id'] = $ids['sub_dept_id'];
+                        }
+
+                        if ($isNew || $hasImportValue('position_name')) {
+                            $employeeData['employee_position_id'] = $ids['pos_id'];
+                        }
+
+                        if ($isNew || $hasImportValue('employment_status_name')) {
+                            $employeeData['employment_status_id'] = $ids['status_id'];
+                        }
+
+                        if ($isNew || $hasImportValue('education_name')) {
+                            $employeeData['employee_education_id'] = $ids['edu_id'];
+                        }
+
+                        if ($isNew || $hasImportValue('grade_name')) {
+                            $employeeData['basic_salary_id'] = $ids['grade_id'];
+                        }
+
+                        if ($isNew || $hasImportValue('mkg_years')) {
+                            $employeeData['employee_service_grade_id'] = $ids['mkg_id'];
+                        }
+
+                        if ($isNew || $hasImportValue('agreement_type_name')) {
+                            $employeeData['master_employee_agreement_id'] = $ids['agreement_id'];
+                        }
+
+                        foreach ([
+                            'date_birth',
+                            'entry_date',
+                            'probation_appointment_date',
+                            'agreement_date_start',
+                            'agreement_date_end',
+                            'grade_date_start',
+                            'grade_date_end',
+                            'periodic_salary_date_start',
+                            'periodic_salary_date_end',
+                        ] as $dateColumn) {
+                            if ($isNew || $hasImportValue($dateColumn)) {
+                                $employeeData[$dateColumn] = static::normalizeEmployeeImportDate($rowData[$dateColumn] ?? '');
+                            }
+                        }
+
+                        if ($isNew || $hasImportValue('leave_balance')) {
+                            $employeeData['leave_balance'] = static::normalizeEmployeeImportLeaveBalance($rowData['leave_balance'] ?? null);
+                        }
+
+                        if (!empty($rowData['nippam']) && ($isNew || $hasImportValue('nippam'))) {
                             $employeeData['nippam'] = $rowData['nippam'];
                         }
 
@@ -2689,22 +2934,18 @@ class EmployeeResource extends Resource
                             $employee = $existingEmployeeById[(int) $targetEmployeeId];
                             $employee->fill($employeeData);
                             $employee->save();
+                        } elseif (
+                            !$isNew &&
+                            $targetEmployeeId !== '' &&
+                            ctype_digit($targetEmployeeId)
+                        ) {
+                            throw new \RuntimeException("ID pegawai {$targetEmployeeId} tidak ditemukan untuk proses update.");
                         } else {
                             $employee = \App\Models\Employee::create($employeeData);
+                            $stats['created_employee_ids'][] = (int) $employee->id;
                         }
 
                         if ($isNew) {
-                            $user = \App\Models\User::create([
-                                'name' => $employee->name,
-                                'email' => $employee->email ?: "pegawai_{$employee->id}@pdam.com",
-                                'password' => $defaultUserPassword,
-                                'is_verified' => true,
-                            ]);
-
-                            \App\Models\Employee::query()
-                                ->whereKey($employee->id)
-                                ->update(['users_id' => $user->id]);
-
                             \App\Models\EmployeeAppointment::create([
                                 'employee_id' => $employee->id,
                                 'decision_letter_number' => 'SK-IMPORT-' . now()->format('YmdHis'),

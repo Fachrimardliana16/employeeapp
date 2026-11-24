@@ -41,6 +41,15 @@ class DataKepegawaian extends Page implements HasInfolists
     public function mount(): void
     {
         $user = Auth::user();
+        if (!$user) {
+            return;
+        }
+
+        $resolvedEmployee = Employee::resolveForUser($user);
+        if (!$resolvedEmployee) {
+            return;
+        }
+
         $this->employee = Employee::with([
             'families.masterFamily',
             'employeeAgreements.masterAgreement',
@@ -64,8 +73,7 @@ class DataKepegawaian extends Page implements HasInfolists
             'careerMovements',
             'appointments',
         ])
-            ->where('users_id', $user->id)
-            ->first();
+            ->find($resolvedEmployee->id);
 
         if (!$this->employee) {
             return;

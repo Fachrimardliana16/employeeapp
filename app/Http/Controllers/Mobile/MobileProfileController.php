@@ -13,7 +13,8 @@ class MobileProfileController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $employee = Employee::with([
+        $employeeId = $user ? Employee::resolveForUser($user)?->id : null;
+        $employee = $employeeId ? Employee::with([
             'families.masterFamily',
             'employeeAgreements.masterAgreement',
             'attendanceRecords',
@@ -31,10 +32,7 @@ class MobileProfileController extends Controller
             'employmentStatus',
             'grade',
             'department',
-        ])->where('users_id', $user->id)
-          ->orWhere('email', $user->email)
-          ->orWhere('office_email', $user->email)
-          ->first();
+        ])->find($employeeId) : null;
 
         $monthlyStats = $this->getMonthlyStats($employee);
 

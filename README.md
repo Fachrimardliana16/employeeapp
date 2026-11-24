@@ -7,6 +7,27 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Alur Import Pegawai (2 Langkah)
+
+Mulai versi ini, proses import pegawai dipisah menjadi dua langkah agar import massal lebih cepat dan aman dari timeout:
+
+1. **Import / Sync Data Pegawai** (hanya data pegawai).
+2. **Buat Akun User Pegawai** (opsional, dijalankan terpisah melalui queue).
+
+Catatan:
+
+- Queue worker harus aktif agar kedua proses berjalan lancar.
+- Relasi akun login pegawai disimpan di kolom `employees.account_user_id`.
+
+## Stabilitas Koneksi Mesin Absensi (ADMS)
+
+Untuk mengurangi risiko deadlock saat trafik mesin tinggi, proses ADMS memakai retry singkat untuk query yang terkena deadlock (`1213` / `SQLSTATE 40001`) dan index komposit pada tabel `attendance_machine_commands`.
+
+Setelah pull update:
+
+1. Jalankan `php artisan migrate`.
+2. Pantau log aplikasi untuk memastikan error deadlock menurun.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

@@ -166,10 +166,7 @@ class MobileAttendanceController extends Controller
 
     private function getEmployee($user): ?Employee
     {
-        return Employee::where('users_id', $user->id)
-            ->orWhere('email', $user->email)
-            ->orWhere('office_email', $user->email)
-            ->first();
+        return $user ? Employee::resolveForUser($user) : null;
     }
 
     private function getTodaySchedule(): ?AttendanceSchedule
