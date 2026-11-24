@@ -37,14 +37,22 @@ Schedule::command('attendance:auto-fix-time --threshold=60')
     ->runInBackground()
     ->description('Auto-fix machines with time drift > 60 seconds');
 
+// Mark stale sent commands as timeout every minute
+Schedule::command('attendance:mark-command-timeouts --minutes=2 --chunk=200')
+    ->everyMinute()
+    ->runInBackground()
+    ->withoutOverlapping(1)
+    ->name('mark-attendance-command-timeouts')
+    ->description('Mark stale sent attendance machine commands as failed');
+
 // Check machine time sync status every 2 hours during work hours
 Schedule::call(function () {
     $machines = \App\Models\AttendanceMachine::where('last_heard_at', '>=', now()->subMinutes(5))->get();
 
     foreach ($machines as $machine) {
         $hasPending = \App\Models\AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-            ->where('status', 'pending')
             ->where('command', 'DATA QUERY INFO')
+            ->whereIn('status', ['pending', 'sent'])
             ->exists();
 
         if (!$hasPending) {

@@ -65,8 +65,8 @@ class AutoFixMachineTime extends Command
         foreach ($machines as $machine) {
             // Check if there's already a pending REBOOT command
             $hasPending = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                ->where('status', 'pending')
                 ->where('command', 'REBOOT')
+                ->whereIn('status', ['pending', 'sent'])
                 ->exists();
 
             if (!$hasPending) {

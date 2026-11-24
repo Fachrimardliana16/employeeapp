@@ -23,6 +23,11 @@ Catatan:
 
 Untuk mengurangi risiko deadlock saat trafik mesin tinggi, proses ADMS memakai retry singkat untuk query yang terkena deadlock (`1213` / `SQLSTATE 40001`) dan index komposit pada tabel `attendance_machine_commands`.
 
+Optimasi lanjutan:
+
+- Penandaan command timeout dipindahkan ke scheduler (`attendance:mark-command-timeouts`) agar endpoint heartbeat mesin lebih ringan.
+- Pembuatan command otomatis (`DATA QUERY INFO`, `DATA QUERY ATTLOG`, `REBOOT`) sekarang mencegah duplikasi jika masih ada command berstatus `pending` atau `sent`.
+
 Setelah pull update:
 
 1. Jalankan `php artisan migrate`.

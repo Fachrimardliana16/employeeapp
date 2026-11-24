@@ -51,8 +51,8 @@ class AutoSyncAttendanceMachines extends Command
         foreach ($machines as $machine) {
             // Check if there's already a pending command
             $hasPending = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                ->where('status', 'pending')
                 ->where('command', 'DATA QUERY ATTLOG')
+                ->whereIn('status', ['pending', 'sent'])
                 ->exists();
 
             if (!$hasPending) {

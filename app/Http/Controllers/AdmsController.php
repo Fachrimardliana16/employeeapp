@@ -284,31 +284,8 @@ class AdmsController extends Controller
                 ]);
             }
 
-            // Check for pending commands and timeout stale ones
+            // Check for pending commands
             if ($machine) {
-                // --- Timeout Detection: mark 'sent' commands older than 2 min as 'failed' ---
-                $staleCommandIds = $this->withDeadlockRetry(function () use ($machine) {
-                    return AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
-                        ->where('status', 'sent')
-                        ->where('sent_at', '<', now()->subMinutes(2))
-                        ->orderBy('id')
-                        ->limit(25)
-                        ->pluck('id');
-                });
-
-                if ($staleCommandIds->isNotEmpty()) {
-                    $completedAt = now();
-                    $this->withDeadlockRetry(function () use ($staleCommandIds, $completedAt) {
-                        return AttendanceMachineCommand::whereIn('id', $staleCommandIds)
-                            ->where('status', 'sent')
-                            ->update([
-                                'status' => 'failed',
-                                'completed_at' => $completedAt,
-                                'response_payload' => 'TIMEOUT: Mesin tidak merespons dalam 2 menit. Kemungkinan mesin tidak mendukung perintah ini.',
-                            ]);
-                    });
-                }
-
                 $pendingCommand = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
                     ->where('status', 'pending')
                     ->orderBy('created_at', 'asc')
@@ -351,7 +328,7 @@ class AdmsController extends Controller
                     // 1. Actively ask the machine for its current time
                     $alreadyAsked = AttendanceMachineCommand::where('attendance_machine_id', $machine->id)
                         ->where('command', 'DATA QUERY INFO')
-                        ->where('status', 'pending')
+                        ->whereIn('status', ['pending', 'sent'])
                         ->exists();
 
                     if (!$alreadyAsked) {
