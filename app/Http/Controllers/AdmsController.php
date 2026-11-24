@@ -6,6 +6,8 @@ use App\Models\AttendanceMachine;
 use App\Models\AttendanceMachineLog;
 use App\Models\AttendanceMachineCommand;
 use App\Models\AttendanceMachineCommunication;
+use App\Models\Employee;
+use App\Models\EmployeeAttendanceRecord;
 use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
@@ -26,18 +28,22 @@ class AdmsController extends Controller
         ?AttendanceMachine $machine = null
     ): void {
         try {
-            AttendanceMachineCommunication::create([
-                'attendance_machine_id' => $machine?->id,
-                'serial_number' => $sn,
-                'endpoint' => $endpoint,
-                'method' => $request->method(),
-                'ip_address' => $request->ip(),
-                'request_params' => json_encode($request->query()),
-                'request_body' => $request->method() === 'POST' ? substr($request->getContent(), 0, 10000) : null, // Limit to 10KB
-                'response_body' => substr($response, 0, 5000), // Limit to 5KB
-                'response_code' => $responseCode,
-                'error_message' => $error,
-            ]);
+            $shouldPersistSuccessLog = $this->shouldPersistSuccessCommunicationLog();
+
+            if ($error || $shouldPersistSuccessLog) {
+                AttendanceMachineCommunication::create([
+                    'attendance_machine_id' => $machine?->id,
+                    'serial_number' => $sn,
+                    'endpoint' => $endpoint,
+                    'method' => $request->method(),
+                    'ip_address' => $request->ip(),
+                    'request_params' => json_encode($request->query()),
+                    'request_body' => $request->method() === 'POST' ? substr($request->getContent(), 0, 10000) : null, // Limit to 10KB
+                    'response_body' => substr($response, 0, 5000), // Limit to 5KB
+                    'response_code' => $responseCode,
+                    'error_message' => $error,
+                ]);
+            }
 
             // Update machine communication stats
             if ($machine) {
@@ -47,7 +53,7 @@ class AdmsController extends Controller
                         'last_error_at' => now(),
                         'last_error_message' => substr($error, 0, 500),
                     ]);
-                } else {
+                } elseif ($shouldPersistSuccessLog) {
                     $machine->increment('communication_success_count');
                 }
             }
@@ -67,14 +73,19 @@ class AdmsController extends Controller
      */
     private function getHandshakeOptions(string $sn, ?AttendanceMachine $machine = null): string
     {
+        $errorDelay = $this->normalizeHandshakeInteger(config('services.adms.error_delay', 60), 60);
+        $delay = $this->normalizeHandshakeInteger(config('services.adms.delay', 5), 5);
+        $transInterval = $this->normalizeHandshakeInteger(config('services.adms.trans_interval', 5), 5);
+        $transTimes = (string) config('services.adms.trans_times', '00:00;14:05');
+
         $options = [
             "GET OPTION FROM: {$sn}",
             "Stamp=9999",
             "OpStamp=9999",
-            "ErrorDelay=60",
-            "Delay=1",
-            "TransTimes=00:00;14:05",
-            "TransInterval=1",
+            "ErrorDelay={$errorDelay}",
+            "Delay={$delay}",
+            "TransTimes={$transTimes}",
+            "TransInterval={$transInterval}",
             "TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP FACE UserPic",
         ];
 
@@ -106,6 +117,21 @@ class AdmsController extends Controller
         // $options[] = "CLEAR ATTLOG"; // NEVER!
 
         return implode("\n", $options);
+    }
+
+    private function normalizeHandshakeInteger(mixed $value, int $fallback): int
+    {
+        $intValue = is_numeric($value) ? (int) $value : $fallback;
+        return max(1, min(60, $intValue));
+    }
+
+    /**
+     * Shared-hosting optimization: only persist a sample of successful communications.
+     */
+    private function shouldPersistSuccessCommunicationLog(): bool
+    {
+        $sampleRate = 20; // 1 out of 20 successful requests
+        return random_int(1, $sampleRate) === 1;
     }
 
     /**
@@ -143,6 +169,28 @@ class AdmsController extends Controller
                 usleep(50000 * $attempt); // 50ms, 100ms, ...
                 $attempt++;
             }
+        }
+    }
+
+    /**
+     * Reduce write amplification on high-frequency heartbeat by throttling updates.
+     */
+    private function touchMachinePresence(AttendanceMachine $machine, string $ipAddress): void
+    {
+        $now = now();
+        $minimumIntervalSeconds = 30;
+
+        $shouldUpdate = !$machine->last_heard_at
+            || $machine->last_heard_at->diffInSeconds($now) >= $minimumIntervalSeconds
+            || $machine->ip_address !== $ipAddress
+            || $machine->status !== 'online';
+
+        if ($shouldUpdate) {
+            $machine->update([
+                'last_heard_at' => $now,
+                'ip_address' => $ipAddress,
+                'status' => 'online',
+            ]);
         }
     }
 
@@ -190,11 +238,7 @@ class AdmsController extends Controller
                     Log::info("Auto-registered new attendance machine: " . $sn);
                 }
             } else {
-                $machine->update([
-                    'last_heard_at' => now(),
-                    'ip_address' => $request->ip(),
-                    'status' => 'online',
-                ]);
+                $this->touchMachinePresence($machine, $request->ip());
             }
 
             // If it's a POST, it's data upload
@@ -277,11 +321,7 @@ class AdmsController extends Controller
                     ]);
                 }
             } else {
-                $machine->update([
-                    'last_heard_at' => now(),
-                    'ip_address' => $request->ip(),
-                    'status' => 'online',
-                ]);
+                $this->touchMachinePresence($machine, $request->ip());
             }
 
             // Check for pending commands
@@ -320,9 +360,9 @@ class AdmsController extends Controller
                     return response($response);
                 }
 
-                // --- Realtime Time Sync Check (Auto-polling every 1 minute) ---
+                // --- Realtime Time Sync Check (Auto-polling every 10 minutes) ---
                 $shouldAskTime = !$machine->time_checked_at ||
-                    $machine->time_checked_at->diffInMinutes(now()) >= 1;
+                    $machine->time_checked_at->diffInMinutes(now()) >= 10;
 
                 if ($shouldAskTime) {
                     // 1. Actively ask the machine for its current time
@@ -573,23 +613,71 @@ class AdmsController extends Controller
         $lines = explode("\n", $content);
         $processedCount = 0;
         $errorCount = 0;
+        $batchSize = 200;
+        $employeeNameCache = [];
+        $stateByType = [
+            '0' => 'check_in',
+            '1' => 'check_out',
+            '2' => 'break_out',
+            '3' => 'break_in',
+            '4' => 'ot_in',
+            '5' => 'ot_out',
+        ];
+
+        $parsedRows = [];
 
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
 
+            // Format: PIN\tTimestamp\tType\tVerifyMethod\tWorkCode\tReserved
+            $data = explode("\t", $line);
+            if (count($data) < 2) continue;
+
+            $pin    = trim($data[0]);
+            $time   = trim($data[1]);
+            $type   = trim($data[2] ?? '0');
+            $verify = trim($data[3] ?? '0');
+
+            if (empty($pin) || empty($time)) continue;
+
+            $parsedRows[] = [
+                'line' => $line,
+                'pin' => $pin,
+                'time' => $time,
+                'type' => $type,
+                'verify' => $verify,
+            ];
+        }
+
+        foreach (array_chunk($parsedRows, $batchSize) as $batchRows) {
+            $missingPins = [];
+
+            foreach ($batchRows as $row) {
+                $pin = $row['pin'];
+                if (!array_key_exists($pin, $employeeNameCache)) {
+                    $missingPins[$pin] = $pin;
+                }
+            }
+
+            if (!empty($missingPins)) {
+                $fetchedNames = Employee::query()
+                    ->whereIn('pin', array_values($missingPins))
+                    ->pluck('name', 'pin')
+                    ->all();
+
+                foreach ($missingPins as $pin) {
+                    $employeeNameCache[$pin] = $fetchedNames[$pin] ?? null;
+                }
+            }
+
+            foreach ($batchRows as $row) {
+                $pin = $row['pin'];
+                $time = $row['time'];
+                $type = $row['type'];
+                $verify = $row['verify'];
+
             try {
-                // Format: PIN\tTimestamp\tType\tVerifyMethod\tWorkCode\tReserved
-                $data = explode("\t", $line);
-                if (count($data) < 2) continue;
-
-                $pin    = trim($data[0]);
-                $time   = trim($data[1]);
-                $type   = trim($data[2] ?? '0');
-                $verify = trim($data[3] ?? '0');
-
-                if (empty($pin) || empty($time)) continue;
-
                 // Store raw log — updateOrCreate prevents duplicates
                 // NEVER sends CLEAR command back to machine
                 AttendanceMachineLog::updateOrCreate(
@@ -601,31 +689,23 @@ class AdmsController extends Controller
                     [
                         'attendance_machine_id' => $machine?->id,
                         'type'                  => $type,
-                        'raw_payload'           => $line,
+                        'raw_payload'           => $row['line'],
                     ]
                 );
 
                 // Sync to main attendance table
                 $attendanceTime = \Carbon\Carbon::parse($time);
-                $state = match ($type) {
-                    '0' => 'check_in',
-                    '1' => 'check_out',
-                    '2' => 'break_out',
-                    '3' => 'break_in',
-                    '4' => 'ot_in',
-                    '5' => 'ot_out',
-                    default => 'check_in'
-                };
+                $state = $stateByType[$type] ?? 'check_in';
+                $employeeName = $employeeNameCache[$pin] ?? null;
 
-                $employee = \App\Models\Employee::where('pin', $pin)->first();
-                \App\Models\EmployeeAttendanceRecord::updateOrCreate(
+                EmployeeAttendanceRecord::updateOrCreate(
                     [
                         'pin'             => $pin,
                         'attendance_time' => $attendanceTime->toDateTimeString(),
                         'state'           => $state,
                     ],
                     [
-                        'employee_name'     => $employee ? $employee->name : "Unknown (PIN: {$pin})",
+                        'employee_name'     => $employeeName ?: "Unknown (PIN: {$pin})",
                         'attendance_status' => 'on_time',
                         'verification'      => $verify,
                         'device'            => $machine ? $machine->name : $sn,
@@ -638,9 +718,10 @@ class AdmsController extends Controller
                 $errorCount++;
                 Log::error("ADMS Line Parse Error", [
                     'SN'    => $sn,
-                    'line'  => $line,
+                    'line'  => $row['line'],
                     'error' => $e->getMessage(),
                 ]);
+            }
             }
         }
 

@@ -27,6 +27,14 @@ Optimasi lanjutan:
 
 - Penandaan command timeout dipindahkan ke scheduler (`attendance:mark-command-timeouts`) agar endpoint heartbeat mesin lebih ringan.
 - Pembuatan command otomatis (`DATA QUERY INFO`, `DATA QUERY ATTLOG`, `REBOOT`) sekarang mencegah duplikasi jika masih ada command berstatus `pending` atau `sent`.
+- Untuk shared hosting, heartbeat mesin tidak lagi mengupdate status online pada setiap request (di-throttle), polling `DATA QUERY INFO` dikurangi menjadi 10 menit, dan logging komunikasi sukses disampling agar write DB tidak berlebihan.
+- Ditambahkan cleanup terjadwal riwayat command lama: `attendance:cleanup-command-history`.
+- Parsing ATTLOG dioptimalkan dengan pemrosesan per batch dan cache PIN pegawai per request untuk mengurangi query berulang ke tabel employee.
+- Interval polling iClock sekarang bisa diatur lewat konfigurasi `.env`:
+  - `ADMS_DELAY` (default `5`)
+  - `ADMS_TRANS_INTERVAL` (default `5`)
+  - `ADMS_ERROR_DELAY` (default `60`)
+  - `ADMS_TRANS_TIMES` (default `00:00;14:05`)
 
 Setelah pull update:
 

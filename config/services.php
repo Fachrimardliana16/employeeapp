@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'adms' => [
+        'error_delay' => (int) env('ADMS_ERROR_DELAY', 60),
+        'delay' => (int) env('ADMS_DELAY', 5),
+        'trans_interval' => (int) env('ADMS_TRANS_INTERVAL', 5),
+        'trans_times' => env('ADMS_TRANS_TIMES', '00:00;14:05'),
+    ],
+
 ];
